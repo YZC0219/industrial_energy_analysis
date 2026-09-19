@@ -1,0 +1,1181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>全厂能耗体检</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --page:#f4f5f7;
+  --surface:#fdfeff;
+  --surface-2:#eceef1;
+  --ink:#0b0c0e;
+  --ink-2:#4e5157;
+  --muted:#868a91;
+  --grid:#e3e6ea;
+  --axis:#c2c7cd;
+  --ring:rgba(11,12,14,.10);
+  --mark-1:#2a78d6;
+  --mark-2:#eb6834;
+  --mark-3:#1baf7a;
+  --mark-dim:#c8cdd4;
+  --good:#0ca30c;
+  --critical:#d03b3b;
+  --shadow:0 1px 2px rgba(11,12,14,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --page:#0c0d0f; --surface:#191b1e; --surface-2:#22252a;
+    --ink:#ffffff; --ink-2:#c2c6cc; --muted:#8b9099;
+    --grid:#2b2f34; --axis:#3b4046; --ring:rgba(255,255,255,.12);
+    --mark-1:#3987e5; --mark-2:#d95926; --mark-3:#199e70; --mark-dim:#454b53;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --page:#0c0d0f; --surface:#191b1e; --surface-2:#22252a;
+  --ink:#ffffff; --ink-2:#c2c6cc; --muted:#8b9099;
+  --grid:#2b2f34; --axis:#3b4046; --ring:rgba(255,255,255,.12);
+  --mark-1:#3987e5; --mark-2:#d95926; --mark-3:#199e70; --mark-dim:#454b53;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+
+*{box-sizing:border-box}
+/* 作者样式里的 display 会盖过 UA 的 [hidden]{display:none}, 所以显式声明一次。
+   没有这行, class 带 display 的元素(如 .note 的 flex)加了 hidden 也照样显示。 */
+[hidden]{display:none!important}
+body{
+  margin:0;
+  background:var(--page);
+  color:var(--ink);
+  font-family:"IBM Plex Sans","Noto Sans SC",system-ui,-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+  font-size:14px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+:focus-visible{outline:2px solid var(--mark-1);outline-offset:2px;border-radius:4px}
+
+.page{
+  max-width:1160px;margin:0 auto;
+  padding:56px 24px 96px;
+  display:flex;flex-direction:column;gap:60px;
+}
+@media (max-width:640px){ .page{padding:34px 16px 72px;gap:44px} }
+
+/* ---------- masthead ---------- */
+.masthead{display:flex;flex-direction:column;gap:14px;border-bottom:1px solid var(--ring);padding-bottom:26px}
+.eyebrow{margin:0;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{margin:0;font-size:clamp(28px,4.4vw,40px);font-weight:600;letter-spacing:-.025em;line-height:1.12;text-wrap:balance}
+.lede{margin:0;max-width:64ch;font-size:15px;line-height:1.65;color:var(--ink-2)}
+.lede code{font-family:inherit;font-size:.92em;background:var(--surface-2);padding:1px 6px;border-radius:4px;color:var(--ink)}
+.facts{display:flex;flex-wrap:wrap;gap:8px 28px;margin:2px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--muted)}
+.facts b{color:var(--ink-2);font-weight:500}
+
+/* ---------- hero + kpis ---------- */
+.overview{display:flex;flex-direction:column;gap:22px}
+.hero{display:flex;flex-direction:column;gap:6px}
+.hero-label{margin:0;font-size:12.5px;color:var(--ink-2)}
+.hero-value{margin:0;font-size:clamp(46px,8vw,68px);font-weight:600;letter-spacing:-.035em;line-height:1}
+.hero-unit{font-size:.32em;font-weight:500;color:var(--ink-2);letter-spacing:0;margin-left:.3em}
+.hero-note{margin:0;font-size:12.5px;color:var(--muted)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(188px,1fr));gap:1px;background:var(--ring);border:1px solid var(--ring);border-radius:10px;overflow:hidden}
+.kpi{background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.kpi-label{margin:0;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+.kpi-value{margin:0;font-size:23px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.kpi-unit{font-size:12px;font-weight:500;color:var(--ink-2);margin-left:4px;letter-spacing:0}
+.kpi-note{margin:0;font-size:11.5px;color:var(--muted);line-height:1.45}
+
+/* ---------- sections ---------- */
+.sec{display:flex;flex-direction:column;gap:16px}
+.sec-head{display:flex;flex-direction:column;gap:7px;max-width:74ch}
+h2{margin:0;font-size:21px;font-weight:600;letter-spacing:-.015em;line-height:1.28;text-wrap:balance}
+.sec-sub{margin:0;font-size:13.5px;line-height:1.65;color:var(--ink-2)}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+/* ---------- cards ---------- */
+.card{
+  background:var(--surface);
+  border:1px solid var(--ring);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  padding:18px 18px 14px;
+  display:flex;flex-direction:column;gap:13px;
+  min-width:0;
+}
+.card-head{display:flex;flex-direction:column;gap:4px}
+.card-head h3{margin:0;font-size:14.5px;font-weight:600;letter-spacing:-.005em;line-height:1.35}
+.card-sub{margin:0;font-size:12.5px;line-height:1.55;color:var(--ink-2)}
+.card-sub b{color:var(--ink);font-weight:600}
+.card-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.chart{position:relative;width:100%;min-width:0}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.legend i{width:10px;height:10px;border-radius:3px;flex:none}
+.legend i.line{width:15px;height:3px;border-radius:2px}
+
+.note{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:11px 13px;border-radius:8px;background:var(--surface-2);
+  font-size:12.5px;line-height:1.6;color:var(--ink-2);
+}
+.note b{color:var(--ink);font-weight:600}
+.note code{font-family:inherit;font-size:.92em;background:var(--surface);padding:1px 6px;border-radius:4px;color:var(--ink);border:1px solid var(--ring)}
+.note .mark{flex:none;width:3px;align-self:stretch;border-radius:2px;background:var(--mark-1)}
+.note.warn .mark{background:var(--critical)}
+
+.toggle{
+  font:inherit;font-size:11.5px;font-weight:500;line-height:1;
+  color:var(--ink-2);background:transparent;
+  border:1px solid var(--ring);border-radius:6px;
+  padding:6px 11px;cursor:pointer;
+  transition:background .12s ease,color .12s ease;
+}
+.toggle:hover{background:var(--surface-2);color:var(--ink)}
+
+/* ---------- svg text ---------- */
+.c-label{fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.c-value{fill:var(--ink);font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.c-name{fill:var(--ink-2);font-size:12.5px;font-weight:500}
+.c-name.hot{fill:var(--ink);font-weight:600}
+.c-note{fill:var(--muted);font-size:10.5px}
+.c-grid{stroke:var(--grid);stroke-width:1;shape-rendering:crispEdges}
+.c-axis{stroke:var(--axis);stroke-width:1;shape-rendering:crispEdges}
+.c-hair{stroke:var(--axis);stroke-width:1;stroke-dasharray:none}
+.c-hit{fill:transparent;cursor:default}
+
+/* ---------- tooltip ---------- */
+.tip{
+  position:absolute;left:0;top:0;z-index:5;
+  opacity:0;pointer-events:none;
+  background:var(--surface);
+  border:1px solid var(--ring);
+  border-radius:8px;
+  box-shadow:0 4px 16px rgba(11,12,14,.14);
+  padding:9px 11px;
+  font-size:12px;line-height:1.5;color:var(--ink);
+  transition:opacity .1s ease;
+  max-width:260px;
+}
+.tip .tip-t{font-weight:600;margin-bottom:5px;display:block}
+.tip .tip-r{display:flex;justify-content:space-between;gap:16px;white-space:nowrap}
+.tip .tip-r span:first-child{color:var(--ink-2)}
+.tip .tip-r span:last-child{font-variant-numeric:tabular-nums;font-weight:500}
+.tip .tip-k{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+/* ---------- tables ---------- */
+.table-wrap{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+tbody tr:last-child td{border-bottom:0}
+th{font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--muted)}
+td{color:var(--ink-2)}
+td:first-child{color:var(--ink)}
+.num-neg{color:var(--ink)}
+.pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:600;padding:2px 7px;border-radius:20px;
+  background:var(--surface-2);color:var(--ink-2);white-space:nowrap;
+}
+.pill .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.pill.ok .dot{background:var(--good)}
+.pill.hot .dot{background:var(--critical)}
+
+/* ---------- day-type list ---------- */
+.dt{display:flex;flex-direction:column}
+.dt-row{
+  display:grid;grid-template-columns:1fr auto auto;align-items:baseline;gap:14px;
+  padding:11px 0;border-bottom:1px solid var(--grid);
+}
+.dt-row:last-child{border-bottom:0}
+.dt-name{font-size:13px;color:var(--ink)}
+.dt-days{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.dt-val{font-size:18px;font-weight:600;letter-spacing:-.015em;font-variant-numeric:tabular-nums;text-align:right;min-width:74px}
+.dt-val u{text-decoration:none;font-size:11px;font-weight:500;color:var(--muted);margin-left:3px}
+.dt-delta{font-size:11.5px;color:var(--muted);text-align:right;min-width:78px;font-variant-numeric:tabular-nums}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="note warn" id="nodata" hidden>
+    <span class="mark"></span>
+    <div><b>这一份是报告模板，里面还没有数据。</b>它是 <code>make_report.py</code> 用来套数据的空壳，图表和表格都依赖注入的数据，所以按钮点不动是正常的。要看报告请运行 <code>python src/make_report.py</code>，然后打开 <code>output/report.html</code>。</div>
+  </div>
+
+  <header class="masthead">
+    <p class="eyebrow">工业能耗分析 · 2024-01-01 ~ 2025-12-31</p>
+    <h1>全厂能耗体检</h1>
+    <p class="lede">8 个车间、6 种能源、731 天的日粒度能耗与产量数据，从原始脏数据一路清洗入 MySQL 后，由 <code>sql/analysis.sql</code> 的 23 条查询算出下面每一个数字。</p>
+    <ul class="facts">
+      <li>数据来源 <b>模拟数据（随机种子 20240918，可复现）</b></li>
+      <li>折标煤系数 <b>GB/T 2589-2020 当量值</b></li>
+      <li>电力碳排因子 <b>0.5703 kgCO₂/kWh</b></li>
+      <li>口径 <b>W07 动力站属公用工程，全厂口径存在重复计算</b></li>
+    </ul>
+  </header>
+
+  <section class="sec overview">
+    <div class="hero">
+      <p class="hero-label">两年综合能耗</p>
+      <p class="hero-value" data-fill="tce">—<span class="hero-unit">tce</span></p>
+      <p class="hero-note">折标煤当量值，含公用工程口径</p>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="note">
+      <span class="mark"></span>
+      <div><b>口径提示：</b>动力站（W07）产出蒸汽供其他车间二次消费，计入全厂会重复计算一次。剔除公用工程后的真实用能口径为 <b data-fill="tce_ex">—</b> tce，相当于全厂口径的 72.7%——下面凡涉及单耗的分析一律用剔除口径。</div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">结构</p>
+      <h2>天然气撑起六成能耗，却只占一半费用</h2>
+      <p class="sec-sub">把能源品种按折标煤与费用两把尺子各量一次，排序会打架。差异本身就是结论：折标煤口径告诉你"能耗压力在哪"，费用口径告诉你"钱花在哪"。</p>
+    </div>
+    <div class="stack">
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head">
+          <h3>能源品种：折标煤口径与费用口径对比</h3>
+          <p class="card-sub">每种能源在各自口径下的占比。天然气折标煤占 <b>64.08%</b> 而费用只占 <b>49.22%</b>；电力恰好相反，折标煤 <b>24.20%</b>、费用 <b>39.63%</b>。</p>
+        </figcaption>
+        <div class="legend" id="lg-mix"></div>
+        <div class="chart" data-chart="mix"></div>
+        <div class="card-foot"><button class="toggle" data-toggle="mix" aria-expanded="false">表格视图</button></div>
+        <div class="table-view" data-table="mix" hidden></div>
+      </figure>
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head">
+          <h3>车间综合能耗排名</h3>
+          <p class="card-sub">前四名（动力站、熔炼、热处理、轧制）合计占 <b>88.8%</b>，全部是连续型生产单元。其中<b>动力站是唯一被高亮的柱子</b>——它是公用工程，产出的蒸汽由其他车间二次消费，全厂口径下这部分被算了两遍。</p>
+        </figcaption>
+        <div class="chart" data-chart="workshops"></div>
+        <div class="card-foot"><button class="toggle" data-toggle="workshops" aria-expanded="false">表格视图</button></div>
+        <div class="table-view" data-table="workshops" hidden></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">趋势</p>
+      <h2>两年的季节形状几乎重合，峰谷差 61.6%</h2>
+      <p class="sec-sub">能耗不是平稳曲线，而是跟着采暖季走：12 月到 1 月见顶，6 月见谷。2024 与 2025 的月度曲线形状高度一致，说明这是气候驱动而非偶发波动。</p>
+    </div>
+    <div class="grid2">
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head">
+          <h3>月度综合能耗</h3>
+          <p class="card-sub">峰值 2025-12 <b>3,486.05 tce</b>，谷值 2024-06 <b>2,156.94 tce</b>。</p>
+        </figcaption>
+        <div class="chart" data-chart="monthly"></div>
+        <div class="card-foot"><button class="toggle" data-toggle="monthly" aria-expanded="false">表格视图</button></div>
+        <div class="table-view" data-table="monthly" hidden></div>
+      </figure>
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head">
+          <h3>碳排放强度</h3>
+          <p class="card-sub">每 tce 能耗对应的碳排，夏季最高 <b>2.72</b>、冬季最低 <b>2.31</b>——夏季天然气占比低、电力占比高，单位能耗更"脏"。</p>
+        </figcaption>
+        <div class="chart" data-chart="carbon"></div>
+        <div class="card-foot"><button class="toggle" data-toggle="carbon" aria-expanded="false">表格视图</button></div>
+        <div class="table-view" data-table="carbon" hidden></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">成因</p>
+      <h2>气温解释了 95% 的用气波动</h2>
+      <p class="sec-sub">把 731 天按日均气温分成 5 档，三种主要能源的响应完全不同：天然气与蒸汽是单纯的气候响应，电力则是冬夏双高峰的 U 形——所以电力的线性相关系数只有 0.17，那不是"没关系"，是线性模型装不下 U 形。</p>
+    </div>
+    <figure class="card" style="margin:0">
+      <figcaption class="card-head">
+        <h3>分气温档的日均消耗（仅连续型车间，排除停产日干扰）</h3>
+        <p class="card-sub">每格是一张独立图，纵轴各自独立，横轴为日均气温档。</p>
+      </figcaption>
+      <div class="chart" data-chart="temp"></div>
+      <div class="card-foot">
+        <span class="card-sub">Pearson r：电力 <b>+0.167</b> · 天然气 <b>−0.951</b> · 蒸汽 <b>−0.905</b>（n = 731 天）</span>
+        <button class="toggle" data-toggle="temp" aria-expanded="false">表格视图</button>
+      </div>
+      <div class="table-view" data-table="temp" hidden></div>
+    </figure>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">成效</p>
+      <h2>七个车间的单位产品能耗全部下降</h2>
+      <p class="sec-sub">产量两年增长约 5%，能耗只增长约 1.4%——差额就是节能量。换算到单位产品口径，7 个车间单耗同比全部为负，降幅 −2.12% ~ −3.78%。</p>
+    </div>
+    <div class="grid2">
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head">
+          <h3>单位产品能耗同比降幅</h3>
+          <p class="card-sub">降幅 = |2025 单耗 − 2024 单耗| / 2024 单耗。数值全为负，越大代表节能越多。</p>
+        </figcaption>
+        <div class="chart" data-chart="unittrend"></div>
+        <div class="card-foot"><button class="toggle" data-toggle="unittrend" aria-expanded="false">表格视图</button></div>
+        <div class="table-view" data-table="unittrend" hidden></div>
+      </figure>
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head">
+          <h3>产量涨了，能耗涨得少——差额就是节能量</h3>
+          <p class="card-sub">7 个有产量的车间，产量同比（上）与单位产品能耗同比（下）。产量普遍增长约 5%，单耗普遍下降 2%~4%，两者相加即为能耗的实际增幅。</p>
+        </figcaption>
+        <div class="legend" id="lg-deco"></div>
+        <div class="chart" data-chart="deco"></div>
+        <div class="card-foot"><button class="toggle" data-toggle="deco" aria-expanded="false">表格视图</button></div>
+        <div class="table-view" data-table="deco" hidden></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">损耗</p>
+      <h2>停产日不代表零能耗：58 天待机烧掉 79 万元</h2>
+      <p class="sec-sub">间歇型车间全年停产 58 天（周末加法定节假日），但设备保温、待机、照明仍保留基础负荷。这部分不产出任何产量，是纯粹的可压缩空间。</p>
+    </div>
+    <div class="grid2">
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head">
+          <h3>停产日待机损耗</h3>
+          <p class="card-sub">四个间歇型车间，全年各停产 58 天。合计待机能耗 <b>173.18 tce</b>，折合能源费用 <b>¥79.2 万</b>。</p>
+        </figcaption>
+        <div class="chart" data-chart="standby"></div>
+        <div class="card-foot"><button class="toggle" data-toggle="standby" aria-expanded="false">表格视图</button></div>
+        <div class="table-view" data-table="standby" hidden></div>
+      </figure>
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head">
+          <h3>工作日 / 周末 / 节假日日均能耗</h3>
+          <p class="card-sub">486 个工作日、187 个周末、58 个法定节假日。</p>
+        </figcaption>
+        <div class="dt" id="daytype"></div>
+        <div class="card-foot">
+          <span class="card-sub">周末与节假日仍分别保有工作日 <b>91%</b> 与 <b>83%</b> 的能耗水平。</span>
+          <button class="toggle" data-toggle="daytype" aria-expanded="false">表格视图</button>
+        </div>
+        <div class="table-view" data-table="daytype" hidden></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">风险</p>
+      <h2>5 个月度环比突增，全部落在年末与盛夏</h2>
+      <p class="sec-sub">以"月度环比超过 25%"为阈值筛出 5 条，其中 4 条落在 11 月。这个月份本身就有系统性抬升——全厂 11 月环比 2024 年为 <b>+17.68%</b>、2025 年为 <b>+17.49%</b>，采暖季启动把所有人都推高了。真正值得单独看的是<b>表面处理车间</b>：两次上榜、增幅最大（26.02% 与 29.44%）。包装与机加工则是基数小，同样的绝对增量会被放大成更高的百分比，要结合绝对量一起判断。</p>
+    </div>
+    <figure class="card" style="margin:0">
+      <figcaption class="card-head">
+        <h3>能耗突增预警清单</h3>
+        <p class="card-sub">阈值：当月环比 &gt; 25%。</p>
+      </figcaption>
+      <div class="table-wrap" id="alerts"></div>
+    </figure>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">方法</p>
+      <h2>这份报告是怎么算出来的</h2>
+      <p class="sec-sub">每一个数字都能追溯到一条可重跑的 SQL。</p>
+    </div>
+    <div class="stack">
+      <div class="note"><span class="mark"></span><div>
+        <b>数据管道</b>　<code>generate_data.py</code> 按业务规则生成含 10 类脏数据的原始 CSV → <code>clean_data.py</code> 清洗（别名归一、日期解析、业务键去重、Q3+3×IQR 离群剔除、中位数插补、费用重算）→ <code>import_mysql.py</code> 建星型模型并装载 → <code>analysis.sql</code> 出 23 张结果表。
+      </div></div>
+      <div class="note"><span class="mark"></span><div>
+        <b>清洗量级</b>　原始 19,234 条明细，剔除 262 条（格式无法解析、离群、业务键重复），修正若干缺失与错误后，装载 <b>18,972</b> 条能耗明细、<b>5,848</b> 条产量记录、<b>731</b> 天日历。
+      </div></div>
+      <div class="note warn"><span class="mark"></span><div>
+        <b>口径边界</b>　"综合能耗"用折标煤当量值加总，不做等价值换算；碳排放中压缩空气属二次能源不计入，避免与电力重复；单耗类指标（本报告第 5 节）一律剔除公用工程车间。
+      </div></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// 数据占位符: make_report.py 把 __DATA__ 标记到 __END__ 标记之间的内容整体替换成 JSON。
+// 模板本身保持可解析(此处的值是 null), 直接双击打开不会因语法错误导致整页脚本失效。
+window.REPORT = /*__DATA__*/{"totals":{"days":731,"tce":63653.91,"cost":215028527.91,"co2":156558.71,"tce_ex":46295.67},"workshops":[{"code":"W07","name":"动力站","process":"公用工程","tce":17358.24,"tce_pct":27.27,"cost":50248711.95,"cost_pct":23.37,"co2":30709.94,"utility":true},{"code":"W01","name":"熔炼车间","process":"熔炼","tce":13363.75,"tce_pct":20.99,"cost":47424464.21,"cost_pct":22.05,"co2":33540.23,"utility":false},{"code":"W03","name":"热处理车间","process":"热处理","tce":13080.72,"tce_pct":20.55,"cost":40537206.23,"cost_pct":18.85,"co2":30923.94,"utility":false},{"code":"W02","name":"轧制车间","process":"轧制","tce":12701.71,"tce_pct":19.95,"cost":43071038.33,"cost_pct":20.03,"co2":34808.47,"utility":false},{"code":"W05","name":"表面处理车间","process":"表面处理","tce":4057.91,"tce_pct":6.37,"cost":16143111.6,"cost_pct":7.51,"co2":13515.39,"utility":false},{"code":"W04","name":"机加工车间","process":"机加工","tce":1605.94,"tce_pct":2.52,"cost":9185354.78,"cost_pct":4.27,"co2":6790.54,"utility":false},{"code":"W06","name":"装配车间","process":"装配","tce":1033.57,"tce_pct":1.62,"cost":5867794.14,"cost_pct":2.73,"co2":4326.82,"utility":false},{"code":"W08","name":"包装车间","process":"包装","tce":452.08,"tce_pct":0.71,"cost":2550846.67,"cost_pct":1.19,"co2":1943.37,"utility":false}],"energy_mix":[{"name":"天然气","unit":"m³","qty":30666401.04,"tce":40786.31,"tce_pct":64.08,"cost":105833287.28,"cost_pct":49.22,"co2":66306.89,"price":3.4511},{"name":"电力","unit":"kWh","qty":125336393.53,"tce":15403.84,"tce_pct":24.2,"cost":85218122.35,"cost_pct":39.63,"co2":71479.35,"price":0.6799},{"name":"蒸汽","unit":"t","qty":68945.35,"tce":6598.07,"tce_pct":10.37,"cost":15173599.99,"cost_pct":7.06,"co2":17925.79,"price":220.0816},{"name":"压缩空气","unit":"m³","qty":9104046.23,"tce":364.16,"tce_pct":0.57,"cost":2549290.33,"cost_pct":1.19,"co2":0.0,"price":0.28},{"name":"工业水","unit":"m³","qty":1272028.36,"tce":308.98,"tce_pct":0.49,"cost":5216411.1,"cost_pct":2.43,"co2":437.58,"price":4.1009},{"name":"柴油","unit":"kg","qty":132143.86,"tce":192.55,"tce_pct":0.3,"cost":1037816.86,"cost_pct":0.48,"co2":409.1,"price":7.8537}],"monthly":[{"ym":"2024-01","tce":3435.96,"cost":11100978.04,"co2":7995.01,"mom":null,"ci":2.3269},{"ym":"2024-02","tce":2943.68,"cost":9462270.58,"co2":6794.87,"mom":-14.33,"ci":2.3083},{"ym":"2024-03","tce":2800.69,"cost":9243745.1,"co2":6672.21,"mom":-4.86,"ci":2.3823},{"ym":"2024-04","tce":2357.75,"cost":7920074.61,"co2":5742.35,"mom":-15.82,"ci":2.4355},{"ym":"2024-05","tce":2253.28,"cost":7737571.58,"co2":5646.29,"mom":-4.43,"ci":2.5058},{"ym":"2024-06","tce":2156.94,"cost":7710637.44,"co2":5691.18,"mom":-4.28,"ci":2.6385},{"ym":"2024-07","tce":2298.03,"cost":8413638.02,"co2":6252.31,"mom":6.54,"ci":2.7207},{"ym":"2024-08","tce":2332.73,"cost":8439389.14,"co2":6261.11,"mom":1.51,"ci":2.684},{"ym":"2024-09","tce":2249.55,"cost":7829162.62,"co2":5746.64,"mom":-3.57,"ci":2.5546},{"ym":"2024-10","tce":2455.0,"cost":8213931.71,"co2":5954.1,"mom":9.13,"ci":2.4253},{"ym":"2024-11","tce":2888.98,"cost":9503597.54,"co2":6877.54,"mom":17.68,"ci":2.3806},{"ym":"2024-12","tce":3434.24,"cost":11195861.5,"co2":8081.44,"mom":18.87,"ci":2.3532},{"ym":"2025-01","tce":3414.3,"cost":10996735.82,"co2":7917.54,"mom":-0.58,"ci":2.3189},{"ym":"2025-02","tce":2971.11,"cost":9591304.05,"co2":6909.81,"mom":-12.98,"ci":2.3257},{"ym":"2025-03","tce":2857.53,"cost":9399429.46,"co2":6794.77,"mom":-3.82,"ci":2.3778},{"ym":"2025-04","tce":2392.46,"cost":8059500.35,"co2":5836.16,"mom":-16.28,"ci":2.4394},{"ym":"2025-05","tce":2269.55,"cost":7796994.82,"co2":5679.54,"mom":-5.14,"ci":2.5025},{"ym":"2025-06","tce":2208.37,"cost":7889320.88,"co2":5829.12,"mom":-2.7,"ci":2.6396},{"ym":"2025-07","tce":2336.07,"cost":8544459.27,"co2":6349.22,"mom":5.78,"ci":2.7179},{"ym":"2025-08","tce":2357.28,"cost":8536112.76,"co2":6332.59,"mom":0.91,"ci":2.6864},{"ym":"2025-09","tce":2321.22,"cost":8105604.38,"co2":5959.66,"mom":-1.53,"ci":2.5675},{"ym":"2025-10","tce":2498.15,"cost":8340461.29,"co2":6041.61,"mom":7.62,"ci":2.4184},{"ym":"2025-11","tce":2934.98,"cost":9643822.12,"co2":6983.54,"mom":17.49,"ci":2.3794},{"ym":"2025-12","tce":3486.05,"cost":11353924.83,"co2":8210.11,"mom":18.78,"ci":2.3551}],"unit_yoy":[{"name":"熔炼车间","y2024":69.8632,"y2025":67.2191,"pct":-3.78},{"name":"热处理车间","y2024":185.8194,"y2025":180.1213,"pct":-3.07},{"name":"装配车间","y2024":6.7717,"y2025":6.5771,"pct":-2.87},{"name":"机加工车间","y2024":0.654,"y2025":0.6367,"pct":-2.65},{"name":"包装车间","y2024":0.0783,"y2025":0.0763,"pct":-2.56},{"name":"表面处理车间","y2024":1.0198,"y2025":0.9968,"pct":-2.25},{"name":"轧制车间","y2024":53.4875,"y2025":52.3521,"pct":-2.12}],"deco":[{"name":"熔炼车间","a":5.41,"b":-3.78},{"name":"热处理车间","a":4.83,"b":-3.07},{"name":"装配车间","a":4.81,"b":-2.87},{"name":"机加工车间","a":4.98,"b":-2.65},{"name":"包装车间","a":4.97,"b":-2.56},{"name":"表面处理车间","a":4.45,"b":-2.25},{"name":"轧制车间","a":3.9,"b":-2.12}],"temp_bins":[{"label":"1_零度以下","days":139,"avg_t":-3.6,"elec":125526.0,"gas":55532.0,"steam":89.3},{"label":"2_0-10℃","days":166,"avg_t":5.1,"elec":116323.0,"gas":47877.0,"steam":80.8},{"label":"3_10-20℃","days":165,"avg_t":16.2,"elec":109053.0,"gas":37159.0,"steam":68.1},{"label":"4_20-28℃","days":205,"avg_t":24.4,"elec":126174.0,"gas":32110.0,"steam":62.3},{"label":"5_28℃以上","days":56,"avg_t":29.7,"elec":135129.0,"gas":30953.0,"steam":60.1}],"temp_corr":{"n":731,"elec":0.1673,"gas":-0.9507,"steam":-0.9052},"standby":[{"name":"表面处理车间","days":58,"tce":110.8,"total":4057.91,"pct":2.73,"waste":435524.57},{"name":"机加工车间","days":58,"tce":34.1,"total":1605.94,"pct":2.12,"waste":196015.33},{"name":"装配车间","days":58,"tce":19.82,"total":1033.57,"pct":1.92,"waste":112991.25},{"name":"包装车间","days":58,"tce":8.46,"total":452.08,"pct":1.87,"waste":47683.63}],"daytype":[{"name":"工作日","days":486,"tce":90.359,"cost":308156.68,"co2":224.958},{"name":"周末","days":187,"tce":82.179,"cost":273458.18,"co2":198.311},{"name":"法定节假日","days":58,"tce":75.376,"cost":243581.11,"co2":174.909}],"alerts":[{"ym":"2025-11","ws":"表面处理车间","cur":184.296,"prev":142.376,"mom":29.44},{"ym":"2024-11","ws":"表面处理车间","cur":182.962,"prev":145.184,"mom":26.02},{"ym":"2024-07","ws":"包装车间","cur":23.057,"prev":18.366,"mom":25.54},{"ym":"2025-11","ws":"包装车间","cur":18.709,"prev":14.938,"mom":25.25},{"ym":"2025-11","ws":"机加工车间","cur":67.145,"prev":53.7,"mom":25.04}],"derived":{"utility_ratio":72.7,"standby_tce":173.18,"standby_cost":792214.78,"top4_pct":88.8}};
+</script>
+<script>
+(function(){
+"use strict";
+var D = window.REPORT;
+var NS = "http://www.w3.org/2000/svg";
+
+document.documentElement.lang = "zh-CN";
+
+/* ---------------- helpers ---------------- */
+function mk(tag, attrs, parent){
+  var n = document.createElementNS(NS, tag);
+  if (attrs) for (var k in attrs){
+    if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+  }
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function tx(parent, x, y, s, cls, anchor){
+  var t = mk("text", {x:x, y:y, class:cls||"c-label", "text-anchor":anchor||"start"}, parent);
+  t.textContent = s;
+  return t;
+}
+function num(v, d){
+  d = (d === undefined) ? 0 : d;
+  return Number(v).toLocaleString("en-US", {minimumFractionDigits:d, maximumFractionDigits:d});
+}
+function pct(v, d){ d = (d === undefined) ? 1 : d; return (v>0?"+":"") + Number(v).toFixed(d) + "%"; }
+function niceStep(span, count){
+  var raw = span / (count || 3);
+  var mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+  var nrm = raw / mag;
+  return mag * (nrm <= 1 ? 1 : nrm <= 2 ? 2 : nrm <= 2.5 ? 2.5 : nrm <= 5 ? 5 : 10);
+}
+function ticks(max, count){
+  var step = niceStep(max || 1, count || 4);
+  var top = Math.ceil(max / step) * step;
+  var out = [];
+  for (var v = 0; v <= top + 1e-9; v += step) out.push(Math.round(v * 1e6) / 1e6);
+  return {list:out, top:top, step:step};
+}
+function rangeTicks(lo, hi, count){
+  var step = niceStep((hi - lo) || 1, count || 3);
+  var out = [];
+  for (var v = Math.floor(lo / step) * step; v <= hi + 1e-9; v += step){
+    out.push(Math.round(v * 1e6) / 1e6);
+  }
+  return {list:out, step:step};
+}
+function cssv(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function tokens(){
+  return {
+    surface: cssv("--surface"), grid: cssv("--grid"), axis: cssv("--axis"),
+    m1: cssv("--mark-1"), m2: cssv("--mark-2"), m3: cssv("--mark-3"), dim: cssv("--mark-dim")
+  };
+}
+
+/* ---------------- tooltip ---------------- */
+function tipEl(host){
+  var t = host.querySelector(".tip");
+  if (!t){ t = document.createElement("div"); t.className = "tip"; host.appendChild(t); }
+  return t;
+}
+function showTip(host, x, y, html){
+  var t = tipEl(host);
+  t.innerHTML = html;
+  t.style.opacity = "1";
+  var w = t.offsetWidth, h = t.offsetHeight, W = host.clientWidth;
+  var left = x + 14;
+  if (left + w > W - 2) left = x - w - 14;
+  if (left < 2) left = 2;
+  t.style.left = left + "px";
+  t.style.top = Math.max(2, y - h / 2) + "px";
+}
+function hideTip(host){
+  var t = host.querySelector(".tip");
+  if (t) t.style.opacity = "0";
+}
+
+/* ================= chart: 能源品种双口径 ================= */
+function drawMix(host, W, T, narrow){
+  var rows = D.energy_mix;
+  var nameW = narrow ? 74 : 96;
+  var padR = narrow ? 46 : 56;
+  var padT = 26, axisH = 26;
+  var rowH = narrow ? 34 : 38;
+  var H = padT + rows.length * rowH + axisH;
+  var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
+  var maxV = Math.max.apply(null, rows.map(function(r){ return Math.max(r.tce_pct, r.cost_pct); }));
+  var sc = ticks(maxV, 3);
+  var x = function(v){ return plotX + v / sc.top * plotW; };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
+                       "aria-label":"能源品种折标煤占比与费用占比对比"});
+  host.appendChild(svg);
+
+  // 网格与刻度
+  sc.list.forEach(function(v){
+    if (v === 0) return;
+    mk("line", {x1:x(v), y1:padT-4, x2:x(v), y2:padT + rows.length*rowH, class:"c-grid"}, svg);
+  });
+  mk("line", {x1:plotX, y1:padT-4, x2:plotX, y2:padT + rows.length*rowH, class:"c-axis"}, svg);
+  sc.list.forEach(function(v){
+    tx(svg, x(v), padT - 11, num(v) + "%", "c-label", "middle");
+  });
+
+  var barH = Math.min(11, rowH * 0.28);
+  var gap = 2;
+
+  rows.forEach(function(r, i){
+    var bandY = padT + i * rowH;
+    var midY = bandY + rowH / 2;
+    var g1 = midY - gap / 2 - barH;
+    var g2 = midY + gap / 2;
+
+    tx(svg, 0, midY - 1, r.name, "c-name");
+    tx(svg, 0, midY + 12, r.unit, "c-note");
+
+    [[r.tce_pct, T.m1, g1], [r.cost_pct, T.m2, g2]].forEach(function(p){
+      var v = p[0], col = p[1], y = p[2];
+      if (v <= 0){ return; }
+      var w = Math.max(2, x(v) - plotX);
+      var rad = Math.min(4, w / 2);
+      mk("path", {
+        d:"M"+plotX+","+y+" h"+(w-rad)+" a"+rad+","+rad+" 0 0 1 "+rad+","+rad+
+          " v"+(barH-2*rad)+" a"+rad+","+rad+" 0 0 1 "+(-rad)+","+rad+" h"+(-(w-rad))+" z",
+        fill:col
+      }, svg);
+      tx(svg, plotX + w + 7, y + barH - 1.5, v.toFixed(2) + "%", "c-value");
+    });
+  });
+
+  // 命中区 + tooltip
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var y = padT + i * rowH;
+    var rect = mk("rect", {x:0, y:y, width:W, height:rowH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.name + "（" + r.unit + "）</span>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:'+T.m1+'"></i>折标煤占比</span><span>' + r.tce_pct.toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:'+T.m2+'"></i>费用占比</span><span>' + r.cost_pct.toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span>差（费用−折标煤）</span><span>' + (r.cost_pct - r.tce_pct).toFixed(2) + " pp</span></div>" +
+        '<div class="tip-r"><span>折标煤</span><span>' + num(r.tce, 2) + " tce</span></div>" +
+        '<div class="tip-r"><span>费用</span><span>¥' + num(r.cost, 0) + "</span></div>");
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* ================= chart: 车间排名（重点式） ================= */
+function drawWorkshops(host, W, T, narrow){
+  var rows = D.workshops;
+  var nameW = narrow ? 84 : 104;
+  var padR = narrow ? 44 : 52;
+  var padT = 24, axisH = 26;
+  var rowH = narrow ? 27 : 30;
+  var H = padT + rows.length * rowH + axisH;
+  var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
+  var sc = ticks(Math.max.apply(null, rows.map(function(r){ return r.tce; })), 3);
+  var x = function(v){ return plotX + v / sc.top * plotW; };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
+                       "aria-label":"各车间综合能耗排名"});
+  host.appendChild(svg);
+
+  sc.list.forEach(function(v){
+    if (v === 0) return;
+    mk("line", {x1:x(v), y1:padT-4, x2:x(v), y2:padT + rows.length*rowH, class:"c-grid"}, svg);
+  });
+  mk("line", {x1:plotX, y1:padT-4, x2:plotX, y2:padT + rows.length*rowH, class:"c-axis"}, svg);
+  sc.list.forEach(function(v){ tx(svg, x(v), padT - 10, num(v), "c-label", "middle"); });
+
+  var barH = 13;
+  rows.forEach(function(r, i){
+    var midY = padT + i * rowH + rowH / 2;
+    var y = midY - barH / 2;
+    var col = r.utility ? T.m1 : T.dim;
+    var w = Math.max(2, x(r.tce) - plotX);
+    var rad = Math.min(4, w / 2);
+    tx(svg, 0, midY + 4, r.name, r.utility ? "c-name hot" : "c-name");
+    mk("path", {
+      d:"M"+plotX+","+y+" h"+(w-rad)+" a"+rad+","+rad+" 0 0 1 "+rad+","+rad+
+        " v"+(barH-2*rad)+" a"+rad+","+rad+" 0 0 1 "+(-rad)+","+rad+" h"+(-(w-rad))+" z",
+      fill:col
+    }, svg);
+    tx(svg, plotX + w + 7, midY + 4, r.tce_pct.toFixed(1) + "%", "c-value");
+  });
+
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var y = padT + i * rowH;
+    var rect = mk("rect", {x:0, y:y, width:W, height:rowH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.name + "（" + r.process + "）</span>" +
+        '<div class="tip-r"><span>综合能耗</span><span>' + num(r.tce, 2) + " tce</span></div>" +
+        '<div class="tip-r"><span>能耗占比</span><span>' + r.tce_pct.toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span>能源费用</span><span>¥' + num(r.cost, 0) + "</span></div>" +
+        '<div class="tip-r"><span>碳排放</span><span>' + num(r.co2, 2) + " tCO₂</span></div>" +
+        (r.utility ? '<div class="tip-r"><span>口径</span><span>公用工程·重复计入</span></div>' : ""));
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* ================= 折线图通用 ================= */
+function drawLine(host, W, T, opt){
+  var rows = opt.rows, color = opt.color, label = opt.label;
+  var narrow = W < 460;
+  var padL = narrow ? 44 : 54, padR = narrow ? 46 : 62, padT = 22, padB = 30;
+  var H = opt.height || 248;
+  var plotW = Math.max(60, W - padL - padR);
+  var plotH = H - padT - padB;
+  var vals = rows.map(function(r){ return r.v; });
+  var sc = ticks(Math.max.apply(null, vals), 3);
+  var x = function(i){ return padL + (rows.length === 1 ? plotW/2 : i / (rows.length - 1) * plotW); };
+  var y = function(v){ return padT + plotH - v / sc.top * plotH; };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img", "aria-label":label});
+  host.appendChild(svg);
+
+  sc.list.forEach(function(v){
+    mk("line", {x1:padL, y1:y(v), x2:padL+plotW, y2:y(v), class: v===0 ? "c-axis" : "c-grid"}, svg);
+    tx(svg, padL - 9, y(v) + 3.5, opt.tickFmt ? opt.tickFmt(v) : num(v), "c-label", "end");
+  });
+
+  // 刻度密度跟着宽度走, 并保证末位刻度一定出现、且不与前一个挤在一起
+  var last = rows.length - 1;
+  var minGap = 50;
+  var step = Math.max(1, Math.ceil(rows.length / Math.max(2, Math.floor(plotW / minGap))));
+  var idxs = [];
+  for (var ii = 0; ii < rows.length; ii++) if (ii % step === 0) idxs.push(ii);
+  if (idxs[idxs.length - 1] !== last) idxs.push(last);
+  idxs = idxs.filter(function(i){ return i === last || Math.abs(x(i) - x(last)) >= minGap; });
+  idxs.forEach(function(i){ tx(svg, x(i), H - padB + 17, rows[i].k, "c-label", "middle"); });
+
+  var area = "M" + x(0) + "," + y(0);
+  rows.forEach(function(r, i){ area += " L" + x(i) + "," + y(r.v); });
+  area += " L" + x(rows.length-1) + "," + (padT + plotH) + " L" + x(0) + "," + (padT + plotH) + " Z";
+  mk("path", {d:area, fill:color, "fill-opacity":0.10, stroke:"none"}, svg);
+
+  var d = "";
+  rows.forEach(function(r, i){ d += (i ? " L" : "M") + x(i) + "," + y(r.v); });
+  mk("path", {d:d, fill:"none", stroke:color, "stroke-width":2,
+              "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+
+  var li = rows.length - 1;
+  mk("circle", {cx:x(li), cy:y(rows[li].v), r:4.5, fill:color,
+                stroke:T.surface, "stroke-width":2}, svg);
+  tx(svg, x(li) + 9, y(rows[li].v) + 4, opt.endFmt ? opt.endFmt(rows[li].v) : num(rows[li].v, 0), "c-value");
+
+  // 极值直接标注
+  var mi = 0;
+  vals.forEach(function(v, i){ if (v > vals[mi]) mi = i; });
+  if (mi !== li){
+    mk("circle", {cx:x(mi), cy:y(vals[mi]), r:3.5, fill:color, stroke:T.surface, "stroke-width":2}, svg);
+    tx(svg, x(mi), y(vals[mi]) - 10, opt.endFmt ? opt.endFmt(vals[mi]) : num(vals[mi], 0),
+       "c-value", mi > rows.length * 0.6 ? "end" : "middle");
+  }
+
+  // 十字准星
+  var hair = mk("line", {x1:0, y1:padT, x2:0, y2:padT+plotH, class:"c-hair", opacity:0}, svg);
+  var dot = mk("circle", {cx:0, cy:0, r:4.5, fill:color, stroke:T.surface, "stroke-width":2, opacity:0}, svg);
+  var capture = mk("rect", {x:padL, y:padT, width:plotW, height:plotH, class:"c-hit"}, svg);
+
+  capture.addEventListener("mousemove", function(ev){
+    var b = host.getBoundingClientRect();
+    var mx = ev.clientX - b.left;
+    var i = Math.round((mx - padL) / (plotW || 1) * (rows.length - 1));
+    i = Math.max(0, Math.min(rows.length - 1, i));
+    hair.setAttribute("x1", x(i)); hair.setAttribute("x2", x(i)); hair.setAttribute("opacity", 1);
+    dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(rows[i].v)); dot.setAttribute("opacity", 1);
+    showTip(host, x(i), y(rows[i].v), opt.tip(rows[i]));
+  });
+  capture.addEventListener("mouseleave", function(){
+    hideTip(host); hair.setAttribute("opacity", 0); dot.setAttribute("opacity", 0);
+  });
+}
+
+/* ================= chart: 气温分档 small multiples ================= */
+function drawTemp(host, W, T, narrow){
+  var bins = D.temp_bins, corr = D.temp_corr;
+  var series = [
+    {key:"elec",  name:"电力", unit:"kWh", color:T.m1, r:corr.elec,  fmt:function(v){ return num(v, 0); }},
+    {key:"gas",   name:"天然气", unit:"m³", color:T.m1, r:corr.gas,   fmt:function(v){ return num(v, 0); }},
+    {key:"steam", name:"蒸汽", unit:"t",  color:T.m1, r:corr.steam, fmt:function(v){ return v.toFixed(1); }}
+  ];
+  var gap = 16;
+  var cols = narrow ? 1 : 3;
+  var panelW = Math.floor((W - gap * (cols - 1)) / cols);
+  var panelH = narrow ? 132 : 148;
+  var headH = 34, xAxisH = 22;
+  var totalH = cols === 1 ? (headH + panelH + xAxisH) * 3 + gap * 2 : headH + panelH + xAxisH;
+
+  var svg = mk("svg", {width:W, height:totalH, viewBox:"0 0 "+W+" "+totalH, role:"img",
+                       "aria-label":"分气温档的日均电力、天然气、蒸汽消耗"});
+  host.appendChild(svg);
+
+  series.forEach(function(s, si){
+    var ox = cols === 1 ? 0 : si * (panelW + gap);
+    var oy = cols === 1 ? si * (headH + panelH + xAxisH + gap) : 0;
+    var padL = 46, padR = 6;
+    var plotW = Math.max(40, panelW - padL - padR);
+    var vals = bins.map(function(b){ return b[s.key]; });
+    var sc = ticks(Math.max.apply(null, vals), 3);
+    var bandW = plotW / bins.length;
+    var barW = Math.min(26, bandW * 0.46);
+    var baseY = oy + headH + panelH;
+
+    tx(svg, ox, oy + 12, s.name + " · " + s.unit, "c-name hot");
+    var rt = mk("text", {x:ox + panelW - padR, y:oy + 12, class:"c-label", "text-anchor":"end"}, svg);
+    rt.textContent = "r = " + (s.r > 0 ? "+" : "−") + Math.abs(s.r).toFixed(3);
+
+    sc.list.forEach(function(v){
+      var y = baseY - v / sc.top * panelH;
+      mk("line", {x1:ox+padL, y1:y, x2:ox+padL+plotW, y2:y, class: v===0 ? "c-axis" : "c-grid"}, svg);
+      tx(svg, ox + padL - 7, y + 3.5, s.fmt(v), "c-label", "end");
+    });
+
+    var mi = 0, ma = 0;
+    vals.forEach(function(v, i){ if (v < vals[mi]) mi = i; if (v > vals[ma]) ma = i; });
+
+    bins.forEach(function(b, i){
+      var v = b[s.key];
+      var h = Math.max(2, v / sc.top * panelH);
+      var cx = ox + padL + bandW * i + bandW / 2;
+      var y = baseY - h;
+      var rad = Math.min(4, barW / 2, h / 2);
+      mk("path", {
+        d:"M"+(cx-barW/2)+","+baseY+" v"+(-(h-rad))+" a"+rad+","+rad+" 0 0 1 "+rad+","+(-rad)+
+          " h"+(barW-2*rad)+" a"+rad+","+rad+" 0 0 1 "+rad+","+rad+" v"+(h-rad)+" z",
+        fill:s.color
+      }, svg);
+
+      if (i === mi || i === ma){
+        tx(svg, cx, y - 6, s.fmt(v), "c-value", "middle");
+      }
+      if (bins.length <= 5 || i % 2 === 0){
+        tx(svg, cx, baseY + 15, b.avg_t.toFixed(1) + "°", "c-label", "middle");
+      }
+    });
+
+    // 命中区
+    bins.forEach(function(b, i){
+      var cx = ox + padL + bandW * i + bandW / 2;
+      var rect = mk("rect", {x:ox+padL+bandW*i, y:oy+headH, width:bandW, height:panelH, class:"c-hit"}, svg);
+      rect.addEventListener("mousemove", function(ev){
+        var bb = host.getBoundingClientRect();
+        showTip(host, ev.clientX - bb.left, ev.clientY - bb.top,
+          '<span class="tip-t">' + b.label + "（均温 " + b.avg_t.toFixed(1) + "℃）</span>" +
+          '<div class="tip-r"><span>天数</span><span>' + b.days + " 天</span></div>" +
+          '<div class="tip-r"><span><i class="tip-k" style="background:'+T.m1+'"></i>日均电耗</span><span>' + num(b.elec,0) + " kWh</span></div>" +
+          '<div class="tip-r"><span>日均气耗</span><span>' + num(b.gas,0) + " m³</span></div>" +
+          '<div class="tip-r"><span>日均蒸汽</span><span>' + b.steam.toFixed(1) + " t</span></div>");
+      });
+      rect.addEventListener("mouseleave", function(){ hideTip(host); });
+    });
+  });
+}
+
+/* ================= chart: 单耗同比 ================= */
+function drawUnit(host, W, T, narrow){
+  var rows = D.unit_yoy.slice().sort(function(a,b){ return a.pct - b.pct; });
+  var nameW = narrow ? 84 : 100;
+  var padR = narrow ? 52 : 62;
+  var padT = 24, axisH = 26, rowH = narrow ? 29 : 32;
+  var H = padT + rows.length * rowH + axisH;
+  var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
+  var maxV = Math.max.apply(null, rows.map(function(r){ return Math.abs(r.pct); }));
+  var sc = ticks(maxV, 3);
+  var x = function(v){ return plotX + v / sc.top * plotW; };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
+                       "aria-label":"各车间单位产品能耗同比降幅"});
+  host.appendChild(svg);
+
+  sc.list.forEach(function(v){
+    if (v === 0) return;
+    mk("line", {x1:x(v), y1:padT-4, x2:x(v), y2:padT + rows.length*rowH, class:"c-grid"}, svg);
+  });
+  mk("line", {x1:plotX, y1:padT-4, x2:plotX, y2:padT + rows.length*rowH, class:"c-axis"}, svg);
+  sc.list.forEach(function(v){ tx(svg, x(v), padT - 10, (v === 0 ? "" : "−") + num(v) + "%", "c-label", "middle"); });
+
+  var barH = 12;
+  rows.forEach(function(r, i){
+    var midY = padT + i * rowH + rowH / 2;
+    var y = midY - barH / 2;
+    var w = Math.max(2, x(Math.abs(r.pct)) - plotX);
+    var rad = Math.min(4, w / 2);
+    tx(svg, 0, midY + 4, r.name, "c-name");
+    mk("path", {
+      d:"M"+plotX+","+y+" h"+(w-rad)+" a"+rad+","+rad+" 0 0 1 "+rad+","+rad+
+        " v"+(barH-2*rad)+" a"+rad+","+rad+" 0 0 1 "+(-rad)+","+rad+" h"+(-(w-rad))+" z",
+      fill:T.m1
+    }, svg);
+    tx(svg, plotX + w + 7, midY + 4, r.pct.toFixed(2) + "%", "c-value");
+  });
+
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var rect = mk("rect", {x:0, y:padT + i*rowH, width:W, height:rowH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.name + "</span>" +
+        '<div class="tip-r"><span>2024 单耗</span><span>' + r.y2024.toFixed(4) + "</span></div>" +
+        '<div class="tip-r"><span>2025 单耗</span><span>' + r.y2025.toFixed(4) + "</span></div>" +
+        '<div class="tip-r"><span>同比</span><span>' + r.pct.toFixed(2) + "%</span></div>");
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* ================= chart: 增速差 ================= */
+function drawDeco(host, W, T, narrow){
+  var rows = D.deco;
+  var padL = narrow ? 40 : 46, padR = narrow ? 8 : 12, padT = 30, padB = 32;
+  var H = 236;
+  var plotW = Math.max(60, W - padL - padR), plotH = H - padT - padB;
+  var bandW = plotW / rows.length;
+  var maxV = Math.max.apply(null, rows.map(function(r){ return Math.max(r.a, r.b); }));
+  var minV = Math.min.apply(null, rows.map(function(r){ return Math.min(r.a, r.b); }));
+  var lo = Math.min(0, minV) * 1.15, hi = maxV * 1.15;
+  var tc = rangeTicks(lo, hi, 3);
+  var y = function(v){ return padT + plotH - (v - lo) / (hi - lo) * plotH; };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
+                       "aria-label":"各车间产量同比与单位产品能耗同比"});
+  host.appendChild(svg);
+
+  tc.list.forEach(function(v){
+    mk("line", {x1:padL, y1:y(v), x2:padL+plotW, y2:y(v), class: v===0 ? "c-axis":"c-grid"}, svg);
+    tx(svg, padL - 8, y(v) + 3.5, (v>0?"+":"") + v.toFixed(0) + "%", "c-label", "end");
+  });
+
+  var gap = 2;
+  var barW = Math.min(26, (bandW - gap - 10) / 2);
+  rows.forEach(function(r, i){
+    var cx = padL + bandW * i + bandW / 2;
+    [[r.a, T.m1, -1], [r.b, T.m2, 1]].forEach(function(p){
+      var v = p[0], col = p[1], side = p[2];
+      var bx = cx + (side < 0 ? -gap/2 - barW : gap/2);
+      var y0 = y(0), y1 = y(v);
+      var top = Math.min(y0, y1), h = Math.max(2, Math.abs(y1 - y0));
+      var rad = Math.min(4, barW / 2, h / 2);
+      mk("path", {
+        d: v >= 0
+          ? "M"+bx+","+(top+h)+" v"+(-(h-rad))+" a"+rad+","+rad+" 0 0 1 "+rad+","+(-rad)+
+            " h"+(barW-2*rad)+" a"+rad+","+rad+" 0 0 1 "+rad+","+rad+" v"+(h-rad)+" z"
+          : "M"+bx+","+top+" v"+(h-rad)+" a"+rad+","+rad+" 0 0 0 "+rad+","+rad+
+            " h"+(barW-2*rad)+" a"+rad+","+rad+" 0 0 0 "+rad+","+(-rad)+" v"+(-(h-rad))+" z",
+        fill:col
+      }, svg);
+    });
+    tx(svg, cx, H - padB + 19, r.name.replace(/车间$/, ""), "c-label", "middle");
+  });
+
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var rect = mk("rect", {x:padL + bandW*i, y:padT, width:bandW, height:plotH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.name + "</span>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:'+T.m1+'"></i>产量同比</span><span>' + r.a.toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:'+T.m2+'"></i>单位产品能耗同比</span><span>' + r.b.toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span>能耗同比（推算）</span><span>' + (r.a + r.b).toFixed(2) + "%</span></div>");
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* ================= chart: 待机损耗 ================= */
+function drawStandby(host, W, T, narrow){
+  var rows = D.standby;
+  var nameW = narrow ? 92 : 108;
+  var padR = narrow ? 54 : 62;
+  var padT = 24, axisH = 26, rowH = narrow ? 32 : 36;
+  var H = padT + rows.length * rowH + axisH;
+  var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
+  var sc = ticks(Math.max.apply(null, rows.map(function(r){ return r.tce; })), 3);
+  var x = function(v){ return plotX + v / sc.top * plotW; };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
+                       "aria-label":"各间歇型车间停产日待机损耗"});
+  host.appendChild(svg);
+
+  sc.list.forEach(function(v){
+    if (v === 0) return;
+    mk("line", {x1:x(v), y1:padT-4, x2:x(v), y2:padT + rows.length*rowH, class:"c-grid"}, svg);
+  });
+  mk("line", {x1:plotX, y1:padT-4, x2:plotX, y2:padT + rows.length*rowH, class:"c-axis"}, svg);
+  sc.list.forEach(function(v){ tx(svg, x(v), padT - 10, num(v), "c-label", "middle"); });
+
+  var barH = 13;
+  rows.forEach(function(r, i){
+    var midY = padT + i * rowH + rowH / 2;
+    var y = midY - barH / 2;
+    var w = Math.max(2, x(r.tce) - plotX);
+    var rad = Math.min(4, w / 2);
+    tx(svg, 0, midY + 4, r.name, "c-name");
+    mk("path", {
+      d:"M"+plotX+","+y+" h"+(w-rad)+" a"+rad+","+rad+" 0 0 1 "+rad+","+rad+
+        " v"+(barH-2*rad)+" a"+rad+","+rad+" 0 0 1 "+(-rad)+","+rad+" h"+(-(w-rad))+" z",
+      fill:T.m1
+    }, svg);
+    tx(svg, plotX + w + 7, midY + 4, r.tce.toFixed(1) + " tce", "c-value");
+  });
+
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var rect = mk("rect", {x:0, y:padT + i*rowH, width:W, height:rowH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.name + "</span>" +
+        '<div class="tip-r"><span>停产天数</span><span>' + r.days + " 天</span></div>" +
+        '<div class="tip-r"><span>待机能耗</span><span>' + r.tce.toFixed(2) + " tce</span></div>" +
+        '<div class="tip-r"><span>占车间能耗</span><span>' + r.pct.toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span>折合浪费</span><span>¥' + num(r.waste, 0) + "</span></div>");
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* ---------------- 渲染调度 ---------------- */
+var CHARTS = {
+  mix: function(h,W,T,n){ drawMix(h,W,T,n); },
+  workshops: function(h,W,T,n){ drawWorkshops(h,W,T,n); },
+  monthly: function(h,W,T,n){
+    drawLine(h, W, T, {
+      rows: D.monthly.map(function(r){ return {k:r.ym, v:r.tce, raw:r}; }),
+      color:T.m1, label:"月度综合能耗", height:250,
+      endFmt: function(v){ return num(v, 0); },
+      tip: function(r){
+        return '<span class="tip-t">' + r.k + "</span>" +
+          '<div class="tip-r"><span><i class="tip-k" style="background:'+T.m1+'"></i>综合能耗</span><span>' + num(r.v,2) + " tce</span></div>" +
+          '<div class="tip-r"><span>能源费用</span><span>¥' + num(r.raw.cost,0) + "</span></div>" +
+          '<div class="tip-r"><span>碳排放</span><span>' + num(r.raw.co2,2) + " tCO₂</span></div>" +
+          '<div class="tip-r"><span>环比</span><span>' + (r.raw.mom === null || r.raw.mom === undefined ? "—" : r.raw.mom.toFixed(2) + "%") + "</span></div>";
+      }
+    });
+  },
+  carbon: function(h,W,T,n){
+    drawLine(h, W, T, {
+      rows: D.monthly.map(function(r){ return {k:r.ym, v:r.ci, raw:r}; }),
+      color:T.m3, label:"月度碳排放强度", height:250,
+      tickFmt: function(v){ return v.toFixed(1); },
+      endFmt: function(v){ return v.toFixed(2); },
+      tip: function(r){
+        return '<span class="tip-t">' + r.k + "</span>" +
+          '<div class="tip-r"><span><i class="tip-k" style="background:'+T.m3+'"></i>碳排强度</span><span>' + r.v.toFixed(4) + " tCO₂/tce</span></div>" +
+          '<div class="tip-r"><span>碳排放</span><span>' + num(r.raw.co2,2) + " tCO₂</span></div>" +
+          '<div class="tip-r"><span>综合能耗</span><span>' + num(r.raw.tce,2) + " tce</span></div>";
+      }
+    });
+  },
+  temp: function(h,W,T,n){ drawTemp(h,W,T,n); },
+  unittrend: function(h,W,T,n){ drawUnit(h,W,T,n); },
+  deco: function(h,W,T,n){ drawDeco(h,W,T,n); },
+  standby: function(h,W,T,n){ drawStandby(h,W,T,n); }
+};
+
+function renderAll(force){
+  // 所有调用方(启动、ResizeObserver、主题切换)都从这里过, 所以守卫放在这里:
+  // 没有数据时直接返回, 免得在模板上渲染出一片"图表渲染失败"。
+  if (!D || !D.totals) return;
+  var T = tokens();
+  var hosts = document.querySelectorAll("[data-chart]");
+  for (var i = 0; i < hosts.length; i++){
+    var host = hosts[i];
+    var W = Math.round(host.clientWidth);
+    if (!W) continue;
+    if (!force && host.dataset.done === "1" && host.dataset.w === String(W)) continue;
+    host.dataset.done = "1";
+    host.dataset.w = String(W);
+    host.innerHTML = "";
+    try { CHARTS[host.dataset.chart](host, W, T, W < 560); }
+    catch (e) { host.textContent = "图表渲染失败：" + e.message; }
+  }
+}
+
+/* ---------------- 表格视图 ---------------- */
+function buildTable(cols, rows){
+  var h = '<div class="table-wrap"><table><thead><tr>';
+  cols.forEach(function(c){ h += "<th>" + c + "</th>"; });
+  h += "</tr></thead><tbody>";
+  rows.forEach(function(r){
+    h += "<tr>";
+    r.forEach(function(c, i){ h += "<td" + (i===0 ? "" : ' class="num"') + ">" + c + "</td>"; });
+    h += "</tr>";
+  });
+  return h + "</tbody></table></div>";
+}
+
+var TABLES = {
+  mix: function(){
+    return buildTable(["能源","单位","实物消耗量","折标煤 tce","折标煤占比","费用 元","费用占比","碳排放 tCO₂"],
+      D.energy_mix.map(function(r){
+        return [r.name, r.unit, num(r.qty, 2), num(r.tce, 2), r.tce_pct.toFixed(2)+"%", num(r.cost, 2), r.cost_pct.toFixed(2)+"%", num(r.co2, 2)];
+      }));
+  },
+  workshops: function(){
+    return buildTable(["车间","工序","综合能耗 tce","占比","能源费用 元","费用占比","碳排放 tCO₂"],
+      D.workshops.map(function(r){
+        return [r.name, r.process, num(r.tce,2), r.tce_pct.toFixed(2)+"%", num(r.cost,2), r.cost_pct.toFixed(2)+"%", num(r.co2,2)];
+      }));
+  },
+  monthly: function(){
+    return buildTable(["年月","综合能耗 tce","能源费用 元","碳排放 tCO₂","环比"],
+      D.monthly.map(function(r){
+        return [r.ym, num(r.tce,2), num(r.cost,2), num(r.co2,2), (r.mom===null||r.mom===undefined) ? "—" : r.mom.toFixed(2)+"%"];
+      }));
+  },
+  carbon: function(){
+    return buildTable(["年月","碳排放 tCO₂","综合能耗 tce","碳排强度 tCO₂/tce"],
+      D.monthly.map(function(r){ return [r.ym, num(r.co2,2), num(r.tce,2), r.ci.toFixed(4)]; }));
+  },
+  temp: function(){
+    return buildTable(["气温区间","天数","区间均温 ℃","日均电耗 kWh","日均气耗 m³","日均蒸汽 t"],
+      D.temp_bins.map(function(b){
+        return [b.label, String(b.days), b.avg_t.toFixed(1), num(b.elec,0), num(b.gas,0), b.steam.toFixed(1)];
+      }));
+  },
+  unittrend: function(){
+    return buildTable(["车间","2024 单耗","2025 单耗","同比"],
+      D.unit_yoy.map(function(r){ return [r.name, r.y2024.toFixed(4), r.y2025.toFixed(4), r.pct.toFixed(2)+"%"]; }));
+  },
+  deco: function(){
+    return buildTable(["车间","产量同比","单耗同比","能耗同比（推算）"],
+      D.deco.map(function(r){
+        return [r.name, r.a.toFixed(2)+"%", r.b.toFixed(2)+"%", (r.a + r.b).toFixed(2)+"%"];
+      }));
+  },
+  standby: function(){
+    return buildTable(["车间","停产天数","待机能耗 tce","车间能耗 tce","待机占比","折合浪费 元"],
+      D.standby.map(function(r){
+        return [r.name, String(r.days), r.tce.toFixed(2), num(r.total,2), r.pct.toFixed(2)+"%", num(r.waste,2)];
+      }));
+  },
+  daytype: function(){
+    return buildTable(["日型","天数","日均能耗 tce","日均费用 元","日均碳排 tCO₂"],
+      D.daytype.map(function(r){ return [r.name, String(r.days), r.tce.toFixed(3), num(r.cost,2), r.co2.toFixed(3)]; }));
+  }
+};
+
+function initToggles(){
+  document.querySelectorAll("[data-toggle]").forEach(function(btn){
+    var key = btn.dataset.toggle;
+    var tv = document.querySelector('[data-table="' + key + '"]');
+    if (!tv) return;
+    btn.addEventListener("click", function(){
+      var open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      btn.textContent = open ? "表格视图" : "隐藏表格";
+      tv.hidden = open;
+      if (!open && !tv.dataset.built){
+        tv.innerHTML = TABLES[key]();
+        tv.dataset.built = "1";
+      }
+    });
+  });
+}
+
+/* ---------------- 静态内容 ---------------- */
+function initStatic(){
+  var f = document.querySelector('[data-fill="tce"]');
+  f.innerHTML = num(D.totals.tce, 2) + '<span class="hero-unit">tce</span>';
+  document.querySelector('[data-fill="tce_ex"]').textContent = num(D.totals.tce_ex, 2);
+
+  var kpis = [
+    {l:"能源费用合计", v:"¥" + (D.totals.cost/1e8).toFixed(3) + " 亿", u:"", n:"两年 731 天，日均 ¥" + num(D.totals.cost/731, 0)},
+    {l:"碳排放合计", v:num(D.totals.co2, 2), u:"tCO₂", n:"日均 " + (D.totals.co2/731).toFixed(1) + " tCO₂"},
+    {l:"日均综合能耗", v:(D.totals.tce/731).toFixed(2), u:"tce", n:"相当于日均 " + num(D.totals.tce/731*1000, 0) + " kgce"},
+    {l:"统计范围", v:"8 × 6", u:"车间 × 能源", n:"731 天 · 18,972 条能耗明细"}
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map(function(k){
+    return '<div class="kpi"><p class="kpi-label">' + k.l + '</p>' +
+           '<p class="kpi-value">' + k.v + '<span class="kpi-unit">' + k.u + '</span></p>' +
+           '<p class="kpi-note">' + k.n + '</p></div>';
+  }).join("");
+
+  document.getElementById("lg-mix").innerHTML =
+    '<span><i style="background:'+cssv("--mark-1")+'"></i>折标煤口径占比（能耗）</span>' +
+    '<span><i style="background:'+cssv("--mark-2")+'"></i>费用口径占比（成本）</span>';
+  document.getElementById("lg-deco").innerHTML =
+    '<span><i style="background:'+cssv("--mark-1")+'"></i>产量同比</span>' +
+    '<span><i style="background:'+cssv("--mark-2")+'"></i>单位产品能耗同比</span>';
+
+  // 日型
+  var base = D.daytype.filter(function(r){ return r.name === "工作日"; })[0];
+  document.getElementById("daytype").innerHTML = D.daytype.map(function(r){
+    var d = (r.tce - base.tce) / base.tce * 100;
+    return '<div class="dt-row">' +
+      '<div><div class="dt-name">' + r.name + '</div>' +
+      '<div class="dt-days">' + r.days + " 天 · 日均 ¥" + num(r.cost, 0) + "</div></div>" +
+      '<div class="dt-val">' + r.tce.toFixed(2) + '<u>tce</u></div>' +
+      '<div class="dt-delta">' + (r.name === "工作日" ? "基准" : d.toFixed(2) + "%") + "</div>" +
+      "</div>";
+  }).join("");
+
+  // 预警表
+  var rows = D.alerts.map(function(r){
+    return "<tr><td>" + r.ym + "</td><td>" + r.ws + "</td>" +
+           "<td>" + num(r.cur, 2) + "</td><td>" + num(r.prev, 2) + "</td>" +
+           '<td class="num-neg">' + r.mom.toFixed(2) + "%</td>" +
+           '<td><span class="pill hot"><i class="dot"></i>超阈值</span></td></tr>';
+  }).join("");
+  document.getElementById("alerts").innerHTML =
+    "<table><thead><tr><th>年月</th><th>车间</th><th>当月 tce</th><th>上月 tce</th><th>环比</th><th>状态</th></tr></thead><tbody>" +
+    rows + "</tbody></table>";
+}
+
+/* ---------------- 启动 ---------------- */
+(function boot(){
+  // 数据没注入(直接打开了模板)时给出明确提示, 而不是留一堆点不动的按钮
+  if (!D || !D.totals){
+    document.getElementById("nodata").hidden = false;
+    // 没有数据时这些按钮点了也不会有反应, 索性不显示, 免得看起来像坏了
+    document.querySelectorAll("[data-toggle]").forEach(function(b){ b.hidden = true; });
+    return;
+  }
+  // 先接按钮再渲染内容: 即使静态内容渲染出错, 表格视图仍然可用
+  initToggles();
+  try { initStatic(); } catch (e) { console.error("静态内容渲染失败:", e); }
+  renderAll(true);
+})();
+
+var raf = null;
+function schedule(){
+  if (raf) cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(function(){ renderAll(false); });
+}
+if (window.ResizeObserver){
+  var ro = new ResizeObserver(schedule);
+  ro.observe(document.body);
+} else {
+  window.addEventListener("resize", schedule);
+}
+window.addEventListener("resize", schedule);
+
+var mq = window.matchMedia("(prefers-color-scheme: dark)");
+if (mq.addEventListener) mq.addEventListener("change", function(){ renderAll(true); });
+else if (mq.addListener) mq.addListener(function(){ renderAll(true); });
+
+new MutationObserver(function(){ renderAll(true); })
+  .observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+
+document.addEventListener("click", function(e){
+  if (!e.target.closest(".chart")) {
+    document.querySelectorAll(".chart").forEach(hideTip);
+  }
+});
+})();
+</script>
+</body>
+</html>
