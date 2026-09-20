@@ -40,6 +40,11 @@ Q = {  # 查询名 -> output/ 下的文件名
     "carbon":      "Q21_碳排放强度.csv",
     "alerts":      "Q22_能耗突增预警_环比超25pct.csv",
     "unit_series": "Q24_单耗每日序列与2sigma带.csv",
+    "baseline":    "Q25_产量基线单耗期望值.csv",
+    "cmp":         "Q26_三种检测方法对比.csv",
+    "cusum":       "Q27_单耗CUSUM累积和序列.csv",
+    "daily_ws":    "Q28_各车间日度能耗与产量.csv",
+    "energy_daily": "Q29_各车间日度能耗结构.csv",
 }
 
 
@@ -253,6 +258,176 @@ def build() -> dict:
         g["cv"] = round(g["sd"] / g["mu"] * 100, 1) if g["mu"] else 0.0
     out["unit_series"] = series
 
+    # ---- Q25 产量基线: 按车间分组, 每日带上期望值/残差与两法判定 ----
+    # 与 Q24 同构(按车间分组), 但每条点多了 yhat(期望单耗) 与两法是否超限的标记,
+    # 供报告在同一张图上对比"固定阈值"与"产量基线"两条判据。
+    bgroups: dict = {}
+    for r in read(Q["baseline"]):
+        code = r["车间编码"]
+        g = bgroups.setdefault(code, {
+            "code": code,
+            "name": r["车间"],
+            "mu_r": f(r["残差均值"]),
+            "sd_r": f(r["残差标准差"]),
+            "points": [],
+        })
+        g["points"].append({
+            "d": r["日期"],
+            "ue": f(r["实际单耗_kgce"]),
+            "yhat": f(r["期望单耗_kgce"]),
+            "res": f(r["单耗残差_kgce"]),
+            "z": f(r["Z值"]),
+            "qty": f(r["产量"]),
+            "out": r["是否超限"] == "1",
+            "out_fixed": r["固定阈值是否超限"] == "1",
+        })
+    bseries = sorted(bgroups.values(), key=lambda g: g["code"])
+    for g in bseries:
+        g["n_out"] = len([p for p in g["points"] if p["out"]])
+        g["n_fixed"] = len([p for p in g["points"] if p["out_fixed"]])
+        g["n_both"] = len([p for p in g["points"] if p["out"] and p["out_fixed"]])
+    out["baseline"] = bseries
+
+    # ---- Q26 三法对比(逐车间一行) ----
+    out["cmp"] = [
+        {
+            "code": r["车间编码"],
+            "name": r["车间"],
+            "n_days": int(f(r["样本天数"])),
+            "n_fixed": int(f(r["固定阈值检出"])),
+            "n_base": int(f(r["产量基线检出"])),
+            "n_cusum": int(f(r["累计和报警天数"])),
+            "n_seg": int(f(r["累计和报警段数"])),
+            "cusum_hi": int(f(r["累计和上侧天数"])),
+            "cusum_lo": int(f(r["累计和下侧天数"])),
+            "n_both": int(f(r["两法一致"])),
+            "only_fixed": int(f(r["仅固定阈值"])),
+            "only_base": int(f(r["仅产量基线"])),
+            "fixed_reject_pct": f(r["固定阈值中基线不认_pct"]),
+            "fixed_holiday": int(f(r["固定_节假日"])),
+            "base_holiday": int(f(r["基线_节假日"])),
+            "cusum_holiday": int(f(r["累计和_节假日"])),
+            "fixed_holiday_pct": f(r["固定_节假日占比_pct"]),
+            "base_holiday_pct": f(r["基线_节假日占比_pct"]),
+            "cusum_holiday_pct": f(r["累计和_节假日占比_pct"]),
+            "sd_fixed": f(r["固定阈值σ"]),
+            "sd_res": f(r["残差σ"]),
+            "noise_ratio": f(r["噪声压低比"]),
+            "s_raw": f(r["未白化最大S"]),
+            "s_white": f(r["白化最大S"]),
+        }
+        for r in read(Q["cmp"])
+    ]
+
+    # ---- Q27 CUSUM 日序列: 按车间分组, 供报告画累积和控制图 ----
+    # 每条点带白化/未白化两套 S 轨迹 —— 图上并排画, 好直观看到季节伪影是怎么
+    # 被一路累积上去的(连续型车间尤其明显)。
+    cgroups: dict = {}
+    for r in read(Q["cusum"]):
+        code = r["车间编码"]
+        g = cgroups.setdefault(code, {
+            "code": code, "name": r["车间"], "h": f(r["判定限"]), "points": [],
+        })
+        g["points"].append({
+            "d": r["日期"],
+            "z": f(r["白化残差Z值"]),
+            "hi": f(r["上侧累积和"]),
+            "lo": f(r["下侧累积和"]),
+            "hi_raw": f(r["上侧累积和_未白化"]),
+            "lo_raw": f(r["下侧累积和_未白化"]),
+            "alarm": r["是否报警"] == "1",
+            "side": r["报警方向"],
+        })
+    cseries = sorted(cgroups.values(), key=lambda g: g["code"])
+    for g in cseries:
+        g["n_alarm"] = len([p for p in g["points"] if p["alarm"]])
+        g["n_hi"] = len([p for p in g["points"] if p["side"] == "偏高"])
+        g["n_lo"] = len([p for p in g["points"] if p["side"] == "偏低"])
+        # 报警段数 = 报警状态由 0 变 1 的次数。Q26 里 SQL 已按同样口径算过一份,
+        # 这里再算一遍是为了让 CUSUM 图和副标题能独立于 Q26 渲染 —— 两处口径一致。
+        seg = 0
+        for j, p in enumerate(g["points"]):
+            if p["alarm"] and not (g["points"][j - 1]["alarm"] if j else False):
+                seg += 1
+        g["n_seg"] = seg
+        g["max_hi"] = max((p["hi"] for p in g["points"]), default=0.0)
+        g["max_lo"] = max((p["lo"] for p in g["points"]), default=0.0)
+        g["max_raw"] = max((max(p["hi_raw"], p["lo_raw"]) for p in g["points"]), default=0.0)
+        g["side"] = "偏低" if g["n_lo"] > g["n_hi"] else ("偏高" if g["n_hi"] else "无")
+    out["cusum"] = cseries
+
+    # ---- Q28/Q29 前端动态筛选用的两套序列 ----
+    # #14 日期/车间筛选: 页面要在浏览器里按「日期区间 × 车间 × 日型」重算上面的图。
+    # 但页面拿不到 fact 表, 只有这些 CSV —— 所以这里先把"可加的量"摊平导出,
+    # 让前端能自己聚合。两条硬约束:
+    #   1. 综合能耗/费用/碳排放必须由**同一行**带出(不能各取一个全厂数再拼),
+    #      否则筛选后两个口径的比值会自相矛盾(实测全厂费用/能耗月际比值在
+    #      3214~3661 之间摆动 13%, 不是常数, 乘一个比例常数会算错)。
+    #   2. 按**全厂口径**导出, 即含动力站(W07 公用工程)。这一条是刻意的: 报告里
+    #      "能源结构"一节的正文本身就在讲"全厂口径把动力站二次计入了", 若筛选器
+    #      悄悄换成剔除口径, 一碰筛选 KPI 就会掉一块, 与正文自相矛盾。所以筛选
+    #      前后都是同一个口径 —— Q28 求和 = Q01/Q03/Q05/Q14, Q29 求和 = Q04,
+    #      逐个核对过(误差 < 0.01, 全部来自 SQL 里的显示位取整)。
+    #      "剔除公用工程"那个口径仍然只由 Q02 单独提供, 不在筛选器覆盖范围内。
+    # 两套都按 车间 × (日期|能源) 字典序排; 前端只按区间/集合做子集取值, 不重排。
+
+    # Q29 只给最细的 (日期 × 车间 × 能源) 一层, 车间名/工序/能源名/单位都不在 SQL
+    # 里 —— 这是**刻意的**: 19,006 行每行重复一遍名称会把内联 JSON 撑大一倍多,
+    # 而名称只有 8 种车间 × 6 种能源。所以这里从前面的结果里取出两张小字典,
+    # 让前端按编码查名字。字典的权威来源与 Q03/Q04 同源, 不另立一套。
+    ws_meta = {w["code"]: {"name": w["name"], "proc": w["process"]} for w in out["workshops"]}
+    # 能源编码 -> 名称/单位。别名表是"标准名"的唯一权威(见 clean_data.ENERGY_NAME),
+    # 不在这里另写一份字面量; 单位取清洗阶段定的标准单位。
+    from clean_data import CANONICAL_UNIT, ENERGY_NAME
+
+    out["energy_daily"] = [
+        {
+            "d": r["日期"],
+            "code": r["车间编码"],
+            "e": r["能源编码"],
+            "qty": f(r["实物消耗量"]),
+            "tce": f(r["折标煤_tce"]),
+            "cost": f(r["费用_元"]),
+            "co2": f(r["碳排放_tCO2"]),
+        }
+        for r in read(Q["energy_daily"])
+    ]
+    # 前端渲染图例/表头要用的两张查找表, 与立方体分开传, 避免逐行重复
+    out["ws_meta"] = ws_meta
+    out["en_meta"] = {
+        code: {"name": ENERGY_NAME.get(code, code), "unit": CANONICAL_UNIT.get(code, "")}
+        for code in sorted({r["e"] for r in out["energy_daily"]})
+    }
+
+    # (2) 车间 × 日: KPI 总量、日型对比、生产日/待机这些**不含能源维度**的口径走这一份。
+    # 为什么不从上面的立方体现算: 立方体是 (日×车间×能源) 三层, 按车间汇总要再
+    # 遍历 19,006 行; 而 Q28 已经是 5,848 行的一层汇总, 且**带日型与是否生产日**
+    # —— 那两个字段立方体里没有(能源没有"日型")。前端筛选一碰日型就必须有这一份。
+    # 口径同 Q28: 全厂(含公用工程), 所以全区间+全部车间时 sum(tce) == Q01/Q03。
+    out["ws_daily"] = [
+        {
+            "d": r["日期"],
+            "code": r["车间编码"],
+            "day": r["日型"],                       # 工作日 / 周末 / 节假日
+            "prod": r["是否生产日"] == "1",
+            "tce": f(r["综合能耗_tce"]),
+            "cost": f(r["能源费用_元"]),
+            "co2": f(r["碳排放_tCO2"]),
+            "qty": f(r["产量"]),
+            # 单耗为 0 时 SQL 会给 NULL(停产日), 用 opt 保留 null 而不是折成 0 ——
+            # 折成 0 会让"停产日单耗=0"混进均值, 把筛选后的单耗算低。
+            "ue": opt(r["单位产品能耗_kgce"]),
+        }
+        for r in read(Q["daily_ws"])
+    ]
+
+    # 前端筛选栏的区间锚点。取数据里的首末日, 而不是"报告生成日" ——
+    # 报告是离线快照, 用今天当锚点会筛出一个空集。
+    out["filter_meta"] = {
+        "min_date": min(r["d"] for r in out["ws_daily"]),
+        "max_date": max(r["d"] for r in out["ws_daily"]),
+    }
+
     # ---- 由数据推出的派生结论, 供页面文案直接引用 ----
     out["derived"] = {
         "utility_ratio": round(out["totals"]["tce_ex"] / out["totals"]["tce"] * 100, 1),
@@ -263,6 +438,57 @@ def build() -> dict:
         "us_pts": sum(len(g["points"]) for g in series),
         # 变异系数最高的车间 —— 小基数放大的典型案例, 文案里点名
         "us_cv_top": max(series, key=lambda g: g["cv"])["name"] if series else "",
+        # 产量基线法的效果指标, 全部从 Q25/Q26 算出, 不写死
+        "bl_fixed": sum(c["n_fixed"] for c in out["cmp"]),
+        "bl_base": sum(c["n_base"] for c in out["cmp"]),
+        "bl_both": sum(c["n_both"] for c in out["cmp"]),
+        # 基线法整体把残差噪声压到原始 σ 的百分之几(按车间平均)
+        "bl_noise_pct": round(
+            sum(c["noise_ratio"] for c in out["cmp"]) / len(out["cmp"]) * 100, 1
+        ) if out["cmp"] else 0.0,
+        # 固定阈值法检出中被基线法否掉的比例(按检出量加权)
+        "bl_reject_pct": round(
+            100.0 * sum(c["only_fixed"] for c in out["cmp"])
+            / max(1, sum(c["n_fixed"] for c in out["cmp"])), 1
+        ),
+        # 节假日占检出的比例, 两法各一个 —— 对比"误报结构"的关键论据
+        "bl_fixed_holiday_pct": round(
+            100.0 * sum(c["fixed_holiday"] for c in out["cmp"])
+            / max(1, sum(c["n_fixed"] for c in out["cmp"])), 1
+        ),
+        "bl_base_holiday_pct": round(
+            100.0 * sum(c["base_holiday"] for c in out["cmp"])
+            / max(1, sum(c["n_base"] for c in out["cmp"])), 1
+        ),
+        # CUSUM 把逐日散点压成持续段的效果 —— #11 的核心论据
+        "cs_days": sum(c["n_cusum"] for c in out["cmp"]),
+        "cs_segs": sum(c["n_seg"] for c in out["cmp"]),
+        "cs_per_seg": round(
+            sum(c["n_cusum"] for c in out["cmp"])
+            / max(1, sum(c["n_seg"] for c in out["cmp"])), 1
+        ),
+        # 同一份数据, 2σ 报 251 个散点, CUSUM 只报 11 段 —— 压缩倍数
+        "cs_compress": round(
+            sum(c["n_fixed"] for c in out["cmp"])
+            / max(1, sum(c["n_cusum"] for c in out["cmp"])), 1
+        ),
+        "cs_holiday_pct": round(
+            100.0 * sum(c["cusum_holiday"] for c in out["cmp"])
+            / max(1, sum(c["n_cusum"] for c in out["cmp"])), 1
+        ),
+        # 报警方向按车间分裂: 持续偏低 / 持续偏高 各是哪几个车间。
+        # 这个分裂本身就是结论 —— 连续型与间歇型车间的残差结构不同,
+        # 所以列出来给文案点名, 而不是只报一个总数。
+        "cs_lo_names": "、".join(c["name"] for c in out["cmp"] if c["cusum_lo"] > c["cusum_hi"]),
+        "cs_hi_names": "、".join(c["name"] for c in out["cmp"] if c["cusum_hi"] > c["cusum_lo"]),
+        "cs_n_lo": len([c for c in out["cmp"] if c["cusum_lo"] > c["cusum_hi"]]),
+        "cs_n_hi": len([c for c in out["cmp"] if c["cusum_hi"] > c["cusum_lo"]]),
+        # 白化把连续型车间的累积和峰值砍掉的比例(取三个降幅最大的平均)
+        "cs_white_cut_pct": round(
+            100.0 * sum(1 - c["s_white"] / c["s_raw"] for c in out["cmp"]
+                        if c["s_white"] < c["s_raw"] * 0.6)
+            / max(1, len([c for c in out["cmp"] if c["s_white"] < c["s_raw"] * 0.6])), 1
+        ),
     }
     return out
 
@@ -301,6 +527,16 @@ def main() -> None:
           f"{len(data['standby'])} 待机车间 / {len(data['alerts'])} 条预警")
     print(f"       单耗序列  {len(data['unit_series'])} 车间 / {d['us_pts']} 个日点 / "
           f"{d['us_total']} 个超限点 (变异系数最大: {d['us_cv_top']})")
+    print(f"       产量基线  固定阈值检出 {d['bl_fixed']} / 基线检出 {d['bl_base']} / "
+          f"两法一致 {d['bl_both']} (残差噪声压到 {d['bl_noise_pct']}%)")
+    print(f"       误报结构  固定阈值检出中节假日占 {d['bl_fixed_holiday_pct']}%, "
+          f"基线法占 {d['bl_base_holiday_pct']}%")
+    print(f"       CUSUM     报警 {d['cs_days']} 天 / {d['cs_segs']} 段 "
+          f"(平均 {d['cs_per_seg']} 天/段, 相对 2σ 的 {d['bl_fixed']} 个散点压缩 "
+          f"{d['cs_compress']} 倍)")
+    print(f"       报警方向  持续偏低 {d['cs_n_lo']} 个 ({d['cs_lo_names']}) / "
+          f"持续偏高 {d['cs_n_hi']} 个 ({d['cs_hi_names']}); "
+          f"白化把累积和峰值平均砍掉 {d['cs_white_cut_pct']}%")
 
 
 if __name__ == "__main__":

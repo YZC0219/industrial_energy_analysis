@@ -19,6 +19,8 @@ CREATE DATABASE IF NOT EXISTS industrial_energy
 
 USE industrial_energy;
 
+DROP VIEW  IF EXISTS v_unit_energy_cusum;
+DROP VIEW  IF EXISTS v_unit_energy_baseline;
 DROP VIEW  IF EXISTS v_monthly_workshop;
 DROP VIEW  IF EXISTS v_daily_workshop;
 DROP VIEW  IF EXISTS v_energy_enriched;
@@ -222,3 +224,188 @@ JOIN dim_workshop  w ON w.workshop_code = d.workshop_code
 LEFT JOIN fact_production p
        ON p.record_date = d.record_date AND p.workshop_code = d.workshop_code
 GROUP BY d.`year_month`, d.workshop_code, d.workshop_name, d.process_type, w.output_unit;
+
+
+-- =============================================================================
+-- 单耗基线模型 (供 Q25/Q26/Q27 共用)
+-- =============================================================================
+
+-- 产量基线模型 —— 每车间独立拟合 "期望单耗 = a + b/产量 + g·sin + h·cos",
+-- 并给出残差与其标准化值。抽成视图是因为 Q25/Q26/Q27 都要用同一套残差,
+-- 口径必须只有一处定义(与 Q16/Q24 同口径: 产量>0、剔除公用工程)。
+--
+-- 为什么用 1/产量 而不是 ln(产量): 单耗的生成机理是
+--     ue ∝ (待机底负荷 + (1-待机底负荷)·负荷) × 季节 × 趋势
+-- 而负荷正比于产量, 所以 ue = 待机底·k/产量 + (1-待机底)·k ——
+-- 它本来就是 1/产量 的**线性**函数, 是精确形式。上一版用 ln(产量) 只是近似:
+-- 连续型车间(熔炼/轧制/热处理)待机底负荷占比低、双曲线形态弱, 两种基函数拟合
+-- 几乎无差; 但间歇型车间待机底负荷占比高, 换用 1/产量 后残差 σ 下降 22%~39%
+-- (装配 1.657→1.012、机加工 0.196→0.140、表面处理 0.566→0.442)。
+--
+-- 为什么带季节项: 天然气采暖、蒸汽冬季高, 是独立于产量的第二部分结构,
+-- 不分离出来的话冬天的残差会整体偏正, 把冬季全报成异常。
+--
+-- 回归用正规方程 (X'X)β = X'y 闭合求解。因为 Σsin = Σcos = 0 且 Σ(sin·cos) = 0,
+-- b 与 (g,h) 解耦, 故 b 可独立解出、g/h 再由中心化的 2×2 解 —— 这不是近似,
+-- 是这两个基函数正交带来的精确简化。
+--
+-- 本视图给出**两套残差**, 用途不同, 不要混用:
+--   r / z_r  仅扣掉产量与季节。逐日判据(Q25 的控制图、Q26 的两法对比)用它,
+--            因为它回答的是"这天相对同产量同季节的日子是否异常"。
+--   w / z_w  在 r 之上再扣掉 (车间×月) 的季节轮廓。**只有累积型判据(Q27 的
+--            CUSUM)用它**。原因是逐日判据每天重新起算, 月度均值偏一点无所谓;
+--            而 CUSUM 会把"每年 2 月都偏高"这种规律性偏移一路累积成持续漂移,
+--            误判成设备劣化 —— 实测连续型车间(熔炼/轧制/热处理)的累积和峰值
+--            会虚高一倍以上(轧制 15.7→37.1), 即约六成是季节伪影。
+--
+--            但白化不是对所有车间都"降噪": 间歇型车间(机加工/表面处理/装配/
+--            包装)白化后 σ 也明显变小, 按各自 σ 标准化后累积和反而略升。原因是
+--            它们的持续性本来就来自节假日簇而非季节, 白化去掉的是方差不是信号。
+CREATE VIEW v_unit_energy_baseline AS
+WITH d AS (
+    SELECT
+        v.record_date, v.workshop_code, v.workshop_name,
+        v.tce, p.output_qty,
+        v.tce * 1000 / NULLIF(p.output_qty, 0) AS ue,
+        1.0 / p.output_qty                     AS x,
+        SIN(2 * PI() * DAYOFYEAR(v.record_date) / 365.0) AS s,
+        COS(2 * PI() * DAYOFYEAR(v.record_date) / 365.0) AS c
+    FROM v_daily_workshop v
+    JOIN fact_production p
+      ON p.record_date = v.record_date AND p.workshop_code = v.workshop_code
+    JOIN dim_workshop w ON w.workshop_code = v.workshop_code
+    WHERE p.output_qty > 0 AND w.process_type <> '公用工程'
+),
+mom AS (
+    SELECT workshop_code, COUNT(*) AS n,
+           SUM(x) AS sx, SUM(x*x) AS sxx, SUM(ue) AS sy, SUM(x*ue) AS sxy,
+           SUM(s) AS ss, SUM(c) AS sc,
+           SUM(s*s) AS sss, SUM(c*c) AS scc, SUM(s*c) AS ssc,
+           SUM(s*ue) AS ssy, SUM(c*ue) AS scy
+    FROM d GROUP BY workshop_code
+),
+bh AS (
+    SELECT workshop_code, n, sx, sxx, sy, ss, sc, ssy, scy,
+        CASE WHEN n*sxx - sx*sx > 0 THEN (n*sxy - sx*sy) / (n*sxx - sx*sx) END AS b,
+        CASE WHEN (n*sss-ss*ss)*(n*scc-sc*sc) - POW(n*ssc-ss*sc,2) > 0
+             THEN ((n*ssy-ss*sy)*(n*scc-sc*sc) - (n*scy-sc*sy)*(n*ssc-ss*sc))
+                  / ((n*sss-ss*ss)*(n*scc-sc*sc) - POW(n*ssc-ss*sc,2)) END AS g,
+        CASE WHEN (n*sss-ss*ss)*(n*scc-sc*sc) - POW(n*ssc-ss*sc,2) > 0
+             THEN ((n*scy-sc*sy)*(n*sss-ss*ss) - (n*ssy-ss*sy)*(n*ssc-ss*sc))
+                  / ((n*sss-ss*ss)*(n*scc-sc*sc) - POW(n*ssc-ss*sc,2)) END AS h
+    FROM mom
+),
+coef AS (
+    -- a 由 b/g/h 回代得到: a = ȳ − b·x̄ − g·s̄ − h·c̄
+    SELECT workshop_code, b, g, h,
+           sy/n - b*(sx/n) - g*(ss/n) - h*(sc/n) AS a
+    FROM bh
+),
+pred AS (
+    SELECT d.*, k.a + k.b*d.x + k.g*d.s + k.h*d.c AS yhat
+    FROM d JOIN coef k ON k.workshop_code = d.workshop_code
+),
+resid AS (
+    SELECT record_date, workshop_code, workshop_name, output_qty, ue, yhat,
+           ue - yhat AS r
+    FROM pred
+),
+-- 季节轮廓: 按(车间 × 自然月)在这两年数据上合并估计的残差均值。
+-- 用自然月而不是 "年+月": 两年的同一个月本来就应该有同一个季节水平, 分开估会把
+-- 样本量砍半而估计更噪; 年际差异属于趋势, 由第 3 步的 CUSUM 去抓。
+prof AS (
+    SELECT workshop_code, MONTH(record_date) AS mth, AVG(r) AS mr
+    FROM resid GROUP BY workshop_code, MONTH(record_date)
+),
+white AS (
+    SELECT e.*, e.r - pf.mr AS w
+    FROM resid e
+    JOIN prof pf ON pf.workshop_code = e.workshop_code
+                AND pf.mth = MONTH(e.record_date)
+),
+stat AS (
+    SELECT workshop_code,
+           AVG(r)  AS mu_r,
+           -- sd = sqrt((Σr² − (Σr)²/n) / (n−1)), 纯 SUM 聚合, 无逐行子查询
+           SQRT(GREATEST(SUM(r*r)  - POW(SUM(r),  2)/COUNT(*), 0) / (COUNT(*)-1)) AS sd_r,
+           AVG(w)  AS mu_w,
+           SQRT(GREATEST(SUM(w*w)  - POW(SUM(w),  2)/COUNT(*), 0) / (COUNT(*)-1)) AS sd_w,
+           AVG(ue) AS mu_u,
+           SQRT(GREATEST(SUM(ue*ue)- POW(SUM(ue), 2)/COUNT(*), 0) / (COUNT(*)-1)) AS sd_u
+    FROM white GROUP BY workshop_code
+)
+SELECT
+    e.record_date, e.workshop_code, e.workshop_name,
+    e.output_qty, e.ue, e.yhat, e.r,
+    st.mu_r, st.sd_r,
+    (e.r  - st.mu_r) / NULLIF(st.sd_r, 0) AS z_r,   -- 残差标准化(逐日判据用)
+    e.w, st.mu_w, st.sd_w,
+    (e.w  - st.mu_w) / NULLIF(st.sd_w, 0) AS z_w,   -- 白化残差标准化(CUSUM 用)
+    st.mu_u, st.sd_u,
+    (e.ue - st.mu_u) / NULLIF(st.sd_u, 0) AS z_u    -- 原始单耗标准化(供固定阈值法对比)
+FROM white e
+JOIN stat st ON st.workshop_code = e.workshop_code;
+
+
+-- CUSUM(累积和)控制图 —— 跑在 v_unit_energy_baseline 的**白化**残差 z_w 上。
+--
+-- 为什么需要它: 2σ 与产量基线都是**逐日截面**判据, 它们比较"今天 vs 平时",
+-- 一天一天看。若单耗持续偏低, 每一天相对它自己的邻域都可能"正常", 两种方法都
+-- 检不出来; 只有把偏差**累积**起来才能发现"持续偏移"这件事。这正是 CUSUM 的
+-- 用途: 抓持续性, 与抓单点跳变的 2σ/基线法互补。
+--
+-- 递推式:  S⁺ₜ = max(0, S⁺ₜ₋₁ + zₜ − k)      S⁻ₜ = max(0, S⁻ₜ₋₁ − zₜ − k)
+-- 展开后有一个闭合解:  S⁺ₜ = Cₜ − min_{0≤j≤t} Cⱼ,  其中 Cₜ = Σ(zᵢ − k)
+-- 所以不必写递归 CTE(5117 行会撞 cte_max_recursion_depth), 两个窗口函数即可:
+-- 一个前缀和 + 一个前缀最小值。min 要带上 C₀ = 0, 故取 LEAST(0, …)。
+--
+-- 参数 k = 0.5(松弛量, 对 1σ 量级的持续偏移最敏感)。
+--
+-- 决策限 h 取 **9.9σ 而不是教科书的 5σ**, 这一点必须说清楚:
+--   h=5 对应 ARL₀ ≈ 300 天, 那是为"在线连续监控、每天判一次"标定的。本项目是
+--   对 730 天历史做**一次性回顾**检验, 同一个门槛下误报率完全不同。5000 次零假设
+--   模拟(纯白噪声, k=0.5, 统计量取 max(S⁺,S⁻))给出:
+--       n=365  中位 5.06  99分位  8.76   h=5 误报率 52.3%
+--       n=730  中位 5.75  99分位  9.90   h=5 误报率 77.4%   <- 本项目
+--       n=1461 中位 6.45  99分位 10.40   h=5 误报率 95.6%
+--   即 n=730 时用 h=5, 77% 的车间会至少报一次警, 全是噪声。故按 99 分位取 9.9。
+--
+-- 视图同时给出未白化(z_r)的 S 轨迹作对照, 供 Q26 量化"naive CUSUM 里有多少是
+-- 季节伪影"。正式判定只用白化后的 s_hi / s_lo。
+CREATE VIEW v_unit_energy_cusum AS
+WITH z AS (
+    SELECT record_date, workshop_code, workshop_name, z_r, z_w,
+           z_r - 0.5 AS cr_hi,  -z_r - 0.5 AS cr_lo,   -- 未白化(对照)
+           z_w - 0.5 AS cw_hi,  -z_w - 0.5 AS cw_lo    -- 白化后(正式)
+    FROM v_unit_energy_baseline
+),
+cum AS (
+    SELECT record_date, workshop_code, workshop_name, z_r, z_w,
+           SUM(cr_hi) OVER w AS Cr_hi, SUM(cr_lo) OVER w AS Cr_lo,
+           SUM(cw_hi) OVER w AS Cw_hi, SUM(cw_lo) OVER w AS Cw_lo
+    FROM z
+    WINDOW w AS (PARTITION BY workshop_code ORDER BY record_date
+                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+),
+s AS (
+    SELECT record_date, workshop_code, workshop_name, z_r, z_w,
+           Cr_hi - LEAST(0.0, MIN(Cr_hi) OVER w) AS s_hi_raw,
+           Cr_lo - LEAST(0.0, MIN(Cr_lo) OVER w) AS s_lo_raw,
+           Cw_hi - LEAST(0.0, MIN(Cw_hi) OVER w) AS s_hi,   -- 上侧累积和 S⁺ₜ
+           Cw_lo - LEAST(0.0, MIN(Cw_lo) OVER w) AS s_lo    -- 下侧累积和 S⁻ₜ
+    FROM cum
+    WINDOW w AS (PARTITION BY workshop_code ORDER BY record_date
+                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+)
+-- 决策限只在 lim 里写一次, 再随结果列带出去: 报告要画这条线, 画的时候必须跟
+-- SQL 的判定同源, 不能在前端另抄一个常数(抄了就会有一天改了一处忘了另一处)。
+, lim AS (SELECT 9.9 AS h)
+SELECT
+    s.record_date, s.workshop_code, s.workshop_name, s.z_r, s.z_w,
+    ROUND(s.s_hi_raw, 4) AS s_hi_raw, ROUND(s.s_lo_raw, 4) AS s_lo_raw,
+    ROUND(s.s_hi,     4) AS s_hi,     ROUND(s.s_lo,     4) AS s_lo,
+    l.h AS h,
+    CASE WHEN GREATEST(s.s_hi, s.s_lo) > l.h THEN 1 ELSE 0 END AS is_alarm,
+    CASE WHEN s.s_hi > l.h THEN '偏高'
+         WHEN s.s_lo > l.h THEN '偏低' END                      AS alarm_side
+FROM s CROSS JOIN lim l;

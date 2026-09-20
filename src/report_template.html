@@ -10,39 +10,49 @@
 <style>
 :root{
   color-scheme: light;
-  --page:#f4f5f7;
-  --surface:#fdfeff;
-  --surface-2:#eceef1;
-  --ink:#0b0c0e;
-  --ink-2:#4e5157;
-  --muted:#868a91;
-  --grid:#e3e6ea;
-  --axis:#c2c7cd;
-  --ring:rgba(11,12,14,.10);
+  /* 外壳 = 冷钢色系(科技冷淡 + 金属感)。数据系列色(--mark-*)不动, 见下方注释。 */
+  --page:#eceef1;
+  --surface:#f7f9fb;
+  --surface-2:#e4e8ed;
+  --ink:#0d1116;
+  --ink-2:#464e58;
+  --muted:#78828d;
+  --grid:#dde2e8;
+  --axis:#b9c0c8;
+  --ring:rgba(13,17,22,.11);
+  --accent:#1f6feb;
+  --accent-wash:rgba(31,111,235,.09);
+  /* 金属感靠"冷灰阶 + 1px 冷色描边 + 极轻内阴影"表达, 不用渐变 ——
+     渐变在暗色下会发脏, 也不利于打印。 */
+  --bevel:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(13,17,22,.05);
   --mark-1:#2a78d6;
   --mark-2:#eb6834;
   --mark-3:#1baf7a;
-  --mark-dim:#c8cdd4;
+  --mark-dim:#c3cad2;
   --good:#0ca30c;
   --critical:#d03b3b;
-  --shadow:0 1px 2px rgba(11,12,14,.05);
+  --shadow:0 1px 2px rgba(13,17,22,.05);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     color-scheme: dark;
-    --page:#0c0d0f; --surface:#191b1e; --surface-2:#22252a;
-    --ink:#ffffff; --ink-2:#c2c6cc; --muted:#8b9099;
-    --grid:#2b2f34; --axis:#3b4046; --ring:rgba(255,255,255,.12);
-    --mark-1:#3987e5; --mark-2:#d95926; --mark-3:#199e70; --mark-dim:#454b53;
+    --page:#0a0c0f; --surface:#14181d; --surface-2:#1e242b;
+    --ink:#f0f4f8; --ink-2:#aab4bf; --muted:#7c8794;
+    --grid:#232a32; --axis:#333c46; --ring:rgba(255,255,255,.12);
+    --accent:#4d9bff; --accent-wash:rgba(77,155,255,.14);
+    --bevel:inset 0 1px 0 rgba(255,255,255,.06);
+    --mark-1:#3987e5; --mark-2:#d95926; --mark-3:#199e70; --mark-dim:#3c444e;
     --shadow:0 1px 2px rgba(0,0,0,.4);
   }
 }
 :root[data-theme="dark"]{
   color-scheme: dark;
-  --page:#0c0d0f; --surface:#191b1e; --surface-2:#22252a;
-  --ink:#ffffff; --ink-2:#c2c6cc; --muted:#8b9099;
-  --grid:#2b2f34; --axis:#3b4046; --ring:rgba(255,255,255,.12);
-  --mark-1:#3987e5; --mark-2:#d95926; --mark-3:#199e70; --mark-dim:#454b53;
+  --page:#0a0c0f; --surface:#14181d; --surface-2:#1e242b;
+  --ink:#f0f4f8; --ink-2:#aab4bf; --muted:#7c8794;
+  --grid:#232a32; --axis:#333c46; --ring:rgba(255,255,255,.12);
+  --accent:#4d9bff; --accent-wash:rgba(77,155,255,.14);
+  --bevel:inset 0 1px 0 rgba(255,255,255,.06);
+  --mark-1:#3987e5; --mark-2:#d95926; --mark-3:#199e70; --mark-dim:#3c444e;
   --shadow:0 1px 2px rgba(0,0,0,.4);
 }
 
@@ -76,6 +86,112 @@ h1{margin:0;font-size:clamp(28px,4.4vw,40px);font-weight:600;letter-spacing:-.02
 .lede code{font-family:inherit;font-size:.92em;background:var(--surface-2);padding:1px 6px;border-radius:4px;color:var(--ink)}
 .facts{display:flex;flex-wrap:wrap;gap:8px 28px;margin:2px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--muted)}
 .facts b{color:var(--ink-2);font-weight:500}
+
+/* ---------- 筛选栏 (常驻顶栏) ----------
+   interaction.md 的规范: 一行、左对齐、位于受控内容上方, 且绝不放进图表卡片里。
+   放在 .page 之外, 是为了避开 renderAll() 里对 [data-chart] 的 host.innerHTML="" ——
+   筛选控件一旦落在那种宿主里就会被重绘擦掉。 */
+.filterbar{
+  position:sticky; top:0; z-index:20;
+  background:color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter:saturate(150%) blur(10px);
+  -webkit-backdrop-filter:saturate(150%) blur(10px);
+  border-bottom:1px solid var(--ring);
+  box-shadow:var(--bevel);
+}
+/* 不支持 color-mix 的浏览器退化为不透明底色 —— 半透明失败会露出下面的图表, 很花 */
+@supports not (background: color-mix(in srgb, red 50%, blue)){
+  .filterbar{background:var(--surface)}
+}
+.fbar-in{
+  max-width:1160px;margin:0 auto;padding:9px 24px;
+  /* 行间只留 6px 竖向间隙: 日期那组带两个日期输入, 一旦换行整条就窜高,
+     顶栏越高越吃首屏, 而它是常驻的 —— 所以竖向要收紧。 */
+  display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;
+}
+@media (max-width:640px){ .fbar-in{padding:8px 16px;gap:6px 10px} }
+.fgroup{display:flex;align-items:center;gap:7px;min-width:0;height:26px}
+/* 组内首行要对齐: 日期组换行后是两行, 不给 wrap 的话窄屏会把两个日期框顶出去 */
+.fgroup-body{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
+.fgroup>.flabel{
+  font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);white-space:nowrap;
+}
+/* 分段按钮组: 选中用 accent 描边 + 冷色底, 未选中是素面金属 */
+.fseg{display:flex;gap:2px;padding:2px;border-radius:7px;background:var(--surface-2);box-shadow:var(--bevel)}
+.fseg button{
+  appearance:none;border:1px solid transparent;background:transparent;
+  font:inherit;font-size:12px;color:var(--ink-2);
+  padding:3px 9px;border-radius:5px;cursor:pointer;white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.fseg button:hover{background:var(--accent-wash);color:var(--ink)}
+.fseg button[aria-pressed="true"]{
+  background:var(--surface);color:var(--ink);font-weight:600;
+  border-color:var(--accent);box-shadow:0 1px 2px rgba(13,17,22,.10);
+}
+/* 多选芯片: 原生 checkbox 视觉隐藏但保留键盘与读屏 */
+.fchips{display:flex;gap:5px;flex-wrap:wrap}
+.fchip{position:relative;display:inline-flex}
+.fchip input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.fchip span{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:12px;color:var(--ink-2);
+  padding:3px 9px;border-radius:999px;
+  background:var(--surface-2);border:1px solid transparent;box-shadow:var(--bevel);
+  cursor:pointer;white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.fchip:hover span{background:var(--accent-wash);color:var(--ink)}
+.fchip input:checked+span{
+  background:var(--accent-wash);border-color:var(--accent);
+  color:var(--ink);font-weight:600;
+}
+.fchip input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.fchip i{width:6px;height:6px;border-radius:2px;flex:none;background:currentColor;opacity:.5}
+.fchip input:checked+span i{opacity:1;background:var(--accent)}
+.fdate{
+  appearance:none;font:inherit;font-size:12px;color:var(--ink);
+  background:var(--surface-2);border:1px solid transparent;box-shadow:var(--bevel);
+  border-radius:7px;padding:3px 8px;
+  /* 日期控件有浏览器给的固有宽度, 不给 min-width:0 就压不下去, 窄屏会顶破筛选栏 */
+  min-width:0;width:126px;flex:0 1 126px;
+}
+.fdate:focus{border-color:var(--accent);outline:none}
+.fdate::-webkit-calendar-picker-indicator{opacity:.55;cursor:pointer}
+/* 窄屏: 日期那一组整体换行, 两个框各占一半, 而不是一起被挤出去 */
+@media (max-width:640px){
+  #f-range{flex-wrap:wrap}
+  .fdate{flex:1 1 108px;width:auto}
+}
+.fspacer{flex:1 1 auto;min-width:8px}
+.freset{
+  appearance:none;font:inherit;font-size:12px;color:var(--ink-2);
+  background:transparent;border:1px solid var(--ring);border-radius:7px;
+  padding:3px 10px;cursor:pointer;
+}
+.freset:hover{background:var(--accent-wash);color:var(--ink);border-color:var(--accent)}
+/* 口径提示: 常驻, 随筛选状态变。正文数字是手写死的、不跟随筛选,
+   这一行就是交代清这件事的地方, 不能省。 */
+.fscope{
+  flex-basis:100%;font-size:11.5px;color:var(--muted);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+}
+.fscope b{color:var(--ink-2);font-weight:600}
+.fscope .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);flex:none}
+.fscope[data-active="0"] .dot{background:var(--muted)}
+
+/* 不随筛选变化的卡片(μ/σ 是按全期标定的): 降不透明度 + 挂角标,
+   而不是让它悄悄算错。 */
+.card-scope{position:relative}
+.card-scope[data-scoped="1"]{opacity:.55}
+.card-scope[data-scoped="1"]::after{
+  content:attr(data-scope-note);
+  position:absolute;top:10px;right:12px;
+  font-size:10.5px;letter-spacing:.02em;color:var(--muted);
+  background:var(--surface-2);border:1px solid var(--ring);
+  border-radius:999px;padding:2px 9px;
+}
 
 /* ---------- hero + kpis ---------- */
 .overview{display:flex;flex-direction:column;gap:22px}
@@ -230,6 +346,30 @@ td:first-child{color:var(--ink)}
 </style>
 </head>
 <body>
+<!-- 筛选栏: 常驻顶栏, 作用到 KPI/图表/表格。放在 .page 之外避开图表宿主的重绘。 -->
+<div class="filterbar" id="filterbar" hidden>
+  <div class="fbar-in">
+    <div class="fgroup">
+      <span class="flabel">日期</span>
+      <div class="fgroup-body">
+        <div class="fseg" id="f-range" role="group" aria-label="日期区间"></div>
+        <input class="fdate" type="date" id="f-from" aria-label="起始日期">
+        <input class="fdate" type="date" id="f-to" aria-label="结束日期">
+      </div>
+    </div>
+    <div class="fgroup">
+      <span class="flabel">车间</span>
+      <div class="fchips" id="f-ws"></div>
+    </div>
+    <div class="fgroup">
+      <span class="flabel">日型</span>
+      <div class="fseg" id="f-day" role="group" aria-label="日型"></div>
+    </div>
+    <span class="fspacer"></span>
+    <button class="freset" type="button" id="f-reset">重置</button>
+    <p class="fscope" id="f-scope" data-active="0" role="status" aria-live="polite"></p>
+  </div>
+</div>
 <div class="page">
 
   <div class="note warn" id="nodata" hidden>
@@ -251,12 +391,12 @@ td:first-child{color:var(--ink)}
 
   <section class="sec overview">
     <div class="hero">
-      <p class="hero-label">两年综合能耗</p>
+      <p class="hero-label" id="hero-label">两年综合能耗</p>
       <p class="hero-value" data-fill="tce">—<span class="hero-unit">tce</span></p>
-      <p class="hero-note">折标煤当量值，含公用工程口径</p>
+      <p class="hero-note" id="hero-note">折标煤当量值，含公用工程口径</p>
     </div>
     <div class="kpis" id="kpis"></div>
-    <div class="note">
+    <div class="note" id="tce-ex-wrap">
       <span class="mark"></span>
       <div><b>口径提示：</b>动力站（W07）产出蒸汽供其他车间二次消费，计入全厂会重复计算一次。剔除公用工程后的真实用能口径为 <b data-fill="tce_ex">—</b> tce，相当于全厂口径的 72.7%——下面凡涉及单耗的分析一律用剔除口径。</div>
     </div>
@@ -272,7 +412,7 @@ td:first-child{color:var(--ink)}
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
           <h3>能源品种：折标煤口径与费用口径对比</h3>
-          <p class="card-sub">每种能源在各自口径下的占比。天然气折标煤占 <b>64.08%</b> 而费用只占 <b>49.22%</b>；电力恰好相反，折标煤 <b>24.20%</b>、费用 <b>39.63%</b>。</p>
+          <p class="card-sub">每种能源在各自口径下的占比。天然气折标煤占 <b>64.09%</b> 而费用只占 <b>49.24%</b>；电力恰好相反，折标煤 <b>24.18%</b>、费用 <b>39.61%</b>。</p>
         </figcaption>
         <div class="legend" id="lg-mix"></div>
         <div class="chart" data-chart="mix"></div>
@@ -301,7 +441,7 @@ td:first-child{color:var(--ink)}
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
           <h3>月度综合能耗</h3>
-          <p class="card-sub">峰值 2025-12 <b>3,486.05 tce</b>，谷值 2024-06 <b>2,156.94 tce</b>。</p>
+          <p class="card-sub">峰值 2025-12 <b>3,489.12 tce</b>，谷值 2024-06 <b>2,159.25 tce</b>。</p>
         </figcaption>
         <div class="chart" data-chart="monthly"></div>
         <div class="card-foot"><button class="toggle" data-toggle="monthly" aria-expanded="false">表格视图</button></div>
@@ -378,7 +518,7 @@ td:first-child{color:var(--ink)}
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
           <h3>停产日待机损耗</h3>
-          <p class="card-sub">四个间歇型车间，全年各停产 58 天。合计待机能耗 <b>173.18 tce</b>，折合能源费用 <b>¥79.2 万</b>。</p>
+          <p class="card-sub">四个间歇型车间，全年各停产 58 天。合计待机能耗 <b>173.27 tce</b>，折合能源费用 <b>¥79.4 万</b>。</p>
         </figcaption>
         <div class="chart" data-chart="standby"></div>
         <div class="card-foot"><button class="toggle" data-toggle="standby" aria-expanded="false">表格视图</button></div>
@@ -403,7 +543,7 @@ td:first-child{color:var(--ink)}
     <div class="sec-head">
       <p class="eyebrow">风险</p>
       <h2>5 个月度环比突增，全部落在年末与盛夏</h2>
-      <p class="sec-sub">以"月度环比超过 25%"为阈值筛出 5 条，其中 4 条落在 11 月。这个月份本身就有系统性抬升——全厂 11 月环比 2024 年为 <b>+17.68%</b>、2025 年为 <b>+17.49%</b>，采暖季启动把所有人都推高了。真正值得单独看的是<b>表面处理车间</b>：两次上榜、增幅最大（26.02% 与 29.44%）。包装与机加工则是基数小，同样的绝对增量会被放大成更高的百分比，要结合绝对量一起判断。</p>
+      <p class="sec-sub">以"月度环比超过 25%"为阈值筛出 5 条，其中 4 条落在 11 月。这个月份本身就有系统性抬升——全厂 11 月环比 2024 年为 <b>+17.10%</b>、2025 年为 <b>+17.49%</b>，采暖季启动把所有人都推高了。真正值得单独看的是<b>表面处理车间</b>：两次上榜、增幅最大（27.88% 与 29.44%）。包装与机加工则是基数小，同样的绝对增量会被放大成更高的百分比，要结合绝对量一起判断。</p>
     </div>
     <figure class="card" style="margin:0">
       <figcaption class="card-head">
@@ -420,7 +560,7 @@ td:first-child{color:var(--ink)}
       <h2>2σ 控制图：每日单耗偏离自身基线多少</h2>
       <p class="sec-sub">逐日算单位产品能耗，与<b>该车间自己</b>的均值 μ 和标准差 σ 比：落入 μ±2σ 之内视为正常波动，超出上界即为异常日。注意这是<b>单变量、无监督</b>的判法——它只知道"比平时高"，不知道"为什么高"；产量、气温、检修计划都不在模型里，这正是后面要补产量基线与 CUSUM 的原因。切换车间可看各自的带与检出量。</p>
     </div>
-    <figure class="card" style="margin:0">
+    <figure class="card card-scope" data-scope-note="全区间口径 · 不随筛选变化" style="margin:0">
       <figcaption class="card-head">
         <h3>单位产品能耗 · 均值 ±2σ 控制带</h3>
         <p class="card-sub">蓝线为每日单耗，虚线为车间均值 μ，红色虚线为上界 μ+2σ，红色圆点为超限日。纵轴不以 0 为基准——单耗离 0 很远，从 0 起画会把整条控制带压成一条线。</p>
@@ -445,16 +585,93 @@ td:first-child{color:var(--ink)}
 
   <section class="sec">
     <div class="sec-head">
+      <p class="eyebrow">基线</p>
+      <h2>产量基线：同样产量下，这天该烧多少</h2>
+      <p class="sec-sub">上一节的判据是「比自己的平均值高 2σ」，它有个盲区：产量高的时候多烧一点本来是正常的，却会被记成异常。这一节换成<b>有监督的期望值模型</b>——按每个车间自己 731 天的数据拟合 <code>期望单耗 = a + b/产量 + 季节项</code>，再把<b>实际单耗与期望单耗之差（残差）</b>拿去判异常。模型吸收了产量与季节两部分结构后，残差里剩下的才是真波动；最后再用<b>累积和（CUSUM）</b>换一个角度问：这些偏离是孤立的尖峰，还是一整段没停过的持续偏移。</p>
+    </div>
+
+    <figure class="card card-scope" data-scope-note="全区间口径 · 不随筛选变化" style="margin:0">
+      <figcaption class="card-head">
+        <h3>单耗残差 · 偏离产量基线多少</h3>
+        <p class="card-sub">灰线为每日残差（实际单耗 − 期望单耗），虚线为残差均值，红色虚线为上界 μ<sub>残</sub>+2σ<sub>残</sub>。阴影带就是模型没解释掉的那部分噪声——它比上一节的 μ±2σ 带<b>窄得多</b>，因为产量与季节的贡献已经被拿掉了。少数几天的残差会远低于主体（能耗贴到待机底而产量非零），纵轴因此收窄到 σ 带附近，越界的点夹在上下边缘画成<b>三角</b>并标注天数，不静默丢弃。</p>
+      </figcaption>
+      <div class="seg" id="base-seg"></div>
+      <div class="chart" data-chart="baseline"></div>
+      <div class="card-foot">
+        <span class="card-sub" id="base-cap"></span>
+        <button class="toggle" data-toggle="baseline" aria-expanded="false">表格视图（仅超限点）</button>
+      </div>
+      <div class="table-view" data-table="baseline" hidden></div>
+    </figure>
+
+    <figure class="card" style="margin:14px 0 0">
+      <figcaption class="card-head">
+        <h3>三种判据的对比</h3>
+        <p class="card-sub">同一批数据（每车间 731 天、同口径），固定阈值法 / 产量基线法 / CUSUM 累积和法各自的检出一览。<b>节假日占比</b>与<b>报警段数</b>是最能说明问题的两列。</p>
+      </figcaption>
+      <div class="table-wrap" id="cmp-table"></div>
+    </figure>
+
+    <figure class="card card-scope" data-scope-note="全区间口径 · 不随筛选变化" style="margin:14px 0 0">
+      <figcaption class="card-head">
+        <h3>累积和控制图 · 偏离是尖峰还是持续</h3>
+        <p class="card-sub">CUSUM 不看某一天偏离多少，而是把每天的偏差<b>累加</b>起来：只要持续偏高就一路往上爬，一旦回归正常就回落。所以它天然区分两种东西——孤立尖峰会把曲线顶起来又立刻落回，持续偏移则会让曲线<b>贴着上界走很久</b>。判定线取 <b>h = 9.9σ</b>，这个值是按本项目 731 天的样本量重新标定的，不是教科书的 5σ（原因见下）。灰线是<b>未做季节白化</b>的同一条轨迹，并排画出来是为了看到季节伪影是怎么被一路累积上去的。<b>读图时要注意段长不能直读</b>：S 每天只回落 k=0.5σ，一次 +19.6σ 的极端日要近四十天才消化回线下，所以"报警 19 天"未必等于"异常持续了 19 天"——下面逐段做了归因。</p>
+      </figcaption>
+      <div class="seg" id="cusum-seg"></div>
+      <div class="chart" data-chart="cusum"></div>
+      <div class="card-foot">
+        <span class="card-sub" id="cusum-cap"></span>
+        <button class="toggle" data-toggle="cusum" aria-expanded="false">表格视图（仅报警日）</button>
+      </div>
+      <div class="table-view" data-table="cusum" hidden></div>
+    </figure>
+
+    <div class="stack" style="margin-top:14px">
+      <div class="note warn"><span class="mark"></span><div>
+        <b>固定阈值法的"异常"里，大半是日历</b>　把检出按日型拆开看：<b>装配车间</b>的 58 个固定阈值超限日<b>全部</b>落在节假日，<b>表面处理车间</b> 56 个里 55 个是节假日，<b>机加工车间</b> 60 个里 57 个是节假日。这些不是跑冒滴漏，是间歇型车间在假期只留基础负荷、产量趋近于零而固定能耗仍在，单耗自然抬高。<b>基线法检出量降到 14 / 8 / 7</b>，正是因为期望值模型按当天产量把这件事解释了。
+      </div></div>
+      <div class="note"><span class="mark"></span><div>
+        <b>两法在连续型车间几乎不重叠</b>　在全年不停产的<b>熔炼</b>与<b>轧制</b>车间，固定阈值法与基线法各自找到了一组基本不相交的日子（熔炼：21 vs 6，仅 5 天重合；轧制：22 vs 6，仅 5 天重合）。同意的 5 天多半是真异常；<b>基线法独有的那几天</b>是固定阈值看不到的——它们恰好发生在产量偏低时，绝对单耗没顶破 μ+2σ，但相对<b>当天的产量</b>而言烧得明显偏多。这正是"考虑产量的能耗基线"要解决的问题。
+      </div></div>
+      <div class="note"><span class="mark"></span><div>
+        <b>残差标准差只剩原来的四分之一到四分之三</b>　7 个车间的噪声压低比在 <b>0.25 ~ 0.74</b> 之间，即模型把原始单耗的波动解释掉了 26% ~ 75%。解释力最弱的是包装车间（0.74）——它产量小、基数低，模型可用的信息本来就少，这也提醒：<b>基线法不是万能的，产量单薄的车间它同样吃力</b>。
+      </div></div>
+      <div class="note warn"><span class="mark"></span><div>
+        <b>CUSUM 的判定线不能照抄教科书</b>　经典教材给 <b>h = 5σ</b>，对应平均 300 天才误报一次，那是为<b>在线连续监控、每天判一次</b>标定的。本项目是对 731 天历史做<b>一次性回顾</b>检验，同一个门槛的含义完全不同——5000 次纯噪声模拟给出：n=365 时 h=5 的误报率已 <b>52%</b>，n=731 时高达 <b>77%</b>，也就是说七个车间里会有五个以上凭空报警。按 99 分位重新标定后取 <b>h = 9.9σ</b>。<b>换样本量就得换门槛</b>，这一步不做，后面所有结论都是噪声。
+      </div></div>
+      <div class="note"><span class="mark"></span><div>
+        <b>CUSUM 报出的 12 段，逐段都能追溯到成因</b>　把每一段的触发日拿去对照日历，结果是<b>全部 12 段、没有一段是工艺漂移或设备劣化</b>：
+        <br>· <b>9 段是偏高（S⁺），触发日全部落在法定节假日或节前赶产</b>——元旦、春节、劳动节、端午。节假日里产量趋近于零而保温、待机、照明的基础能耗仍在，单耗被抬上去，累积和贴着上界走。
+        <br>· <b>3 段是偏低（S⁻），也全部由节假日解释</b>——熔炼 2024-05-05~09（劳动节）、轧制 2024-02-17~19（春节）、轧制 2024-05-06~07（劳动节）。注意这三段的单日 |Z| 只有 <b>0.86 ~ 2.35</b>，是"连续偏低若干天"把累积和推过了线，而不是某一天出现了极端值。
+        <br>报警方向与车间类型<b>不再一一对应</b>：偏低只出现在<b>熔炼、轧制</b>两个连续型车间，偏高则横跨连续型（热处理）与间歇型（机加工、表面处理、装配、包装）——但成因仍然是同一个，<b>都是日历</b>。这个结论比"按车间类型分裂"更干净：<b>CUSUM 在这张数据上没有发现任何未知的持续性异常</b>。
+      </div></div>
+      <div class="note warn"><span class="mark"></span><div>
+        <b>✅ 已修复：一处清洗缺陷曾让 CUSUM 自造异常</b>　上一版报告里，偏低（S⁻）的 3 段触发日当天都<b>少了一个能源品种</b>，追下去是这样一条链：<code>clean_data.py</code> 第 8 步按 Q3+3×IQR 判离群，命中的行用 <code>df.loc[~out_mask]</code> <b>整行删除</b>；而第 10 步插补只填 <code>consumption</code> 本来就为 NaN 的行——<b>被删掉的行，插补根本看不见</b>。于是天然气这种高权重品种一删，当天折标煤直接掉约 70%，分析层就把它读成了一次真实的能耗骤降（残差 <b>−11σ</b>）。
+        <br>证据当时是能对上号的：熔炼车间正常每天 4 个能源品种，全期恰有 <b>5 天</b>是 3 个；热处理正常 3 个，恰有 <b>6 天</b>是 2 个——与这两个车间被剔除的离群行数（5 行、6 行）<b>精确相等</b>。全部 <b>34</b> 条被判离群的记录，<b>34 条都没有被插补补回</b>。
+        <br>修法只有一行：<code>df.loc[out_mask, "consumption"] = np.nan</code>，把"这个值不可信"交给第 10 步按（车间×能源×月）中位数插补，而不是让整条记录消失。修复后 34 个格子全部回到事实表且被插补（原值是正常水平的 8~15 倍，插补值中位数只有它的 <b>6%</b>），装载行数 18,972 → <b>19,006</b>。
+        <br><b>下游影响</b>：那 3 段 −11σ 的"能耗骤降"<b>消失了</b>——触发日的 Z 值回到 −0.48 ~ +0.20，不再报警。全表最小 Z 从 −11.6 收敛到 <b>−3.27</b>，而最大 Z（+19.62，包装车间春节）纹丝不动，因为它是真实效应。这正说明：<b>脚本自造的异常只出现在低端，真实的日历效应一个都没被误伤</b>。回归测试里新增了两条断言（<code>test_no_workshop_day_loses_an_energy_type</code>、<code>test_outlier_cells_are_imputed_not_dropped</code>）守住这个行为，若有人再改回整行删除会立刻变红。
+      </div></div>
+      <div class="note"><span class="mark"></span><div>
+        <b>这张数据里没有"缓变漂移"可抓</b>　CUSUM 最擅长的场景是设备劣化那种每年几个百分点的缓慢下移：逐日判据看不出来，累积起来才现形。本项目的数据里<b>确实埋了一条 −3%/年 的单耗趋势</b>（七个车间前后半程实测都是 −2.3% ~ −3.9%），但它<b>检不出来</b>——趋势摊到 731 天上，前后半程的累计漂移只有 <b>0.04 ~ 0.36 个 σ</b>，而判定门槛是 9.9 个 σ，差了一个半数量级。这不是实现问题，是功率问题：<b>当日噪声 σ 比日漂移量大 600 多倍时，任何累积判据都抓不到它</b>。把这个算清楚，比硬报一个假警更有用。
+      </div></div>
+      <div class="note"><span class="mark"></span><div>
+        <b>累积之前必须先做季节白化</b>　第 3 点提到"没有漂移"，前提是先做了一步处理：把残差里剩下的<b>月度季节轮廓</b>扣掉再累积。不做这一步，CUSUM 会把"每年 2 月都偏高"这种规律性偏移当成持续偏移一路攒起来——连续型车间的累积和峰值会虚高 <b>70% 以上</b>（轧制 <b>44.6 → 11.7</b>，降 73.7%；熔炼 <b>37.2 → 11.0</b>，降 70.4%）。图中灰线就是未白化的轨迹，可以直接看到它爬得更高更早。<b>反过来，间歇型车间白化后峰值几乎不变</b>（表面处理 18.1 → 18.4），因为它们的持续性本来就来自节假日簇而不是季节，白化去掉的是方差、不是信号——同一个处理在不同车间身上效果相反，这件事本身也得说清楚。
+      </div></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
       <p class="eyebrow">方法</p>
       <h2>这份报告是怎么算出来的</h2>
       <p class="sec-sub">每一个数字都能追溯到一条可重跑的 SQL。</p>
     </div>
     <div class="stack">
       <div class="note"><span class="mark"></span><div>
-        <b>数据管道</b>　<code>generate_data.py</code> 按业务规则生成含 10 类脏数据的原始 CSV → <code>clean_data.py</code> 清洗（别名归一、日期解析、业务键去重、Q3+3×IQR 离群剔除、中位数插补、费用重算）→ <code>import_mysql.py</code> 建星型模型并装载 → <code>analysis.sql</code> 出 23 张结果表。
+        <b>数据管道</b>　<code>generate_data.py</code> 按业务规则生成含 10 类脏数据的原始 CSV → <code>clean_data.py</code> 清洗（别名归一、日期解析、业务键去重、Q3+3×IQR 离群<b>置空</b>、中位数插补、费用重算）→ <code>import_mysql.py</code> 建星型模型并装载 → <code>analysis.sql</code> 出 29 张结果表。
       </div></div>
       <div class="note"><span class="mark"></span><div>
-        <b>清洗量级</b>　原始 19,234 条明细，剔除 262 条（格式无法解析、离群、业务键重复），修正若干缺失与错误后，装载 <b>18,972</b> 条能耗明细、<b>5,848</b> 条产量记录、<b>731</b> 天日历。
+        <b>清洗量级</b>　原始 19,234 条明细，剔除 <b>228</b> 条（全部是业务键重复；离群值不再删行，改为置空后插补），另修正 708 处缺失与错误（插补 329、单价 267、费用重算 243 等），装载 <b>19,006</b> 条能耗明细、<b>5,848</b> 条产量记录、<b>731</b> 天日历。
       </div></div>
       <div class="note warn"><span class="mark"></span><div>
         <b>口径边界</b>　"综合能耗"用折标煤当量值加总，不做等价值换算；碳排放中压缩空气属二次能源不计入，避免与电力重复；单耗类指标（本报告第 5 节）一律剔除公用工程车间。
@@ -474,6 +691,160 @@ window.REPORT = /*__DATA__*/null/*__END__*/;
 "use strict";
 var D = window.REPORT;
 var NS = "http://www.w3.org/2000/svg";
+
+/* ============================================================================
+   筛选引擎 (#14 动态筛选)
+
+   数据来源是两份**可加量**明细(make_report.py 导出):
+     D.ws_daily     (日 × 车间)          -> KPI 总量 / 日型对比
+     D.energy_daily (日 × 车间 × 能源)   -> 能源结构 / 车间排名 / 月度趋势
+
+   三条硬约束(照抄 make_report.py 里那段注释, 违反任何一条数字就会错):
+     1. tce/费用/碳排必须**同一行**带出。全厂"费用/能耗"的月际比值在
+        3214~3661 之间摆动 13%, 不是常数 —— 取一个均值再乘系数会算歪。
+     2. 全厂口径(含 W07 公用工程), 与 Q01/Q03/Q04/Q05/Q14 一致。
+        所以不加筛选时 sum(tce) 必须逐位等于 D.totals.tce。
+     3. 前端只做加法和除法, 占比 = 分项/合计, 比值自然对。
+
+   读法: 各 drawX/TABLES 原先是直接读 D 的顶层字段(energy_mix/workshops/monthly...),
+   这里改成读 VIEW —— 筛选后由 rebuildView() 用聚合结果覆写那几个字段。
+   不加筛选时 VIEW 就是 D 本身(见 initFilter 末尾), 所以默认渲染路径一字未变。
+   ========================================================================== */
+var VIEW = D;
+var FILTER = {
+  preset: "all",          // all | 12m | 6m | custom
+  from: "", to: "",       // YYYY-MM-DD, 生效区间
+  ws: null,               // null = 全部; 否则是 Set(车间编码)
+  day: null               // null = 全部; 否则是 Set(工作日/周末/节假日)
+};
+
+function isFiltered(){
+  return FILTER.preset !== "all"
+      || (FILTER.ws !== null && FILTER.ws.size !== Object.keys(D.ws_meta).length)
+      || (FILTER.day !== null && FILTER.day.size !== 3);
+}
+function wsMatch(code){
+  return FILTER.ws === null ? true : FILTER.ws.has(code);
+}
+function dayMatch(d){
+  return FILTER.day === null ? true : FILTER.day.has(d);
+}
+function dateMatch(d){
+  return (!FILTER.from || d >= FILTER.from) && (!FILTER.to || d <= FILTER.to);
+}
+
+/* 聚合: 每加一个维度就多一个循环, 不建索引 —— 19,006 行在浏览器里是毫秒级,
+   建一张 (日期×车间×能源) 的哈希表反而更慢也更占内存。 */
+function aggAll(){
+  var e = D.energy_daily, w = D.ws_daily;
+  var byEnergy = {}, byWs = {}, byMonth = {}, byDay = {}, byTypeDays = {};
+  var K = {tce:0, cost:0, co2:0, qty:0, days:0, daytypeDays:byTypeDays};
+
+  // 日型筛选要**同时**作用到能耗立方体上, 否则 KPI(走 ws_daily) 与
+  // 结构卡(走立方体)会在同一个筛选状态下给出两个总数 —— 这份报告的立身之本
+  // 就是"每个数都能对上", 所以先标出被日型排除的 (车间,日) 对。
+  // 只在真的筛了日型时才建这张集合, 免得给最常见的情形(不筛日型)白付一次哈希。
+  var skip = null;
+  if (FILTER.day !== null && FILTER.day.size !== 3){
+    skip = {};
+    for (var a = 0; a < w.length; a++){
+      if (!dayMatch(w[a].day)) skip[w[a].code + "|" + w[a].d] = 1;
+    }
+  }
+
+  for (var i = 0; i < e.length; i++){
+    var r = e[i];
+    if (!wsMatch(r.code) || !dateMatch(r.d)) continue;
+    if (skip !== null && skip[r.code + "|" + r.d]) continue;
+    var t = byEnergy[r.e] || (byEnergy[r.e] = {qty:0, tce:0, cost:0, co2:0});
+    t.qty += r.qty; t.tce += r.tce; t.cost += r.cost; t.co2 += r.co2;
+    var s = byWs[r.code] || (byWs[r.code] = {tce:0, cost:0, co2:0});
+    s.tce += r.tce; s.cost += r.cost; s.co2 += r.co2;
+    var ym = r.d.slice(0, 7);
+    var m = byMonth[ym] || (byMonth[ym] = {tce:0, cost:0, co2:0});
+    m.tce += r.tce; m.cost += r.cost; m.co2 += r.co2;
+  }
+
+  for (var j = 0; j < w.length; j++){
+    var q = w[j];
+    if (!wsMatch(q.code) || !dateMatch(q.d)) continue;
+    // 日型块本身要显示全部三档(否则把"周末"筛掉后那一行就凭空消失, 读者
+    // 会以为数据里没有周末), 所以计数不按 dayMatch 过筛; 但**均值**要按
+    // 档内实际纳入的天数来除, 不然被筛掉的那档会留下一个除零出来的 0。
+    var dt = byDay[q.day] || (byDay[q.day] = {days:0, tce:0, cost:0, co2:0});
+    var dtd = byTypeDays[q.day] || (byTypeDays[q.day] = 0);
+    dt.days += 1; byTypeDays[q.day] = dtd + 1;
+    if (!dayMatch(q.day)) continue;
+    dt.tce += q.tce; dt.cost += q.cost; dt.co2 += q.co2;
+    K.tce += q.tce; K.cost += q.cost; K.co2 += q.co2; K.qty += q.qty; K.days += 1;
+  }
+  return {byEnergy:byEnergy, byWs:byWs, byMonth:byMonth, byDay:byDay,
+          daytypeDays:byTypeDays, K:K};
+}
+
+/* 把聚合结果写成 D 顶层字段的同构替身, 让既有的 drawX/TABLES 一字不改地复用。 */
+function rebuildView(A){
+  if (!isFiltered()) return D;
+  var mixTotal = 0, wsTotal = 0;
+  for (var k in A.byEnergy) mixTotal += A.byEnergy[k].tce;
+  for (var c in A.byWs) wsTotal += A.byWs[c].tce;
+
+  var energy_mix = [];
+  for (var code in A.byEnergy){
+    var v = A.byEnergy[code], m = D.en_meta[code] || {name:code, unit:""};
+    energy_mix.push({name:m.name, unit:m.unit, qty:v.qty, tce:v.tce,
+      tce_pct: mixTotal ? v.tce / mixTotal * 100 : 0,
+      cost:v.cost, cost_pct: mixTotal ? v.cost / mixTotal * 100 : 0, co2:v.co2,
+      price: v.qty ? v.cost / v.qty : 0});
+  }
+  energy_mix.sort(function(a, b){ return b.tce - a.tce; });
+
+  var workshops = [];
+  for (var wc in A.byWs){
+    var sv = A.byWs[wc], wm = D.ws_meta[wc] || {name:wc, proc:""};
+    workshops.push({code:wc, name:wm.name, process:wm.proc, tce:sv.tce,
+      tce_pct: wsTotal ? sv.tce / wsTotal * 100 : 0, cost:sv.cost,
+      cost_pct: wsTotal ? sv.cost / wsTotal * 100 : 0, co2:sv.co2,
+      utility: wm.proc === "公用工程"});
+  }
+  workshops.sort(function(a, b){ return b.tce - a.tce; });
+
+  var monthly = Object.keys(A.byMonth).sort().map(function(ym){
+    return {ym:ym, tce:A.byMonth[ym].tce, cost:A.byMonth[ym].cost,
+            co2:A.byMonth[ym].co2, mom:null,
+            ci: A.byMonth[ym].tce ? A.byMonth[ym].co2 / A.byMonth[ym].tce : 0};
+  });
+  // 环比在筛选后重算: 只有当上一个月也在区间内时才有意义, 否则留 null(显示 "—")
+  for (var i = 0; i < monthly.length; i++){
+    if (i > 0 && monthly[i-1].tce > 0){
+      monthly[i].mom = (monthly[i].tce - monthly[i-1].tce) / monthly[i-1].tce * 100;
+    }
+  }
+  // 首月若区间从中间开始, 它的"上月"没被包含 —— 不编一个假的环比, 留 null
+
+  var ORDER = {"工作日":0, "周末":1, "节假日":2};
+  var daytype = Object.keys(A.byDay).sort(function(a, b){
+    return ORDER[a] - ORDER[b];
+  }).map(function(nm){
+    var v = A.byDay[nm], n = A.daytypeDays[nm] || 0;
+    return {name:nm, days:v.days, tce: n ? v.tce / n : 0,
+            cost: n ? v.cost / n : 0, co2: n ? v.co2 / n : 0};
+  });
+
+  VIEW = Object.create(D);          // 原型指向 D: 没覆写的字段(unit_series 等)照常取到
+  var K = A.K;
+  VIEW.totals = {days:K.days, tce:K.tce, cost:K.cost, co2:K.co2,
+                 tce_ex:null,        // 剔除口径没有立方体支撑, 置 null 由文案兜底
+                 filtered:true};
+  VIEW.energy_mix = energy_mix;
+  VIEW.workshops = workshops;
+  VIEW.monthly = monthly;
+  VIEW.daytype = daytype;
+  VIEW.daytypeDays = A.daytypeDays;   // 日型卡的"工作日=基准"参考点
+  VIEW.filterNote = FILTER.note;        // 筛选栏右端那行小字
+  VIEW.isFiltered = true;
+  return VIEW;
+}
 
 document.documentElement.lang = "zh-CN";
 
@@ -551,7 +922,7 @@ function hideTip(host){
 
 /* ================= chart: 能源品种双口径 ================= */
 function drawMix(host, W, T, narrow){
-  var rows = D.energy_mix;
+  var rows = VIEW.energy_mix;
   var nameW = narrow ? 74 : 96;
   var padR = narrow ? 46 : 56;
   var padT = 26, axisH = 26;
@@ -623,7 +994,7 @@ function drawMix(host, W, T, narrow){
 
 /* ================= chart: 车间排名（重点式） ================= */
 function drawWorkshops(host, W, T, narrow){
-  var rows = D.workshops;
+  var rows = VIEW.workshops;
   var nameW = narrow ? 84 : 104;
   var padR = narrow ? 44 : 52;
   var padT = 24, axisH = 26;
@@ -860,6 +1231,268 @@ function drawAnomaly(host, W, T, narrow){
   capture.addEventListener("mouseleave", function(){
     hideTip(host); hair.setAttribute("opacity", 0);
     dot.setAttribute("opacity", 0); hovered.setAttribute("opacity", 0);
+  });
+}
+
+/* ================= chart: 产量基线残差控制图 ================= */
+// 与 drawAnomaly 同构, 但纵轴画的是残差(实际单耗 − 期望单耗)而不是单耗本身:
+// 产量与季节的贡献被模型拿掉后, 曲线应当围绕 0 波动。
+// 残差均值/标准差同样在 SQL(Q25) 里按车间算好, 前端不重复实现阈值逻辑。
+var baseSel = 0;
+
+function drawBaseline(host, W, T, narrow){
+  var gs = D.baseline;
+  if (!gs || !gs.length) return;
+  if (baseSel >= gs.length) baseSel = 0;
+  var g = gs[baseSel], pts = g.points;
+
+  var padL = narrow ? 46 : 60, padR = narrow ? 40 : 54, padT = 22, padB = 30;
+  var H = narrow ? 230 : 268;
+  var plotW = Math.max(60, W - padL - padR);
+  var plotH = H - padT - padB;
+
+  // 残差可正可负, 纵轴必须跨过 0 —— 与单耗图不同, 这里 0 是有意义的基准线。
+  var up = g.mu_r + 2 * g.sd_r, dn = g.mu_r - 2 * g.sd_r;
+  var vals = pts.map(function(p){ return p.res; });
+  var lo = Math.min(Math.min.apply(null, vals), dn, 0);
+  var hi = Math.max(Math.max.apply(null, vals), up, 0);
+  var span = (hi - lo) || 1;
+  lo -= span * 0.06; hi += span * 0.06;
+
+  // 少数几天的残差会远离主体(实际能耗贴近待机底、而产量非零, 实际远低于期望),
+  // 若让它们决定轴范围, ±2σ 带会被压成一条纸带, 中间上千个点全挤在一起。
+  // 与单耗图"下界夹到 0"同理: 把轴收到"含整条 σ 带再加一点余量"的范围,
+  // 越界的点夹到边缘画成三角, 并用角标说明有几个点被截断 —— 不静默丢数据。
+  var band = Math.max(Math.abs(up), Math.abs(dn), g.sd_r * 2) * 1.25;
+  var clipHi = Math.min(hi, band), clipLo = Math.max(lo, -band);
+  if (clipHi <= clipLo){ clipHi = hi; clipLo = lo; }
+  var nClipHi = vals.filter(function(v){ return v > clipHi; }).length;
+  var nClipLo = vals.filter(function(v){ return v < clipLo; }).length;
+  lo = clipLo; hi = clipHi;
+  var sc = rangeTicks(lo, hi, 4);
+
+  var x = function(i){ return padL + (pts.length === 1 ? plotW / 2 : i / (pts.length - 1) * plotW); };
+  // 纵值先夹进轴范围再换算坐标 —— 越界的点因此落在上下边缘, 由三角形标记点出
+  var y = function(v){
+    var cv = Math.max(lo, Math.min(hi, v));
+    return padT + plotH - (cv - lo) / (hi - lo) * plotH;
+  };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
+                       "aria-label":g.name + " 单耗残差与 ±2σ 控制带"});
+  host.appendChild(svg);
+
+  // ---- ±2σ 残差带 ----
+  mk("rect", {x:padL, y:y(up), width:plotW, height:Math.max(0, y(dn) - y(up)),
+              fill:T.m1, "fill-opacity":0.10, stroke:"none"}, svg);
+
+  sc.list.forEach(function(v){
+    if (v < lo || v > hi) return;
+    mk("line", {x1:padL, y1:y(v), x2:padL + plotW, y2:y(v), class:"c-grid"}, svg);
+    tx(svg, padL - 9, y(v) + 3.5, v.toFixed(Math.abs(hi - lo) < 10 ? 2 : 0), "c-label", "end");
+  });
+
+  // ---- 0 基准线: 比 μ 线更重, 因为"残差为 0"是模型的期望点 ----
+  mk("line", {x1:padL, y1:y(0), x2:padL + plotW, y2:y(0),
+              stroke:T.axis, "stroke-width":1, "stroke-opacity":0.9}, svg);
+
+  var refs = [[g.mu_r, T.axis, "4 4", 0.8]];
+  refs.push([up, T.critical, "5 4", 0.55]);
+  refs.push([dn, T.critical, "5 4", 0.55]);
+  refs.forEach(function(r){
+    mk("line", {x1:padL, y1:y(r[0]), x2:padL + plotW, y2:y(r[0]),
+                stroke:r[1], "stroke-width":1,
+                "stroke-dasharray":r[2], "stroke-opacity":r[3]}, svg);
+  });
+
+  // ---- x 轴刻度抽稀 ----
+  var last = pts.length - 1, minGap = 50;
+  var step = Math.max(1, Math.ceil(pts.length / Math.max(2, Math.floor(plotW / minGap))));
+  var idxs = [];
+  for (var ii = 0; ii < pts.length; ii++) if (ii % step === 0) idxs.push(ii);
+  if (idxs[idxs.length - 1] !== last) idxs.push(last);
+  idxs = idxs.filter(function(i){ return i === last || Math.abs(x(i) - x(last)) >= minGap; });
+  idxs.forEach(function(i){ tx(svg, x(i), H - padB + 17, pts[i].d.slice(2, 7), "c-label", "middle"); });
+
+  // ---- 曲线: 残差用 dim 而非 m1, 与上一节"单耗曲线"区分开 ----
+  var d = "";
+  pts.forEach(function(p, i){ d += (i ? " L" : "M") + x(i) + "," + y(p.res); });
+  mk("path", {d:d, fill:"none", stroke:T.dim, "stroke-width":1.3,
+              "stroke-opacity":0.85, "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+
+  // ---- 超限点: 基线法独有的用实心红, 两法都认的用带外圈的实心红 ----
+  var hovered = mk("circle", {cx:0, cy:0, r:5, fill:"none", stroke:T.critical,
+                              "stroke-width":2, opacity:0}, svg);
+  pts.forEach(function(p, i){
+    if (!p.out) return;
+    mk("circle", {cx:x(i), cy:y(p.res), r:2.8, fill:T.critical,
+                  stroke:T.surface, "stroke-width":1.2}, svg);
+    // 固定阈值法也认的日子加一圈空心环: 两法都命中的更可能是真异常
+    if (p.out_fixed) mk("circle", {cx:x(i), cy:y(p.res), r:4.6, fill:"none",
+                                   stroke:T.critical, "stroke-width":1, "stroke-opacity":0.7}, svg);
+  });
+
+  // ---- 被轴范围截断的点: 边缘画实心三角, 不假装它没发生 ----
+  pts.forEach(function(p, i){
+    if (p.res <= hi && p.res >= lo) return;
+    var edge = p.res > hi ? padT : padT + plotH;
+    var dir = p.res > hi ? -1 : 1;
+    var cx = x(i);
+    mk("path", {d:"M" + cx + "," + (edge + dir * 6) + " l5,0 l-2.5," + (-dir * 6) + " z",
+                fill:T.critical, stroke:T.surface, "stroke-width":0.8}, svg);
+  });
+  if (nClipHi + nClipLo > 0){
+    var parts = [];
+    if (nClipLo) parts.push("下侧 " + nClipLo + " 天");
+    if (nClipHi) parts.push("上侧 " + nClipHi + " 天");
+    tx(svg, padL + 2, padT + 10, "轴范围已收窄，边缘三角 = " + parts.join("、") + " 越界",
+       "c-label", "start");
+  }
+
+  // ---- 十字准星 ----
+  var hair = mk("line", {x1:0, y1:padT, x2:0, y2:padT + plotH, class:"c-hair", opacity:0}, svg);
+  var dot = mk("circle", {cx:0, cy:0, r:4, fill:T.dim, stroke:T.surface, "stroke-width":2, opacity:0}, svg);
+  var capture = mk("rect", {x:padL, y:padT, width:plotW, height:plotH, class:"c-hit"}, svg);
+
+  var dd = g.mu_r === 0 || Math.abs(g.mu_r) < 1 ? 3 : 2;
+  capture.addEventListener("mousemove", function(ev){
+    var b = host.getBoundingClientRect();
+    var mx = ev.clientX - b.left;
+    var i = Math.round((mx - padL) / (plotW || 1) * (pts.length - 1));
+    i = Math.max(0, Math.min(pts.length - 1, i));
+    var p = pts[i];
+    hair.setAttribute("x1", x(i)); hair.setAttribute("x2", x(i)); hair.setAttribute("opacity", 1);
+    dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(p.res)); dot.setAttribute("opacity", 1);
+    hovered.setAttribute("cx", x(i)); hovered.setAttribute("cy", y(p.res));
+    hovered.setAttribute("opacity", p.out ? 0.9 : 0);
+    var ued = p.ue < 1 ? 4 : 2;
+    showTip(host, x(i), y(p.res),
+      '<span class="tip-t">' + p.d + "</span>" +
+      '<div class="tip-r"><span>实际单耗</span><span>' + p.ue.toFixed(ued) + " kgce</span></div>" +
+      '<div class="tip-r"><span>期望单耗</span><span>' + p.yhat.toFixed(ued) + " kgce</span></div>" +
+      '<div class="tip-r"><span><i class="tip-k" style="background:' + T.dim + '"></i>残差</span><span>' + p.res.toFixed(ued) + " kgce</span></div>" +
+      '<div class="tip-r"><span>Z 值</span><span>' + p.z.toFixed(2) + "</span></div>" +
+      '<div class="tip-r"><span>产量</span><span>' + num(p.qty, 2) + "</span></div>" +
+      '<div class="tip-r"><span>基线判据</span><span style="color:' + (p.out ? T.critical : "inherit") + '">' +
+        (p.out ? "超限 &gt; μ残+2σ残" : "正常") + "</span></div>" +
+      '<div class="tip-r"><span>固定阈值判据</span><span style="color:' + (p.out_fixed ? T.critical : "inherit") + '">' +
+        (p.out_fixed ? "超限 &gt; μ+2σ" : "正常") + "</span></div>" +
+      ((p.res > hi || p.res < lo)
+        ? '<div class="tip-r"><span>注意</span><span style="color:' + T.critical + '">残差超出轴范围，已夹到边缘</span></div>'
+        : ""));
+  });
+  capture.addEventListener("mouseleave", function(){
+    hideTip(host); hair.setAttribute("opacity", 0);
+    dot.setAttribute("opacity", 0); hovered.setAttribute("opacity", 0);
+  });
+}
+
+/* ================= chart: CUSUM 累积和控制图 ================= */
+// 纵轴不是能耗而是"累积偏差" S⁺/S⁻, 单位是 σ。曲线的读法:
+// 只要持续偏高, S⁺ 就一路往上爬; 一旦回归正常, 每天扣掉 k=0.5σ 的松弛量,
+// 曲线就缓缓回落。于是"爬多高"= 偏离有多持续, "爬多久"= 持续了几天 ——
+// 这正是逐日判据给不出的信息, 所以它跟上面两张图不是替代关系。
+// 判定线 h 由 SQL(v_unit_energy_cusum)随结果带出, 前端不另抄常数。
+var cusumSel = 0;
+
+function drawCusum(host, W, T, narrow){
+  var gs = D.cusum;
+  if (!gs || !gs.length) return;
+  if (cusumSel >= gs.length) cusumSel = 0;
+  var g = gs[cusumSel], pts = g.points, H = g.h;
+
+  var padL = narrow ? 40 : 52, padR = narrow ? 34 : 46, padT = 22, padB = 30;
+  var boxH = narrow ? 230 : 268;
+  var plotW = Math.max(60, W - padL - padR);
+  var plotH = boxH - padT - padB;
+
+  // 纵轴从 0 起: S 的定义就是"从最近一个谷底累计上来的量", 恒非负, 0 有实际含义。
+  var top = H * 1.08;
+  pts.forEach(function(p){
+    top = Math.max(top, p.hi, p.lo, p.hi_raw, p.lo_raw);
+  });
+  var lo = 0, hi = top;
+  var sc = rangeTicks(lo, hi, 4);
+
+  var x = function(i){ return padL + (pts.length === 1 ? plotW / 2 : i / (pts.length - 1) * plotW); };
+  var y = function(v){ return padT + plotH - (v - lo) / (hi - lo) * plotH; };
+
+  var svg = mk("svg", {width:W, height:boxH, viewBox:"0 0 "+W+" "+boxH, role:"img",
+                       "aria-label":g.name + " 单耗 CUSUM 累积和控制图"});
+  host.appendChild(svg);
+
+  sc.list.forEach(function(v){
+    if (v < lo || v > hi) return;
+    mk("line", {x1:padL, y1:y(v), x2:padL + plotW, y2:y(v), class:"c-grid"}, svg);
+    tx(svg, padL - 9, y(v) + 3.5, v.toFixed(0), "c-label", "end");
+  });
+
+  // ---- 判定线 h: 与 SQL 的判据同源, 越过去的那段才算报警 ----
+  mk("line", {x1:padL, y1:y(H), x2:padL + plotW, y2:y(H),
+              stroke:T.critical, "stroke-width":1.2, "stroke-dasharray":"6 4",
+              "stroke-opacity":0.75}, svg);
+  tx(svg, padL + plotW - 2, y(H) - 5, "h = " + H.toFixed(1) + "σ", "c-label", "end");
+
+  var last = pts.length - 1, minGap = 50;
+  var step = Math.max(1, Math.ceil(pts.length / Math.max(2, Math.floor(plotW / minGap))));
+  var idxs = [];
+  for (var ii = 0; ii < pts.length; ii++) if (ii % step === 0) idxs.push(ii);
+  if (idxs[idxs.length - 1] !== last) idxs.push(last);
+  idxs = idxs.filter(function(i){ return i === last || Math.abs(x(i) - x(last)) >= minGap; });
+  idxs.forEach(function(i){ tx(svg, x(i), boxH - padB + 17, pts[i].d.slice(2, 7), "c-label", "middle"); });
+
+  var line = function(key, color, w, dash, op){
+    var d = "";
+    pts.forEach(function(p, i){ d += (i ? " L" : "M") + x(i) + "," + y(p[key]); });
+    mk("path", {d:d, fill:"none", stroke:color, "stroke-width":w,
+                "stroke-dasharray":dash, "stroke-opacity":op,
+                "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+  };
+  // 先画未白化的对照轨迹(灰虚线, 压在底层), 再画正式的
+  line("hi_raw", T.dim, 1, "3 3", 0.7);
+  line("lo_raw", T.dim, 1, "3 3", 0.7);
+  line("hi", T.m1, 1.6, null, 0.95);   // S⁺ 偏高
+  line("lo", T.m3, 1.6, null, 0.95);   // S⁻ 偏低
+
+  // ---- 报警日: 在越限的那条曲线上打点, 直接标出"贴了多久" ----
+  pts.forEach(function(p, i){
+    if (!p.alarm) return;
+    var v = p.side === "偏高" ? p.hi : p.lo;
+    mk("circle", {cx:x(i), cy:y(v), r:2.8, fill:T.critical,
+                  stroke:T.surface, "stroke-width":1.2}, svg);
+  });
+  if (g.n_alarm)
+    tx(svg, padL + 2, padT + 10,
+       "报警 " + g.n_alarm + " 天 / " + g.n_seg + " 段，方向持续" + g.side,
+       "c-label", "start");
+
+  // ---- 十字准星 ----
+  var hair = mk("line", {x1:0, y1:padT, x2:0, y2:padT + plotH, class:"c-hair", opacity:0}, svg);
+  var dot = mk("circle", {cx:0, cy:0, r:4, fill:T.m1, stroke:T.surface, "stroke-width":2, opacity:0}, svg);
+  var capture = mk("rect", {x:padL, y:padT, width:plotW, height:plotH, class:"c-hit"}, svg);
+
+  capture.addEventListener("mousemove", function(ev){
+    var b = host.getBoundingClientRect();
+    var mx = ev.clientX - b.left;
+    var i = Math.round((mx - padL) / (plotW || 1) * (pts.length - 1));
+    i = Math.max(0, Math.min(pts.length - 1, i));
+    var p = pts[i];
+    var on = p.side === "偏高" ? p.hi : p.lo;
+    hair.setAttribute("x1", x(i)); hair.setAttribute("x2", x(i)); hair.setAttribute("opacity", 1);
+    dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(on));
+    dot.setAttribute("fill", p.side === "偏高" ? T.m1 : T.m3);
+    dot.setAttribute("opacity", 1);
+    showTip(host, x(i), y(on),
+      '<span class="tip-t">' + p.d + "</span>" +
+      '<div class="tip-r"><span><i class="tip-k" style="background:' + T.m1 + '"></i>S⁺ 偏高累积</span><span>' + p.hi.toFixed(1) + "σ</span></div>" +
+      '<div class="tip-r"><span><i class="tip-k" style="background:' + T.m3 + '"></i>S⁻ 偏低累积</span><span>' + p.lo.toFixed(1) + "σ</span></div>" +
+      '<div class="tip-r"><span>当日白化残差</span><span>' + p.z.toFixed(2) + "σ</span></div>" +
+      '<div class="tip-r"><span>未白化对照</span><span>' + Math.max(p.hi_raw, p.lo_raw).toFixed(1) + "σ</span></div>" +
+      '<div class="tip-r"><span>是否报警</span><span style="color:' + (p.alarm ? T.critical : "inherit") + '">' +
+        (p.alarm ? "报警 &gt; " + H.toFixed(1) + "σ（持续" + p.side + "）" : "未越限") + "</span></div>");
+  });
+  capture.addEventListener("mouseleave", function(){
+    hideTip(host); hair.setAttribute("opacity", 0); dot.setAttribute("opacity", 0);
   });
 }
 
@@ -1115,7 +1748,7 @@ var CHARTS = {
   workshops: function(h,W,T,n){ drawWorkshops(h,W,T,n); },
   monthly: function(h,W,T,n){
     drawLine(h, W, T, {
-      rows: D.monthly.map(function(r){ return {k:r.ym, v:r.tce, raw:r}; }),
+      rows: VIEW.monthly.map(function(r){ return {k:r.ym, v:r.tce, raw:r}; }),
       color:T.m1, label:"月度综合能耗", height:250,
       endFmt: function(v){ return num(v, 0); },
       tip: function(r){
@@ -1129,7 +1762,7 @@ var CHARTS = {
   },
   carbon: function(h,W,T,n){
     drawLine(h, W, T, {
-      rows: D.monthly.map(function(r){ return {k:r.ym, v:r.ci, raw:r}; }),
+      rows: VIEW.monthly.map(function(r){ return {k:r.ym, v:r.ci, raw:r}; }),
       color:T.m3, label:"月度碳排放强度", height:250,
       tickFmt: function(v){ return v.toFixed(1); },
       endFmt: function(v){ return v.toFixed(2); },
@@ -1145,13 +1778,15 @@ var CHARTS = {
   unittrend: function(h,W,T,n){ drawUnit(h,W,T,n); },
   deco: function(h,W,T,n){ drawDeco(h,W,T,n); },
   standby: function(h,W,T,n){ drawStandby(h,W,T,n); },
-  anomaly: function(h,W,T,n){ drawAnomaly(h,W,T,n); }
+  anomaly: function(h,W,T,n){ drawAnomaly(h,W,T,n); },
+  baseline: function(h,W,T,n){ drawBaseline(h,W,T,n); },
+  cusum: function(h,W,T,n){ drawCusum(h,W,T,n); }
 };
 
 function renderAll(force){
   // 所有调用方(启动、ResizeObserver、主题切换)都从这里过, 所以守卫放在这里:
   // 没有数据时直接返回, 免得在模板上渲染出一片"图表渲染失败"。
-  if (!D || !D.totals) return;
+  if (!D || !D.totals) return;   // D 恒定非空; VIEW 只在此后才有意义
   var T = tokens();
   var hosts = document.querySelectorAll("[data-chart]");
   for (var i = 0; i < hosts.length; i++){
@@ -1183,25 +1818,25 @@ function buildTable(cols, rows){
 var TABLES = {
   mix: function(){
     return buildTable(["能源","单位","实物消耗量","折标煤 tce","折标煤占比","费用 元","费用占比","碳排放 tCO₂"],
-      D.energy_mix.map(function(r){
+      VIEW.energy_mix.map(function(r){
         return [r.name, r.unit, num(r.qty, 2), num(r.tce, 2), r.tce_pct.toFixed(2)+"%", num(r.cost, 2), r.cost_pct.toFixed(2)+"%", num(r.co2, 2)];
       }));
   },
   workshops: function(){
     return buildTable(["车间","工序","综合能耗 tce","占比","能源费用 元","费用占比","碳排放 tCO₂"],
-      D.workshops.map(function(r){
+      VIEW.workshops.map(function(r){
         return [r.name, r.process, num(r.tce,2), r.tce_pct.toFixed(2)+"%", num(r.cost,2), r.cost_pct.toFixed(2)+"%", num(r.co2,2)];
       }));
   },
   monthly: function(){
     return buildTable(["年月","综合能耗 tce","能源费用 元","碳排放 tCO₂","环比"],
-      D.monthly.map(function(r){
+      VIEW.monthly.map(function(r){
         return [r.ym, num(r.tce,2), num(r.cost,2), num(r.co2,2), (r.mom===null||r.mom===undefined) ? "—" : r.mom.toFixed(2)+"%"];
       }));
   },
   carbon: function(){
     return buildTable(["年月","碳排放 tCO₂","综合能耗 tce","碳排强度 tCO₂/tce"],
-      D.monthly.map(function(r){ return [r.ym, num(r.co2,2), num(r.tce,2), r.ci.toFixed(4)]; }));
+      VIEW.monthly.map(function(r){ return [r.ym, num(r.co2,2), num(r.tce,2), r.ci.toFixed(4)]; }));
   },
   temp: function(){
     return buildTable(["气温区间","天数","区间均温 ℃","日均电耗 kWh","日均气耗 m³","日均蒸汽 t"],
@@ -1227,7 +1862,7 @@ var TABLES = {
   },
   daytype: function(){
     return buildTable(["日型","天数","日均能耗 tce","日均费用 元","日均碳排 tCO₂"],
-      D.daytype.map(function(r){ return [r.name, String(r.days), r.tce.toFixed(3), num(r.cost,2), r.co2.toFixed(3)]; }));
+      VIEW.daytype.map(function(r){ return [r.name, String(r.days), r.tce.toFixed(3), num(r.cost,2), r.co2.toFixed(3)]; }));
   },
   // 只列超限点 —— 当前车间的完整序列有 731 行, 全列出来没人看
   anomaly: function(){
@@ -1242,6 +1877,38 @@ var TABLES = {
         return [p.d, p.ue.toFixed(d), g.mu.toFixed(d), p.z.toFixed(2), num(p.qty,2),
                 '<span class="pill hot"><i class="dot"></i>超限</span>'];
       }));
+  },
+  // 产量基线法检出的日子, 多带一列"固定阈值是否也认" —— 两法都认的更可能是真异常
+  baseline: function(){
+    var g = D.baseline[baseSel];
+    var d = g.mu_r === 0 || Math.abs(g.mu_r) < 1 ? 3 : 2;
+    var ued = g.points[0] && g.points[0].ue < 1 ? 4 : 2;
+    var rows = g.points.filter(function(p){ return p.out; });
+    if (!rows.length){
+      return '<p class="card-sub" style="padding:12px 0">该车间在当前口径下没有超出 μ残+2σ残 的日子。</p>';
+    }
+    return buildTable(["日期","实际单耗 kgce","期望单耗 kgce","残差 kgce","Z 值","产量","固定阈值也认"],
+      rows.map(function(p){
+        return [p.d, p.ue.toFixed(ued), p.yhat.toFixed(ued), p.res.toFixed(d), p.z.toFixed(2),
+                num(p.qty,2),
+                p.out_fixed ? '<span class="pill hot"><i class="dot"></i>两法命中</span>'
+                            : '<span class="pill">仅基线</span>'];
+      }));
+  },
+  // CUSUM 只列报警日 —— 越限的那些天才是"持续偏移正在发生"的证据,
+  // 曲线的其余部分都是回落过程, 列出来只是背景。
+  cusum: function(){
+    var g = D.cusum[cusumSel];
+    var rows = g.points.filter(function(p){ return p.alarm; });
+    if (!rows.length){
+      return '<p class="card-sub" style="padding:12px 0">该车间在 h = ' + g.h.toFixed(1) +
+        'σ 的判定线下没有持续偏移。</p>';
+    }
+    return buildTable(["日期","S⁺ 偏高累积 σ","S⁻ 偏低累积 σ","当日残差 σ","未白化对照 σ"],
+      rows.map(function(p){
+        return [p.d, p.hi.toFixed(2), p.lo.toFixed(2), p.z.toFixed(2),
+                Math.max(p.hi_raw, p.lo_raw).toFixed(2)];
+      }));
   }
 };
 
@@ -1254,43 +1921,102 @@ function anomCaption(){
     g.points.length + " 天超限。";
 }
 
-// 车间切换: 报告里唯一一处"同图换数据"的交互, 所以单独一个初始化函数。
-// 点击 -> 改 anomSel -> 同时刷新按钮态、重画图、失效表格缓存。
-function initAnomalySwitch(){
-  var bar = document.getElementById("anom-seg");
-  if (!bar || !D.unit_series) return;
-  bar.innerHTML = D.unit_series.map(function(g, i){
-    return '<button type="button" data-i="' + i + '" aria-pressed="' + (i === anomSel) + '">' +
-      g.name + " <b>" + g.n_out + "</b>" + (g.n_out ? "<i></i>" : "") + "</button>";
+function baseCaption(){
+  var g = D.baseline[baseSel];
+  var d = Math.abs(g.mu_r) < 1 ? 3 : 2;
+  return "残差 μ = <b>" + g.mu_r.toFixed(d) + "</b>　残差 σ = <b>" + g.sd_r.toFixed(d) +
+    "</b>　基线法检出 <b>" + g.n_out + "</b> 天，固定阈值法检出 <b>" + g.n_fixed +
+    "</b> 天，两法同时命中 <b>" + g.n_both + "</b> 天。";
+}
+
+function cusumCaption(){
+  var g = D.cusum[cusumSel];
+  return "判定限 h = <b>" + g.h.toFixed(1) + "σ</b>（按 731 天样本量标定）　" +
+    "峰值 S⁺ = <b>" + g.max_hi.toFixed(1) + "σ</b>，S⁻ = <b>" + g.max_lo.toFixed(1) +
+    "σ</b>　报警 <b>" + g.n_alarm + "</b> 天，构成 <b>" + g.n_seg + "</b> 段，方向持续<b>" +
+    g.side + "</b>；未白化对照峰值 <b>" + g.max_raw.toFixed(1) + "σ</b>。";
+}
+
+// Q26 的逐车间对比表 —— 报告里唯一一处直接并列三种算法结论的表
+function renderCmp(){
+  var host = document.getElementById("cmp-table");
+  if (!host || !D.cmp) return;
+  host.innerHTML = buildTable(
+    ["车间","样本天数","固定阈值检出","产量基线检出","累计和报警天数","累计和报警段数",
+     "报警方向","两法一致","仅固定阈值","仅产量基线",
+     "固定阈值节假日占比","基线法节假日占比","累计和节假日占比","残差σ/原始σ"],
+    D.cmp.map(function(c){
+      return [
+        c.name, String(c.n_days), String(c.n_fixed), String(c.n_base),
+        String(c.n_cusum), String(c.n_seg),
+        c.cusum_hi > c.cusum_lo ? "持续偏高" : (c.cusum_lo > c.cusum_hi ? "持续偏低" : "—"),
+        String(c.n_both), String(c.only_fixed), String(c.only_base),
+        c.fixed_holiday_pct.toFixed(1) + "%",
+        c.base_holiday_pct.toFixed(1) + "%",
+        c.cusum_holiday_pct.toFixed(1) + "%",
+        c.noise_ratio.toFixed(3)
+      ];
+    }));
+}
+
+// 车间切换: 报告里有三张"同图换数据"的图(单耗控制图 / 产量基线残差图 / CUSUM),
+// 交互完全一样 —— 点击 -> 改选中下标 -> 刷新按钮态、重画图、失效表格缓存。
+// 所以只写一份, 三处各自传配置进来, 免得四份拷贝日后各改各的。
+function initSeriesSwitch(cfg){
+  var bar = document.getElementById(cfg.bar);
+  var series = D[cfg.data];
+  if (!bar || !series) return;
+
+  bar.innerHTML = series.map(function(g, i){
+    return '<button type="button" data-i="' + i + '" aria-pressed="' + (i === cfg.sel()) + '">' +
+      g.name + " <b>" + g[cfg.count] + "</b>" + (g[cfg.count] ? "<i></i>" : "") + "</button>";
   }).join("");
 
   bar.addEventListener("click", function(e){
     var btn = e.target.closest("button[data-i]");
     if (!btn) return;
     var i = Number(btn.dataset.i);
-    if (i === anomSel) return;
-    anomSel = i;
+    if (i === cfg.sel()) return;
+    cfg.set(i);
     bar.querySelectorAll("button").forEach(function(b){
       b.setAttribute("aria-pressed", String(Number(b.dataset.i) === i));
     });
     // 图不能只改 dataset.w 就重画 —— renderAll 会用旧宽度判等跳过, 必须 force
-    var host = document.querySelector('[data-chart="anomaly"]');
+    var host = document.querySelector('[data-chart="' + cfg.chart + '"]');
     if (host){
       var W = Math.round(host.clientWidth);
       host.innerHTML = ""; host.dataset.w = String(W);
-      try { drawAnomaly(host, W, tokens(), W < 560); }
+      try { cfg.draw(host, W, tokens(), W < 560); }
       catch (err) { host.textContent = "图表渲染失败：" + err.message; }
     }
     // 表格视图缓存的是上一个车间的行, 必须清掉让它重建; 若正展开则立即重建
-    var tv = document.querySelector('[data-table="anomaly"]');
+    var tv = document.querySelector('[data-table="' + cfg.chart + '"]');
     if (tv){
       tv.dataset.built = "";
-      tv.innerHTML = tv.hidden ? "" : TABLES.anomaly();
+      tv.innerHTML = tv.hidden ? "" : TABLES[cfg.chart]();
       if (!tv.hidden) tv.dataset.built = "1";
     }
-    var cap = document.getElementById("anom-cap");
-    if (cap) cap.innerHTML = anomCaption();
+    var cap = document.getElementById(cfg.cap);
+    if (cap) cap.innerHTML = cfg.caption();
   });
+}
+
+function initAnomalySwitch(){
+  initSeriesSwitch({bar:"anom-seg", data:"unit_series", chart:"anomaly", count:"n_out",
+                    sel:function(){ return anomSel; }, set:function(i){ anomSel = i; },
+                    draw:drawAnomaly, caption:anomCaption, cap:"anom-cap"});
+}
+
+function initBaselineSwitch(){
+  initSeriesSwitch({bar:"base-seg", data:"baseline", chart:"baseline", count:"n_out",
+                    sel:function(){ return baseSel; }, set:function(i){ baseSel = i; },
+                    draw:drawBaseline, caption:baseCaption, cap:"base-cap"});
+}
+
+function initCusumSwitch(){
+  initSeriesSwitch({bar:"cusum-seg", data:"cusum", chart:"cusum", count:"n_alarm",
+                    sel:function(){ return cusumSel; }, set:function(i){ cusumSel = i; },
+                    draw:drawCusum, caption:cusumCaption, cap:"cusum-cap"});
 }
 
 function initToggles(){
@@ -1311,17 +2037,40 @@ function initToggles(){
   });
 }
 
-/* ---------------- 静态内容 ---------------- */
+/* ---------------- 静态内容 ----------------
+   initStatic 会被 applyFilter() 再调一次(刷新 KPI / 日型 / hero 数字), 所以它
+   必须幂等: 只写自身容器, 不注册任何监听器(监听器都在 initToggles/initSwitches 里)。 */
 function initStatic(){
+  var T = VIEW.totals;
+  var nd = T.filtered ? T.days : 731;
+
   var f = document.querySelector('[data-fill="tce"]');
-  f.innerHTML = num(D.totals.tce, 2) + '<span class="hero-unit">tce</span>';
-  document.querySelector('[data-fill="tce_ex"]').textContent = num(D.totals.tce_ex, 2);
+  f.innerHTML = num(T.tce, 2) + '<span class="hero-unit">tce</span>';
+
+  // hero 的标题/副题必须跟着口径走 —— 一个写着"两年"却显示单月数字的大字
+  // 比没有这个数字更糟。
+  document.getElementById("hero-label").textContent =
+    T.filtered ? "筛选区间综合能耗" : "两年综合能耗";
+  document.getElementById("hero-note").textContent =
+    T.filtered ? "折标煤当量值 · 已按筛选条件重算" : "折标煤当量值，含公用工程口径";
+
+  // 剔除公用工程的口径没有立方体支撑 —— 筛选时隐藏, 而不是编一个数出来
+  var exWrap = document.getElementById("tce-ex-wrap");
+  if (exWrap) exWrap.hidden = T.tce_ex === null;
+  if (T.tce_ex !== null){
+    document.querySelector('[data-fill="tce_ex"]').textContent = num(T.tce_ex, 2);
+  }
 
   var kpis = [
-    {l:"能源费用合计", v:"¥" + (D.totals.cost/1e8).toFixed(3) + " 亿", u:"", n:"两年 731 天，日均 ¥" + num(D.totals.cost/731, 0)},
-    {l:"碳排放合计", v:num(D.totals.co2, 2), u:"tCO₂", n:"日均 " + (D.totals.co2/731).toFixed(1) + " tCO₂"},
-    {l:"日均综合能耗", v:(D.totals.tce/731).toFixed(2), u:"tce", n:"相当于日均 " + num(D.totals.tce/731*1000, 0) + " kgce"},
-    {l:"统计范围", v:"8 × 6", u:"车间 × 能源", n:"731 天 · 18,972 条能耗明细"}
+    {l:"能源费用合计", v:"¥" + (T.cost/1e8).toFixed(3) + " 亿", u:"",
+     n:(T.filtered ? "筛选区间 " : "两年 ") + nd + " 天，日均 ¥" + num(T.cost/nd, 0)},
+    {l:"碳排放合计", v:num(T.co2, 2), u:"tCO₂",
+     n:"日均 " + (T.co2/nd).toFixed(1) + " tCO₂"},
+    {l:"日均综合能耗", v:(T.tce/nd).toFixed(2), u:"tce",
+     n:"相当于日均 " + num(T.tce/nd*1000, 0) + " kgce"},
+    (T.filtered
+      ? {l:"纳入统计", v:String(T.days), u:"天", n:"筛选后明细"}
+      : {l:"统计范围", v:"8 × 6", u:"车间 × 能源", n:"731 天 · 19,006 条能耗明细"})
   ];
   document.getElementById("kpis").innerHTML = kpis.map(function(k){
     return '<div class="kpi"><p class="kpi-label">' + k.l + '</p>' +
@@ -1332,6 +2081,13 @@ function initStatic(){
   var cap = document.getElementById("anom-cap");
   if (cap) cap.innerHTML = anomCaption();
 
+  var bcap = document.getElementById("base-cap");
+  if (bcap) bcap.innerHTML = baseCaption();
+
+  var ccap = document.getElementById("cusum-cap");
+  if (ccap) ccap.innerHTML = cusumCaption();
+  renderCmp();
+
   document.getElementById("lg-mix").innerHTML =
     '<span><i style="background:'+cssv("--mark-1")+'"></i>折标煤口径占比（能耗）</span>' +
     '<span><i style="background:'+cssv("--mark-2")+'"></i>费用口径占比（成本）</span>';
@@ -1339,15 +2095,20 @@ function initStatic(){
     '<span><i style="background:'+cssv("--mark-1")+'"></i>产量同比</span>' +
     '<span><i style="background:'+cssv("--mark-2")+'"></i>单位产品能耗同比</span>';
 
-  // 日型
-  var base = D.daytype.filter(function(r){ return r.name === "工作日"; })[0];
-  document.getElementById("daytype").innerHTML = D.daytype.map(function(r){
-    var d = (r.tce - base.tce) / base.tce * 100;
+  // 日型: 基准档必须是"没被日型筛选排除"的那一档, 否则差值全是相对一个读者
+  // 看不见的幽灵基准算出来的。优先工作日, 它被筛掉时退到区间内第一档。
+  var baseRow = null;
+  for (var bi = 0; bi < VIEW.daytype.length; bi++){
+    if (VIEW.daytype[bi].name === "工作日"){ baseRow = VIEW.daytype[bi]; }
+  }
+  if (!baseRow || !VIEW.daytypeDays || !VIEW.daytypeDays["工作日"]) baseRow = VIEW.daytype[0];
+  document.getElementById("daytype").innerHTML = VIEW.daytype.map(function(r){
+    var d = (baseRow && baseRow.tce) ? (r.tce - baseRow.tce) / baseRow.tce * 100 : 0;
     return '<div class="dt-row">' +
       '<div><div class="dt-name">' + r.name + '</div>' +
       '<div class="dt-days">' + r.days + " 天 · 日均 ¥" + num(r.cost, 0) + "</div></div>" +
       '<div class="dt-val">' + r.tce.toFixed(2) + '<u>tce</u></div>' +
-      '<div class="dt-delta">' + (r.name === "工作日" ? "基准" : d.toFixed(2) + "%") + "</div>" +
+      '<div class="dt-delta">' + (r === baseRow ? "基准" : d.toFixed(2) + "%") + "</div>" +
       "</div>";
   }).join("");
 
@@ -1363,6 +2124,174 @@ function initStatic(){
     rows + "</tbody></table>";
 }
 
+/* ---------------- 筛选栏 (#14 动态筛选) ----------------
+   只做三件事: 读控件 -> 写 FILTER -> applyFilter()。所有取舍留在 aggAll/rebuildView,
+   这里不该有任何业务判断。 */
+var RANGE_PRESETS = [
+  {k:"all", label:"全期"}, {k:"12m", label:"近 12 月"},
+  {k:"6m", label:"近 6 月"}, {k:"custom", label:"自定义"}
+];
+var DAY_ORDER = ["工作日", "周末", "节假日"];
+
+// 区间锚点取数据里的最后一天, 不是"今天" —— 报告是离线快照, 用今天会筛出空集
+function minDate(){ return D.filter_meta.min_date; }
+function maxDate(){ return D.filter_meta.max_date; }
+function shiftMonths(ymd, n){
+  var y = Number(ymd.slice(0, 4)), mo = Number(ymd.slice(5, 7)) - 1 + n;
+  y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12;
+  return y + "-" + ("0" + (mo + 1)).slice(-2) + ymd.slice(7);
+}
+
+function buildFilterUI(){
+  var bar = document.getElementById("filterbar");
+  if (!bar) return;
+
+  document.getElementById("f-range").innerHTML = RANGE_PRESETS.map(function(p){
+    return '<button type="button" data-k="' + p.k + '" aria-pressed="' +
+      (p.k === FILTER.preset) + '">' + p.label + "</button>";
+  }).join("");
+
+  // 车间芯片: W07 单独挂"公"字标(它是唯一会被单耗口径剔除的车间)
+  var codes = Object.keys(D.ws_meta).sort();
+  document.getElementById("f-ws").innerHTML =
+    '<button type="button" class="fchip-all" id="f-ws-all" aria-pressed="true">全选</button>' +
+    codes.map(function(c){
+      var m = D.ws_meta[c], util = m.proc === "公用工程";
+      return '<label class="fchip"><input type="checkbox" data-ws="' + c + '" checked>' +
+        '<span' + (util ? ' class="util"' : "") + ">" + m.name +
+        (util ? "<i>公</i>" : "") + "</span></label>";
+    }).join("");
+
+  document.getElementById("f-day").innerHTML = DAY_ORDER.map(function(k){
+    return '<button type="button" data-k="' + k + '" aria-pressed="true">' + k + "</button>";
+  }).join("");
+
+  var from = document.getElementById("f-from"), to = document.getElementById("f-to");
+  from.value = minDate(); to.value = maxDate();
+  from.min = to.min = minDate(); from.max = to.max = maxDate();
+  bar.hidden = false;
+  paintRange(FILTER.preset);
+
+  document.getElementById("f-range").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-k]");
+    if (b) setPreset(b.dataset.k);
+  });
+  from.addEventListener("change", function(){ setCustom(from.value, to.value); });
+  to.addEventListener("change", function(){ setCustom(from.value, to.value); });
+  document.getElementById("f-ws").addEventListener("change", readWs);
+  document.getElementById("f-ws-all").addEventListener("click", function(){
+    var boxes = document.querySelectorAll("#f-ws input[data-ws]");
+    var allOn = Array.prototype.every.call(boxes, function(b){ return b.checked; });
+    Array.prototype.forEach.call(boxes, function(b){ b.checked = !allOn; });
+    readWs();
+  });
+  document.getElementById("f-day").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-k]");
+    if (!b) return;
+    var on = b.getAttribute("aria-pressed") === "true";
+    // 至少留一档 —— 全关等于"没有数据", 那不是一个有意义的筛选状态
+    if (on && document.querySelectorAll('#f-day button[aria-pressed="true"]').length === 1) return;
+    b.setAttribute("aria-pressed", on ? "false" : "true");
+    readDay();
+  });
+  document.getElementById("f-reset").addEventListener("click", resetFilter);
+
+  applyFilter();   // 初次进入: 把"全期/全车间/全档"这个默认状态写到口径提示条上
+}
+
+function paintRange(preset){
+  document.querySelectorAll("#f-range button").forEach(function(b){
+    b.setAttribute("aria-pressed", String(b.dataset.k === preset));
+  });
+  var custom = preset === "custom";
+  document.getElementById("f-from").disabled = !custom;
+  document.getElementById("f-to").disabled = !custom;
+}
+function setPreset(k){
+  FILTER.preset = k;
+  if (k === "all"){ FILTER.from = ""; FILTER.to = ""; }
+  else if (k === "custom"){
+    FILTER.from = document.getElementById("f-from").value;
+    FILTER.to = document.getElementById("f-to").value;
+  } else {
+    FILTER.to = maxDate();
+    FILTER.from = shiftMonths(maxDate(), k === "12m" ? -12 : -6);
+  }
+  document.getElementById("f-from").value = FILTER.from || minDate();
+  document.getElementById("f-to").value = FILTER.to || maxDate();
+  paintRange(k);
+  applyFilter();
+}
+function setCustom(f, t){
+  FILTER.preset = "custom";
+  FILTER.from = f; FILTER.to = t;
+  paintRange("custom");
+  applyFilter();
+}
+function readWs(){
+  var boxes = document.querySelectorAll("#f-ws input[data-ws]"), picked = [];
+  Array.prototype.forEach.call(boxes, function(b){ if (b.checked) picked.push(b.dataset.ws); });
+  // 全选 == 不筛这个维度。存 null 而不是"8 个元素的 Set", 这样 isFiltered() 与
+  // 未筛选路径判的是同一件事, 不会出现"筛了全部车间但行为不同"的中间态。
+  FILTER.ws = (picked.length && picked.length < boxes.length) ? new Set(picked) : null;
+  document.getElementById("f-ws-all").setAttribute("aria-pressed", String(!FILTER.ws));
+  applyFilter();
+}
+function readDay(){
+  var on = [];
+  document.querySelectorAll('#f-day button[aria-pressed="true"]').forEach(function(b){
+    on.push(b.dataset.k);
+  });
+  FILTER.day = on.length === 3 ? null : new Set(on);
+  applyFilter();
+}
+function resetFilter(){
+  document.querySelectorAll("#f-ws input[data-ws]").forEach(function(b){ b.checked = true; });
+  document.getElementById("f-ws-all").setAttribute("aria-pressed", "true");
+  document.querySelectorAll("#f-day button").forEach(function(b){ b.setAttribute("aria-pressed", "true"); });
+  FILTER.ws = null; FILTER.day = null;
+  setPreset("all");
+}
+
+/* 筛选生效的唯一入口。顺序有讲究:
+   先重建影子对象 -> 强制重绘所有图(renderAll 的跳过条件只比宽度不比数据) ->
+   失效并重建已展开的表格视图 -> 刷新 KPI/日型 -> 标记"不随筛选变化"的卡片。 */
+function applyFilter(){
+  if (!D || !D.totals) return;
+  rebuildView(aggAll());
+
+  document.querySelectorAll("[data-chart]").forEach(function(h){ h.dataset.done = ""; });
+  renderAll(true);
+  document.querySelectorAll("[data-table]").forEach(function(tv){
+    tv.dataset.built = "";
+    if (!tv.hidden){ tv.innerHTML = TABLES[tv.dataset.table](); tv.dataset.built = "1"; }
+  });
+  try { initStatic(); } catch (e) { console.error("筛选后刷新静态内容失败:", e); }
+
+  FILTER.note = filterNote();
+  var scope = document.getElementById("f-scope");
+  scope.dataset.active = isFiltered() ? "1" : "0";
+  scope.textContent = FILTER.note;
+  document.querySelectorAll(".card-scope").forEach(function(c){
+    c.setAttribute("data-scoped", isFiltered() ? "1" : "0");
+  });
+}
+
+function rangeLabel(){
+  if (FILTER.preset === "all") return "";
+  if (!FILTER.from && !FILTER.to) return "";
+  return (FILTER.from || "起点") + " ~ " + (FILTER.to || "终点");
+}
+function filterNote(){
+  if (!isFiltered()) return "全厂口径（含 W07 公用工程）· 未筛选";
+  var parts = [];
+  var r = rangeLabel();
+  if (r) parts.push(r);
+  if (FILTER.ws) parts.push(FILTER.ws.size + " 个车间");
+  if (FILTER.day) parts.push(DAY_ORDER.filter(function(k){ return FILTER.day.has(k); }).join("/"));
+  return "已筛选：" + parts.join(" · ") + "（正文数字仍为全期口径）";
+}
+
 /* ---------------- 启动 ---------------- */
 (function boot(){
   // 数据没注入(直接打开了模板)时给出明确提示, 而不是留一堆点不动的按钮
@@ -1374,7 +2303,12 @@ function initStatic(){
   }
   // 先接按钮再渲染内容: 即使静态内容渲染出错, 表格视图仍然可用
   initToggles();
+  // 筛选栏要在 renderAll 之前建好: 它会让 sticky 顶栏从 hidden 变可见, 改变
+  // 布局高度, 晚建的话首屏那次 renderAll 是按没有顶栏的宽度画的。
+  try { buildFilterUI(); } catch (e) { console.error("筛选栏初始化失败:", e); }
   try { initAnomalySwitch(); } catch (e) { console.error("异常图切换初始化失败:", e); }
+  try { initBaselineSwitch(); } catch (e) { console.error("产量基线图切换初始化失败:", e); }
+  try { initCusumSwitch(); } catch (e) { console.error("CUSUM 图切换初始化失败:", e); }
   try { initStatic(); } catch (e) { console.error("静态内容渲染失败:", e); }
   renderAll(true);
 })();
