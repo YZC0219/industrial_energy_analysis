@@ -1,0 +1,170 @@
+# 工业能耗数据管道 —— 本地一键起
+#
+#   docker compose up -d
+#   打开 http://localhost:8080  (admin / admin)
+#   在 DAG 列表里把 energy_pipeline 打开(取消 Pause), 点 Trigger
+#
+# 五个服务:
+#   postgres          Airflow 自己的元数据库(存 DAG 状态、任务实例、变量)
+#   mysql             项目的分析仓库(星型模型 + 23 条查询跑在这里)
+#   airflow-init      一次性任务: 建元数据库表 + 建管理员账号, 跑完即退出
+#   airflow-scheduler 调度器, 按 DAG 定义派发任务
+#   airflow-webserver Web UI
+#
+# 为什么元数据库用 Postgres 而不是复用 MySQL?
+# 两个库的职责完全不同 —— 一个是调度器的内部状态, 一个是业务数据。混在一起的话
+# 重建业务库会连带把调度历史清掉, 而且两者的备份/恢复策略也不一样。
+
+---
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  image: industrial-energy-airflow:2.10.5
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    # 默认值是 .env.example 里那个公开的演示密钥, 让 `docker compose up -d` 零配置可跑;
+    # 真实部署必须换成自己生成的, 见 .env.example 里的说明。
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-CW4eOk3E3NBmT-kQ9xZl1akrr2z_opE-5ayR9zZMpQY=}
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # 项目自己的连接参数 —— 全部走环境变量, 口令不落盘、不进代码
+    MYSQL_HOST: mysql
+    MYSQL_PORT: '3306'
+    MYSQL_USER: root
+    MYSQL_PWD: ${MYSQL_ROOT_PASSWORD:-energy_root_pwd}
+    MYSQL_DB: industrial_energy
+    PROJECT_DIR: /opt/airflow/project
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./:/opt/airflow/project
+    - airflow-logs:/opt/airflow/logs
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+    mysql:
+      condition: service_healthy
+
+services:
+
+  # ---- Airflow 元数据库 ------------------------------------------------
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ---- 项目分析仓库 ----------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    # local_infile 必须开在**服务端**: 装载脚本用 LOAD DATA LOCAL INFILE,
+    # 客户端那边 import_mysql.py 已经带了 local_infile=True, 服务端不开就会
+    # 报 "The used command is not allowed with this MySQL version"。
+    command:
+      - --local-infile=1
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-energy_root_pwd}
+      MYSQL_DATABASE: industrial_energy
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 装载脚本用 LOAD DATA LOCAL INFILE 把 output/*.csv 灌进事实表。
+      # 该语句的文件是**服务端**按自己的文件系统打开的, 所以 output 目录
+      # 必须也挂进 mysql 容器, 且路径要和 airflow 容器里的一致 —— 否则
+      # 服务端会报 File not found。只读挂载即可。
+      - ./output:/opt/airflow/project/output:ro
+    # 映射到宿主机的 3307 而不是 3306: 一是避开本机可能已装的 MySQL,
+    # 二是方便用客户端连进去看数据。不需要就直接注释掉。
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  # ---- 一次性初始化: 建元数据库表 + 管理员账号 --------------------------
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -e
+        airflow db migrate
+        # 账号已存在时 create 会报错, 用 || 兜住, 这样 `docker compose up` 可重复执行
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Air \
+          --lastname Flow \
+          --role Admin \
+          --email admin@example.com \
+          || echo "账号 admin 已存在, 跳过创建"
+        echo "初始化完成: 账号 admin / admin"
+    restart: on-failure
+
+  # ---- 调度器 ----------------------------------------------------------
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    # 注意: YAML 的合并键是"整键替换"而非深合并, 所以 depends_on 必须写全,
+    # 否则会把 common 里的 postgres/mysql 依赖覆盖掉。
+    # 三者缺一不可: 元数据库要就绪、业务库要就绪、建表迁移要跑完。
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ---- Web UI ----------------------------------------------------------
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health | grep -q healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  postgres-db:
+  mysql-data:
+  airflow-logs:
