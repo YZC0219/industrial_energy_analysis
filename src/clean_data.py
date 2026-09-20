@@ -242,6 +242,12 @@ def main() -> None:
     for col in ["consumption", "unit_price", "cost", "output_qty", "avg_temperature"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # updated_at: 源系统最后修改时刻, 用于去重时判断"哪个版本更新"。
+    # 解析失败或缺失的行不会被剔除 —— 它只是元数据, 不参与任何能耗计算,
+    # 缺了不该让一条有效能耗记录消失。去重时这类行按 NaT 处理(排在最旧)。
+    df["updated_at"] = pd.to_datetime(
+        norm_text(df.get("updated_at")), errors="coerce")
+
     # ---- 5. 单位归一 ------------------------------------------------------
     # 以能源编码为准映射标准单位(kWh/m³/t/kg), 只有编码映射不出来时才保留原写法
     stats["单位写法归一"] = int(
@@ -267,13 +273,29 @@ def main() -> None:
     # 若按整行去重, 一条 cost 被改过、其余字段相同的记录会逃过检查, 之后被事实表的
     # 唯一键 uk_date_ws_energy 静默丢弃, 导致"清洗后行数"与"实际入库行数"对不上。
     # 本步必须早于离群检测: 重复行会改变分位数位置, 让 IQR 划出的离群边界偏移。
+    #
+    # 保留哪一条: 按 updated_at 取**最新**的那个版本, 而不是取"首条"。
+    # 早期版本用 keep="first", 而 inject_dirt 末尾会把整表打乱, 所以"首条"是
+    # 随机的 —— 一旦上游推来同业务键的修正记录, 随机保留可能把旧值留下来。
+    #
+    # 打平时(updated_at 相同)必须回落到原版语义, 即保留 df 顺序里的**首条**:
+    # inject_dirt 注入的"完全重复行"会各自被后续步骤独立改写(如 cost 重算),
+    # 于是同一业务键可能出现时间戳相同、内容却不同的两条。kind="stable" 保证
+    # 相等的时间戳不打乱原有相对顺序, keep="first" 于是恰好等于原版 keep="first",
+    # 使这次改动对既有数据集的去重结果零影响。
     key_cols = ["record_date", "workshop_code", "energy_code"]
-    dup_mask = df.duplicated(subset=key_cols, keep="first")
-    dup_rows = df.loc[dup_mask].copy()
+    dup_mask = df.duplicated(subset=key_cols, keep=False)
+    # NaT(缺 updated_at)排在最前, 保证有时间的版本优先胜出
+    ordered = df.loc[dup_mask].sort_values(
+        "updated_at", na_position="first", kind="stable")
+    dup_rows = ordered.loc[ordered.duplicated(subset=key_cols, keep="first")].copy()
     dup_rows["reject_reason"] = "业务键重复(日期×车间×能源)"
     rejects = pd.concat([rejects, dup_rows], ignore_index=True)
-    stats["重复记录剔除"] = int(dup_mask.sum())
-    df = df.loc[~dup_mask].copy()
+    stats["重复记录剔除"] = int(len(dup_rows))
+    # 保留每个业务键的首条(时间戳相同时取 df 顺序靠前者)
+    keep_idx = ordered.drop_duplicates(subset=key_cols, keep="first").index
+    dropped_idx = ordered.index.difference(keep_idx)
+    df = df.loc[~df.index.isin(dropped_idx)].copy()
 
     # ---- 8. 离群值剔除 (Q3 + 3*IQR, 按 车间×能源 分组) ---------------------
     # 按 车间×能源 分组而非全表: 熔炼车间的天然气用量天然是包装车间的几十倍,
@@ -354,9 +376,13 @@ def main() -> None:
     energy_fact = df[[
         "record_date", "workshop_code", "energy_code", "consumption", "unit",
         "unit_price", "cost", "record_status", "avg_temperature",
-        "data_source", "is_production_day",
+        "data_source", "is_production_day", "updated_at",
     ]].copy()
     energy_fact["record_date"] = energy_fact["record_date"].dt.strftime("%Y-%m-%d")
+    # updated_at 落盘为 'YYYY-MM-DD HH:MM:SS'; NaT 写成空串, 由装载侧的
+    # NULLIF(@col,'') 转成 NULL(与 avg_temperature 的处理一致)
+    energy_fact["updated_at"] = energy_fact["updated_at"].dt.strftime(
+        "%Y-%m-%d %H:%M:%S")
     energy_fact["consumption"] = energy_fact["consumption"].round(3)
     energy_fact["unit_price"] = energy_fact["unit_price"].round(4)
     energy_fact["cost"] = energy_fact["cost"].round(2)

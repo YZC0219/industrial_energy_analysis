@@ -21,9 +21,10 @@ generate_data.py — 生成工业能耗原始数据(模拟 ERP/MES 导出)
   - 产量年增长 5%, 单位产品能耗年下降 3%(节能改造)
 """
 
+import hashlib
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 import numpy as np
 import pandas as pd
@@ -227,6 +228,33 @@ def build_clean_rows(rng: np.random.Generator) -> pd.DataFrame:
                     "avg_temperature": round(float(temp), 2),
                     "record_status": record_status(ws, d),
                     "data_source": "MES",
+                    # 记录在源系统里的最后修改时刻。
+                    #
+                    # 为什么需要这个字段: 事实表的唯一键是
+                    # (record_date, workshop_code, energy_code), 只标识"哪条
+                    # 业务记录", 不标识"哪个版本"。没有时间维时, 同一业务键
+                    # 的两批数据无法判断谁更新 —— 上游修正一条历史记录后重新
+                    # 装载, 数据库无从知道该不该覆盖。有了 updated_at, 装载层
+                    # 才能用 upsert 正确落地历史修正。
+                    #
+                    # 取值: 由业务键确定性地派生出"当天第几分钟上报"。
+                    #
+                    # 为什么不用 rng: rng 是共享的全局序列, 多消耗一个随机数
+                    # 会让它后面所有取值整体偏移, 于是"只是加一个元数据字段"
+                    # 就改变了能耗、价格等全部业务数据 —— 那会让已有的基线
+                    # 快照全部失效。数据变化应当只来自有意的口径调整, 不能
+                    # 来自"加字段碰巧动了随机数"。这里从行内容派生, 一个随机
+                    # 数都不消耗, 对既有数据做到逐字节无影响。
+                    #
+                    # 为什么用 md5 而不是内置 hash(): Python 对 str 的 hash
+                    # 带随机化种子(PYTHONHASHSEED), 跨进程不稳定, 换个进程
+                    # 重跑就会得到不同的时间戳。md5 在任何进程/机器上一致。
+                    "updated_at": (
+                        datetime.combine(d, time(hour=8))
+                        + timedelta(minutes=int(hashlib.md5(
+                            f"{d.isoformat()}|{ws['code']}|{ecode}".encode()
+                        ).hexdigest(), 16) % 720)
+                    ).strftime("%Y-%m-%d %H:%M:%S"),
                 })
         d += timedelta(days=1)
     return pd.DataFrame(rows)

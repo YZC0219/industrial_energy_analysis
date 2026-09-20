@@ -4,7 +4,7 @@ import_mysql.py — 建库建表、装载清洗后数据、执行分析 SQL
 
 步骤:
   1. --init      执行 sql/create_table.sql (建库/建表/建视图/灌主数据)
-  2. 装载        output/clean_energy.csv -> fact_energy_consumption
+  2. 装载        output/clean_energy.csv -> fact_energy_consumption (按 updated_at upsert)
                  output/clean_production.csv -> fact_production
                  output/dim_calendar.csv -> dim_calendar
      (使用 LOAD DATA LOCAL INFILE 批量装载, 比逐行 INSERT 快 1~2 个数量级)
@@ -37,7 +37,7 @@ OUT_DIR = os.path.join(BASE_DIR, "output")
 # CSV 列顺序必须与建表顺序一致 (dim_calendar 的列名与表头一致)
 ENERGY_COLS = ["record_date", "workshop_code", "energy_code", "consumption", "unit",
                "unit_price", "cost", "record_status", "avg_temperature",
-               "data_source", "is_production_day"]
+               "data_source", "is_production_day", "updated_at"]
 PROD_COLS = ["record_date", "workshop_code", "output_qty", "output_unit"]
 CAL_COLS = ["calendar_date", "year", "quarter", "month", "year_month",
             "day_of_week", "weekday_name", "is_weekend", "holiday_name", "is_holiday"]
@@ -79,12 +79,49 @@ def run_script(conn, path: str, use_db: str | None) -> None:
     conn.commit()
 
 
-def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
+def build_upsert_sql(table: str, columns, db: str, key: str = "updated_at") -> str:
+    """
+    生成"按 updated_at 判新旧"的 upsert 语句(源为临时表 _stage)。
+
+    为什么是 upsert 而不是 INSERT IGNORE: 唯一键 (record_date, workshop_code,
+    energy_code) 只标识"哪条业务记录", 不标识"哪个版本"。上游修正一条历史
+    记录后重新装载, IGNORE 会把新版本当冲突丢掉, 库里永远停在旧值上。
+
+    为什么每列都套 IF(new.updated_at > t.updated_at, ...): 只靠 ODKU 会无条件
+    覆盖 —— 那样重放一批更旧的数据(如补跑历史区间)会把已有的新值改回旧的。
+    加上这个条件后, 只有严格更新的版本才写得进去, 过期数据被正确忽略。
+
+    为什么 updated_at 用 GREATEST 而不是直接赋值: 被忽略的旧行不该把它自己
+    那个更早的时间戳盖上去, 否则该行的"最后修改时刻"会随重放倒退。
+    """
+    cols = list(columns)
+    new_vals = ", ".join(f"new.`{c}`" for c in cols)
+    # 判新旧的条件: 显式把 NULL 当"最旧"。若某行 updated_at 为空,
+    # `new.updated_at > t.updated_at` 恒为 NULL(falsy), 该行永远无法覆盖 ——
+    # 这里用 COALESCE 让"空时间戳"退化为"可覆盖", 语义更接近"缺元数据不代表更新"。
+    newer = (f"COALESCE(new.`{key}`, '1970-01-01') "
+             f"> COALESCE(`{table}`.`{key}`, '1970-01-01')")
+    assigns = [f"`{c}` = IF({newer}, new.`{c}`, `{table}`.`{c}`)"
+               for c in cols if c != key]
+    assigns.append(
+        f"`{key}` = GREATEST(COALESCE(`{table}`.`{key}`, '1970-01-01'), "
+        f"COALESCE(new.`{key}`, '1970-01-01'))"
+    )
+    return (
+        f"INSERT INTO `{db}`.`{table}` "
+        f"({', '.join(f'`{c}`' for c in cols)}) "
+        f"SELECT {new_vals} FROM `{db}`._stage AS new "
+        f"ON DUPLICATE KEY UPDATE " + ", ".join(assigns)
+    )
+
+
+def load_csv(conn, table: str, csv_name: str, columns, db: str, upsert: bool = False) -> int:
     """
     把一个 CSV 装载进指定表, 返回装载后该表的总行数。
 
-    装载是幂等的: SQL 里带 IGNORE, 唯一键冲突的行会被跳过而不是报错,
-    因此重复执行本脚本不会产生重复数据(与已经装载过的数据保持一致)。
+    装载是幂等的: 重复执行本脚本不会产生重复数据(与已经装载过的数据保持一致)。
+    upsert=False 时靠 INSERT IGNORE 丢弃冲突行; upsert=True 时按 updated_at
+    判新旧, 更新的版本覆盖旧值 —— 见 build_upsert_sql 的说明。
     装完后会用表内实际行数校验, 该写进去的行一行没少才算成功。
     """
     path = os.path.join(OUT_DIR, csv_name)
@@ -98,13 +135,14 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
     win_path = path.replace("\\", "/")
     cols = ", ".join(f"@{c}" for c in columns)
     assigns = ", ".join(f"`{c}` = NULLIF(@{c}, '')" for c in columns)
+    # LOAD DATA 的目标表: upsert 时先进临时表, 避免冲突行在灌入阶段就被丢掉
+    stage = "`%s`.`_stage`" % db if upsert else f"`{db}`.`{table}`"
     # 先导入用户变量 @col 再 SET 到真实列: 空串经 NULLIF 变成 NULL,
     # 否则空的 avg_temperature 会被当成 0 而不是"未知"
-    # IGNORE: 唯一键重复的行直接丢弃, 使整个装载过程可重复执行
     # 行终止符用 '\n' 而非 '\r\n': 上游 clean_data.py 已固定写 LF。
     # 若换成 '\r\n', 在 LF 文件上整个文件会被当成一行, 静默装入 0 行。
     sql = (
-        f"LOAD DATA LOCAL INFILE '{win_path}' INTO TABLE `{db}`.`{table}` "
+        f"LOAD DATA LOCAL INFILE '{win_path}' INTO TABLE {stage} "
         f"CHARACTER SET utf8mb4 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' "
         f"LINES TERMINATED BY '\\n' IGNORE 1 LINES ({cols}) SET {assigns}"
     )
@@ -112,9 +150,17 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
         # 装载期间关掉唯一性与外键校验以提升速度(数据本身已通过清洗保证一致性)
         cur.execute("SET UNIQUE_CHECKS=0")
         cur.execute("SET FOREIGN_KEY_CHECKS=0")
+        if upsert:
+            # 临时表结构与事实表一致, 但它没有唯一键, 因此同业务键的多版本
+            # 都能先落进来, 留待下一步按 updated_at 挑出胜者。
+            cur.execute(f"DROP TEMPORARY TABLE IF EXISTS `{db}`.`_stage`")
+            cur.execute(f"CREATE TEMPORARY TABLE `{db}`.`_stage` "
+                        f"LIKE `{db}`.`{table}`")
         try:
             cur.execute(sql)
-            loaded = "LOAD DATA"
+            if upsert:
+                cur.execute(build_upsert_sql(table, columns, db))
+            loaded = "LOAD DATA + UPSERT" if upsert else "LOAD DATA"
         except pymysql.err.OperationalError as exc:
             # 只有"服务端不允许 LOCAL INFILE"这一种情况才值得降级重试。
             # 其它 OperationalError(比如服务端读不到文件)必须原样抛出 ——
@@ -123,12 +169,6 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
             if "local_infile" not in str(exc) and "not allowed" not in str(exc):
                 raise
             log("      (服务端未开启 local_infile, 退化为批量 INSERT)")
-            loaded = "批量 INSERT"
-            insert_sql = (
-                f"INSERT IGNORE INTO `{db}`.`{table}` "
-                f"({', '.join(f'`{c}`' for c in columns)}) "
-                f"VALUES ({', '.join(['%s'] * len(columns))})"
-            )
             rows = []
             with open(path, encoding="utf-8-sig", newline="") as f:
                 reader = csv.reader(f)
@@ -137,8 +177,32 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
                     if len(r) != len(columns):
                         continue
                     rows.append(tuple(v if v != "" else None for v in r))
-            for i in range(0, len(rows), 2000):
-                cur.executemany(insert_sql, rows[i:i + 2000])
+            if upsert:
+                # 降级路径同样要 upsert: 复用 LOAD DATA 分支用的那条 ODKU,
+                # 只是把源表从临时表换成批量 INSERT 建出来的临时表。
+                loaded = "批量 INSERT + UPSERT"
+                cur.execute(f"DROP TEMPORARY TABLE IF EXISTS `{db}`.`_stage`")
+                cur.execute(f"CREATE TEMPORARY TABLE `{db}`.`_stage` "
+                            f"LIKE `{db}`.`{table}`")
+                stage_insert = (
+                    f"INSERT INTO `{db}`.`_stage` "
+                    f"({', '.join(f'`{c}`' for c in columns)}) "
+                    f"VALUES ({', '.join(['%s'] * len(columns))})"
+                )
+                for i in range(0, len(rows), 2000):
+                    cur.executemany(stage_insert, rows[i:i + 2000])
+                cur.execute(build_upsert_sql(table, columns, db))
+            else:
+                loaded = "批量 INSERT"
+                insert_sql = (
+                    f"INSERT IGNORE INTO `{db}`.`{table}` "
+                    f"({', '.join(f'`{c}`' for c in columns)}) "
+                    f"VALUES ({', '.join(['%s'] * len(columns))})"
+                )
+                for i in range(0, len(rows), 2000):
+                    cur.executemany(insert_sql, rows[i:i + 2000])
+        if upsert:
+            cur.execute(f"DROP TEMPORARY TABLE IF EXISTS `{db}`.`_stage`")
         cur.execute("SET FOREIGN_KEY_CHECKS=1")
         cur.execute("SET UNIQUE_CHECKS=1")
         cur.execute(f"SELECT COUNT(*) FROM `{db}`.`{table}`")
@@ -228,7 +292,7 @@ def main() -> None:
     # dim_calendar 必须最先装载 (事实表有指向它的外键)
     n_cal = load_csv(conn, "dim_calendar", "dim_calendar.csv", CAL_COLS, args.db)
     n_eng = load_csv(conn, "fact_energy_consumption", "clean_energy.csv",
-                     ENERGY_COLS, args.db)
+                     ENERGY_COLS, args.db, upsert=True)
     n_prd = load_csv(conn, "fact_production", "clean_production.csv",
                      PROD_COLS, args.db)
     log(f"      dim_calendar               {n_cal:>8,} 行")

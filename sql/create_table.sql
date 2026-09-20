@@ -118,6 +118,7 @@ CREATE TABLE fact_energy_consumption (
     avg_temperature   DECIMAL(6,2)          COMMENT '日均气温(℃)',
     data_source       VARCHAR(16)           COMMENT '数据来源',
     is_production_day TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '是否生产日',
+    updated_at        DATETIME     NULL COMMENT '源系统最后修改时刻',
     PRIMARY KEY (id),
     UNIQUE KEY uk_date_ws_energy (record_date, workshop_code, energy_code),
     KEY idx_date (record_date),
