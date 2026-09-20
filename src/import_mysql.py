@@ -85,13 +85,12 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
 
     装载是幂等的: SQL 里带 IGNORE, 唯一键冲突的行会被跳过而不是报错,
     因此重复执行本脚本不会产生重复数据(与已经装载过的数据保持一致)。
-    本次跳过了多少行会在日志里显式打印, 不静默处理。
+    装完后会用表内实际行数校验, 该写进去的行一行没少才算成功。
     """
     path = os.path.join(OUT_DIR, csv_name)
     if not os.path.exists(path):
-        log(f"  [跳过] 找不到 {csv_name}")
-        return 0
-    # 先数一遍 CSV 的数据行数(总行数减去表头), 用来对照实际写入了多少行
+        raise FileNotFoundError(f"找不到 {csv_name} (期望位置: {path})")
+    # 先数一遍 CSV 的数据行数(总行数减去表头), 装完用它校验
     with open(path, encoding="utf-8-sig", newline="") as f:
         file_rows = max(sum(1 for _ in f) - 1, 0)
 
@@ -102,10 +101,12 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
     # 先导入用户变量 @col 再 SET 到真实列: 空串经 NULLIF 变成 NULL,
     # 否则空的 avg_temperature 会被当成 0 而不是"未知"
     # IGNORE: 唯一键重复的行直接丢弃, 使整个装载过程可重复执行
+    # 行终止符用 '\n' 而非 '\r\n': 上游 clean_data.py 已固定写 LF。
+    # 若换成 '\r\n', 在 LF 文件上整个文件会被当成一行, 静默装入 0 行。
     sql = (
         f"LOAD DATA LOCAL INFILE '{win_path}' INTO TABLE `{db}`.`{table}` "
         f"CHARACTER SET utf8mb4 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' "
-        f"LINES TERMINATED BY '\\r\\n' IGNORE 1 LINES ({cols}) SET {assigns}"
+        f"LINES TERMINATED BY '\\n' IGNORE 1 LINES ({cols}) SET {assigns}"
     )
     with conn.cursor() as cur:
         # 装载期间关掉唯一性与外键校验以提升速度(数据本身已通过清洗保证一致性)
@@ -113,10 +114,15 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
         cur.execute("SET FOREIGN_KEY_CHECKS=0")
         try:
             cur.execute(sql)
-            inserted = cur.rowcount
             loaded = "LOAD DATA"
-        except pymysql.err.Error:
-            # 服务端未开启 local_infile 时退化为批量 INSERT; 同样用 INSERT IGNORE 保持幂等
+        except pymysql.err.OperationalError as exc:
+            # 只有"服务端不允许 LOCAL INFILE"这一种情况才值得降级重试。
+            # 其它 OperationalError(比如服务端读不到文件)必须原样抛出 ——
+            # 早先这里无差别吞掉所有 pymysql 错误, 导致装载静默失败
+            # 而任务仍报 success, 后面分析查询全查空表。
+            if "local_infile" not in str(exc) and "not allowed" not in str(exc):
+                raise
+            log("      (服务端未开启 local_infile, 退化为批量 INSERT)")
             loaded = "批量 INSERT"
             insert_sql = (
                 f"INSERT IGNORE INTO `{db}`.`{table}` "
@@ -131,19 +137,22 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str) -> int:
                     if len(r) != len(columns):
                         continue
                     rows.append(tuple(v if v != "" else None for v in r))
-            inserted = 0
             for i in range(0, len(rows), 2000):
                 cur.executemany(insert_sql, rows[i:i + 2000])
-                inserted += cur.rowcount
         cur.execute("SET FOREIGN_KEY_CHECKS=1")
         cur.execute("SET UNIQUE_CHECKS=1")
         cur.execute(f"SELECT COUNT(*) FROM `{db}`.`{table}`")
         n = cur.fetchone()[0]
     conn.commit()
 
-    skipped = max(file_rows - inserted, 0)
-    note = f", 跳过重复 {skipped:,} 行" if skipped else ""
-    log(f"      ({csv_name} 经 {loaded} 写入 {inserted:,} 行{note})")
+    # 校验: 表里至少要有 CSV 那么多行。少了说明有行没进去(路径错、编码错、
+    # 列数不匹配……), 必须让任务失败而不是把空表交给下游查询。
+    if n < file_rows:
+        raise RuntimeError(
+            f"{table} 装载不完整: CSV {file_rows:,} 行, 表中仅 {n:,} 行 "
+            f"(经 {loaded})"
+        )
+    log(f"      ({csv_name} 经 {loaded} 装载, {table} 共 {n:,} 行)")
     return n
 
 

@@ -30,3 +30,17 @@ Thumbs.db
 *.log
 *.tmp
 ~$*
+
+# Generated artifacts — all reproducible from source, so not versioned.
+#
+# data/  : generate_data.py 输出, 随机种子固定 (20240918), 每次生成完全一致
+# output/: clean_data.py 的清洗结果 + import_mysql.py --run-analysis 的
+#          查询导出 + make_report.py 的报告
+# 跑一遍 README 的快速开始四步就能全部重建。把它们提交进去, 每次重跑都会
+# 产生一堆无意义的 diff, 还会让人误以为仓库里的是"权威"数据。
+data/raw_energy_data.csv
+output/
+
+# 但清洗/分析脚本目录下的输入不在排除范围内 —— sql/ 与 src/ 是源, 不是产物
+!src/
+!sql/

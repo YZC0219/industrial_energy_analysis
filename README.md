@@ -18,6 +18,12 @@ industrial_energy_analysis/
 ├─ sql/
 │   ├─ create_table.sql         # 建库、维表、事实表、视图、主数据
 │   └─ analysis.sql             # 23 条业务分析查询
+├─ dags/
+│   └─ energy_pipeline_dag.py   # Airflow DAG: 五个阶段串成一条可调度管道
+├─ docker/
+│   └─ airflow/Dockerfile       # Airflow 镜像 + 项目依赖
+├─ docker-compose.yml           # 一键起: postgres + mysql + airflow
+├─ .env.example                 # 环境变量模板(UID / Fernet key / 口令)
 ├─ output/                      # 清洗结果 + 分析结果导出 + report.html
 ├─ README.md
 └─ requirements.txt
@@ -56,6 +62,66 @@ MYSQL_PWD=你的密码 python src/import_mysql.py --init --run-analysis
 ```bash
 python src/import_mysql.py --run-analysis
 ```
+
+## 用 Airflow 调度
+
+上面的四步也可以交给 Airflow 编排 —— 依赖、重试、失败告警、调度周期都由 DAG 管，
+不需要人盯着顺序。
+
+```bash
+docker compose up -d          # 首次会构建镜像, 约 2~3 分钟
+# 打开 http://localhost:8080  账号 admin / admin
+# 在 DAG 列表里取消 energy_pipeline 的 Pause, 点 Trigger
+```
+
+**前置条件**：Docker。Windows 上需要装 WSL2 + Docker Desktop（Airflow 官方不支持
+Windows 原生运行）。
+
+### 五个服务
+
+| 服务 | 作用 | 挂载 |
+|---|---|---|
+| `postgres` | Airflow 自己的元数据库（DAG 状态、任务实例） | `postgres-db` 卷 |
+| `mysql` | 项目的分析仓库（星型模型 + 23 条查询跑在这里），映射到宿主机 `3307` | `mysql-data` 卷 + `./output`（只读）|
+| `airflow-init` | 一次性任务：建元数据库表 + 建管理员账号，跑完即退 | — |
+| `airflow-scheduler` | 调度器 | `./dags`、`./`（项目目录）|
+| `airflow-webserver` | Web UI，`localhost:8080` | 同上 |
+
+元数据库用 Postgres 而非复用 MySQL，是因为两者职责不同：一个是调度器的内部状态，
+一个是业务数据。混在一起的话重建业务库会连调度历史一起清掉。
+
+**为什么 mysql 也要挂 `./output`**：装载用的是 `LOAD DATA LOCAL INFILE`，
+语句里那个文件是 **MySQL 服务端**打开的，不是执行脚本的 airflow 容器。
+两个容器的文件系统互相看不见，不在 mysql 这边挂上、且路径与 airflow 侧对齐
+（都挂到 `/opt/airflow/project/output`），服务端就会报 `File not found`
+并静默装入 0 行。只读挂载足够 —— 这个目录 mysql 只读不写。
+
+### DAG 结构
+
+```
+generate_raw_data → clean_data → load_warehouse → run_analysis → build_report
+```
+
+- **幂等**：`load_warehouse` 走的 `create_table.sql` 用 `DROP TABLE IF EXISTS` 重建表，
+  所以整条管道重跑任意次结果一致，不会数据翻倍。
+- **并发控制**：`max_active_runs=1`。管道是全量重建，两次运行并发会互相覆盖。
+- **重试**：失败自动重试 2 次，指数退避（1min → 2min → 4min）。数据库冷启动没就绪
+  这类瞬时故障不该让整条管道挂掉。
+- **告警**：`on_failure_callback` 里留了钩子，接 Slack/钉钉只需替换成 webhook 调用。
+- **不回补**：`catchup=False`。全量重建的管道回补历史没有意义。
+
+任务切分、每个任务的职责说明写在 `dags/energy_pipeline_dag.py` 的 docstring 里，
+在 Airflow UI 的 Graph 视图点开 DAG 就能看到。
+
+### 配置
+
+```bash
+cp .env.example .env      # 可选; 不建也能跑, 用的是演示默认值
+```
+
+`.env` 里三个变量：`AIRFLOW_UID`（Linux/macOS 下设成 `id -u`，Windows 保持 50000）、
+`AIRFLOW_FERNET_KEY`（**真实部署前必须重新生成**）、`MYSQL_ROOT_PASSWORD`。
+`.env` 已在 `.gitignore` 里，进仓库的是 `.env.example` 这份模板。
 
 ## 数据模型 (星型模型)
 
@@ -97,6 +163,16 @@ python src/import_mysql.py --run-analysis
 | 费用 ≠ 量×价 (偏差>5%) | 以 量×价 重算 | `clean_fixed.csv` |
 
 清洗后输出 `output/clean_report.txt` 报告, 记录每一步的处理条数与数据保留率。
+
+### 落盘时的两个约定
+
+改 `clean_data.py` / `generate_data.py` 的输出部分时注意:
+
+- **行尾固定为 LF**: 所有 `to_csv` 都显式带 `lineterminator="\n"`。不指定的话
+  pandas 跟着操作系统走(Windows 出 CRLF、Linux 出 LF), 而下游 `LOAD DATA` 的
+  行终止符只能写死一个 —— 行尾对不上时整个文件会被当成一行, 静默装入 0 行。
+- **BOM**: 用 `encoding="utf-8-sig"` 写, Excel 双击打开中文表头才不乱码。
+  读取侧(`import_mysql.py`、`make_report.py`)相应地也用 `utf-8-sig` 打开。
 
 ## 分析查询清单 (`sql/analysis.sql`)
 
@@ -178,4 +254,21 @@ python src/make_report.py       # -> output/report.html
 ## 环境要求
 
 - Python 3.9+
-- MySQL 8.0+ (需开启 `local_infile`。若服务端未开启, 可在 `my.ini` 的 `[mysqld]` 下加 `local_infile=1` 后重启)
+- MySQL 8.0+
+
+### 关于 `local_infile`
+
+装载这一步用 `LOAD DATA LOCAL INFILE` 批量灌数(比逐行 INSERT 快一两个数量级),
+它需要在**服务端**开启 `local_infile`, 两种跑法各自的开启方式不同:
+
+| 跑法 | 怎么开 |
+|---|---|
+| 直接用本机 MySQL | 在 `my.ini` 的 `[mysqld]` 下加 `local_infile=1` 后重启服务 |
+| 用 Docker Compose | 无需手工操作, `docker-compose.yml` 里 mysql 服务的 `command` 已带 `--local-infile=1` |
+
+服务端没开时 `import_mysql.py` 会自动退化为批量 `INSERT`, 所以两种情况都能跑通。
+
+> **容器环境的一个坑**: `LOAD DATA LOCAL INFILE` 里的文件是 **MySQL 服务端**
+> 按自己的文件系统打开的, 不是客户端。所以 `docker-compose.yml` 里 mysql 服务
+> 也挂载了 `./output`(只读), 且路径与 airflow 容器保持一致 —— 否则服务端会
+> 报 `File not found`。宿主机直跑时不存在这个问题(客户端和服务端是同一台机器)。

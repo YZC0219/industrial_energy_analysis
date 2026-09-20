@@ -303,7 +303,7 @@ def main() -> None:
           f"(重复 {len(dirty) - len(clean):,} 行)")
 
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
-    dirty.to_csv(OUT_PATH, index=False, encoding="utf-8-sig")
+    dirty.to_csv(OUT_PATH, index=False, encoding="utf-8-sig", lineterminator="\n")
     print(f"[3/3] 已写出 -> {OUT_PATH}")
 
 

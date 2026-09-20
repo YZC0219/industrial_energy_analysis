@@ -382,19 +382,18 @@ def main() -> None:
 
     # ---- 14. 落盘 ---------------------------------------------------------
     # encoding="utf-8-sig" 会写入 BOM, 这样 Excel 双击打开中文表头不会乱码;
+    # lineterminator="\n" 固定为 LF: 否则 pandas 跟着操作系统走(Windows 出
+    # CRLF、Linux 出 LF), 而下游 LOAD DATA 的行终止符只能写死一个, 跨平台
+    # 装载会整文件被当成一行, 静默装入 0 行。
     # 两个留痕文件用 if len() 判断, 该步没有命中记录时不生成空文件
-    energy_fact.to_csv(os.path.join(OUT_DIR, "clean_energy.csv"),
-                       index=False, encoding="utf-8-sig")
-    prod_fact.to_csv(os.path.join(OUT_DIR, "clean_production.csv"),
-                     index=False, encoding="utf-8-sig")
-    calendar.to_csv(os.path.join(OUT_DIR, "dim_calendar.csv"),
-                    index=False, encoding="utf-8-sig")
+    csv_kw = dict(index=False, encoding="utf-8-sig", lineterminator="\n")
+    energy_fact.to_csv(os.path.join(OUT_DIR, "clean_energy.csv"), **csv_kw)
+    prod_fact.to_csv(os.path.join(OUT_DIR, "clean_production.csv"), **csv_kw)
+    calendar.to_csv(os.path.join(OUT_DIR, "dim_calendar.csv"), **csv_kw)
     if len(rejects):
-        rejects.to_csv(os.path.join(OUT_DIR, "clean_rejects.csv"),
-                       index=False, encoding="utf-8-sig")
+        rejects.to_csv(os.path.join(OUT_DIR, "clean_rejects.csv"), **csv_kw)
     if len(fixed):
-        fixed.to_csv(os.path.join(OUT_DIR, "clean_fixed.csv"),
-                     index=False, encoding="utf-8-sig")
+        fixed.to_csv(os.path.join(OUT_DIR, "clean_fixed.csv"), **csv_kw)
 
     # ---- 15. 报告 ---------------------------------------------------------
     lines = []

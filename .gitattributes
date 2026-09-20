@@ -1,0 +1,45 @@
+# 行尾统一: 入库一律 LF, 检出也一律 LF。
+#
+# 为什么必须显式声明而不是靠 core.autocrlf: 装载步骤用 LOAD DATA LOCAL INFILE,
+# 它的行终止符只能写死一个(见 src/import_mysql.py), 而 CSV 的行尾若跟着
+# 检出平台变(Windows CRLF / Linux LF), 行尾对不上时整个文件会被当成一行,
+# 静默装入 0 行。所以这些文件在磁盘上必须是确定的 LF, 与操作系统无关。
+#
+# Git 会按"最具体的模式优先"匹配, 所以下面的否定规则可以覆盖上面的通配。
+
+* text=auto
+
+# CSV: 本项目的数据交换格式, 必须 LF
+*.csv   text eol=lf
+
+# 源码与脚本: LF 即可
+*.py    text eol=lf
+*.sql   text eol=lf
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+
+# Dockerfile 与 .env 模板同上
+Dockerfile  text eol=lf
+.env.example text eol=lf
+
+# PowerShell 脚本保持 CRLF: Windows PowerShell 5.1 对无 BOM 的 .ps1 按 GBK
+# 解码, 换行符不敏感, 但保留 CRLF 更符合 Windows 工具链的预期。
+*.ps1   text eol=crlf
+
+# 二进制: 不做任何行尾转换
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.xlsx  binary
+*.zip   binary
+*.gz    binary
+*.vhdx  binary
