@@ -31,6 +31,9 @@ Thumbs.db
 *.tmp
 ~$*
 
+# 验收脚本的截图产物 (tools/check_filter_ui.py 每次运行都会重写)
+tools/_shot_*.png
+
 # Generated artifacts — all reproducible from source, so not versioned.
 #
 # data/  : generate_data.py 输出, 随机种子固定 (20240918), 每次生成完全一致
