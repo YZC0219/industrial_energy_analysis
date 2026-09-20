@@ -129,6 +129,8 @@ with DAG(
 
         装载走 `LOAD DATA LOCAL INFILE` 批量导入, 比逐行 INSERT 快 1~2 个数量级;
         若服务端未开 `local_infile`, 自动退回批量 `executemany`。
+        事实表在此基础上做 upsert: 先灌临时表, 再按 `updated_at` 判新旧写入,
+        使上游修正的历史记录能覆盖旧值, 而过期数据重放不会把新值改回去。
 
         因为 DDL 里是 `DROP TABLE IF EXISTS`, 这一步**重复执行结果一致**。
         """,

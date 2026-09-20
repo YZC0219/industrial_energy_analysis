@@ -304,15 +304,28 @@ python tests/update_baseline.py           # 确认无误后更新
 然后**在提交信息里写明为什么变、变了多少**。反之，如果说不出数字为什么该变，
 那是 bug 不是基线过期 —— 别用刷新基线把问题盖过去。
 
-### 一个已知的预期失败
+### 历史修正怎么落地（upsert）
 
-`test_historical_correction_is_applied` 标记为 `xfail`（预期失败），不是写错了。
-当前装载用 `LOAD DATA ... IGNORE`，而 MySQL 的 `IGNORE` 语义是**唯一键冲突时
-保留已存在的行、丢弃新来的行** —— 所以上游修正一条历史记录后重新装载，这次
-修正会被**静默丢弃**。
+事实表的唯一键是 `(record_date, workshop_code, energy_code)`，它只标识
+**哪条业务记录**，不标识**哪个版本**。因此上游修正一条历史记录后重新装载，
+如果装载用 `INSERT IGNORE`，新版本会被当成唯一键冲突**静默丢弃**，库里
+永远停在旧值上。
 
-第二阶段引入 upsert（`ON DUPLICATE KEY UPDATE`）后，这个测试会从 `xfail` 自动
-变成 `xpass`，提示你摘掉标记。
+现在事实表装载走 **upsert**：先 `LOAD DATA` 进一张临时表，再
+`INSERT ... SELECT ... ON DUPLICATE KEY UPDATE`，并且**每个业务列都套一层
+`IF(new.updated_at > t.updated_at, ...)`** —— 只有严格更新的版本才覆盖。
+
+- 只靠 `ON DUPLICATE KEY UPDATE` 会**无条件覆盖**，那样重放一批更旧的数据
+  （比如补跑历史区间）会把后来的修正全部抹掉。判新旧这个条件是关键。
+- `updated_at` 列本身用 `GREATEST` 保留最大值，避免被旧值拉回去。
+- 服务端没开 `local_infile` 时，降级用的批量 `INSERT` 分支走同一条 upsert 逻辑。
+
+对应的护栏是两条测试：`test_historical_correction_is_applied`（更新的版本
+能覆盖）和 `test_stale_version_does_not_overwrite`（过期版本不得回退）。
+
+`fact_production` 与 `dim_calendar` 仍用 `INSERT IGNORE`：它们没有历史修正
+需求。若将来产量也要修正，给表加一个 `updated_at`，然后
+`load_csv(..., upsert=True)` 即可复用同一套逻辑。
 
 ### 关于 `local_infile`
 它需要在**服务端**开启 `local_infile`, 两种跑法各自的开启方式不同:
