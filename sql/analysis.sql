@@ -440,3 +440,40 @@ SELECT
 FROM v_daily_workshop
 ORDER BY tce DESC
 LIMIT 20;
+
+
+-- @@name Q24_单耗每日序列与2sigma带
+-- @@desc 每个车间的每日单位产品能耗, 附该车间自身的均值与标准差, 供报告画
+--       "单耗曲线 + 均值 ±2σ 带"并标出超限点。与 Q16 的分工: Q16 只返回
+--       超限日(告警清单), 本查询返回完整序列(画图要的连续曲线与上下界)。
+--       取值范围与 Q16 保持一致: 产量>0、剔除公用工程 —— 两者口径必须一致,
+--       否则图上标出的点会比告警清单多/少。
+WITH d AS (
+    SELECT
+        v.record_date, v.workshop_code, v.workshop_name,
+        v.tce, p.output_qty,
+        v.tce * 1000 / NULLIF(p.output_qty, 0) AS ue
+    FROM v_daily_workshop v
+    JOIN fact_production p
+      ON p.record_date = v.record_date AND p.workshop_code = v.workshop_code
+    JOIN dim_workshop w ON w.workshop_code = v.workshop_code
+    WHERE p.output_qty > 0 AND w.process_type <> '公用工程'
+),
+s AS (
+    SELECT workshop_code, AVG(ue) AS mu, STDDEV_SAMP(ue) AS sd
+    FROM d GROUP BY workshop_code
+)
+SELECT
+    d.record_date               AS 日期,
+    d.workshop_code             AS 车间编码,
+    d.workshop_name             AS 车间,
+    ROUND(d.output_qty, 3)      AS 产量,
+    ROUND(d.ue, 4)              AS 单位产品能耗_kgce,
+    ROUND(s.mu, 4)              AS 车间均值,
+    ROUND(s.sd, 4)              AS 标准差,
+    ROUND((d.ue - s.mu) / s.sd, 2) AS Z值,
+    -- 超限标记在 SQL 里算好, 前端不重复实现阈值逻辑
+    CASE WHEN d.ue > s.mu + 2 * s.sd THEN 1 ELSE 0 END AS 是否超限
+FROM d
+JOIN s ON s.workshop_code = d.workshop_code
+ORDER BY d.workshop_code, d.record_date;

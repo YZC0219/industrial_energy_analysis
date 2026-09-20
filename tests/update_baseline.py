@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-更新 Q01~Q23 回归基线。
+更新 Q01~Q24 回归基线。
 
     python tests/update_baseline.py            # 用当前 output/ 覆盖基线
     python tests/update_baseline.py --check    # 只看差异, 不写入
@@ -28,7 +28,7 @@ BASELINE_DIR = os.path.join(HERE, "baseline")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="更新 Q01~Q23 回归基线")
+    ap = argparse.ArgumentParser(description="更新 Q01~Q24 回归基线")
     ap.add_argument("--check", action="store_true",
                     help="只报告差异, 不写入基线")
     args = ap.parse_args()

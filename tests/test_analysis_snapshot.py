@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Q01~Q23 结果回归基线测试 —— 需要 MySQL, 默认跳过。
+Q01~Q24 结果回归基线测试 —— 需要 MySQL, 默认跳过。
 
     python -m pytest -m db
 
 **为什么需要它**: 第一阶段之后要动的是装载逻辑(增量)、表结构(维度扩展)和
-口径视图(统一公用工程)。这三件事任何一件做错, 都会让 23 条分析查询的结果
+口径视图(统一公用工程)。这三件事任何一件做错, 都会让 24 条分析查询的结果
 悄悄漂移 —— 不报错、不崩, 只是数字变了。没有基线就发现不了。
 
 **基线怎么来的**: `tests/baseline/` 下是 2026-09-20 在固定种子数据上跑出的
-23 份结果快照, 已经过人工核对(见 README 的回归基线表)。它们是"正确答案"。
+24 份结果快照, 已经过人工核对(见 README 的回归基线表)。它们是"正确答案"。
 
 **比较策略**: 逐行逐列比对, 浮点按相对容差 1e-6 比较。不要求字节相同 ——
 CSV 里的浮点格式化方式可能随 pandas 版本变化, 那样的差异不是回归。
@@ -118,11 +118,11 @@ def test_query_matches_baseline(fname, db_params):
 
 
 def test_baseline_covers_all_queries():
-    """基线必须覆盖 Q01~Q23 全部 23 条, 少一条就是漏保护"""
+    """基线必须覆盖 Q01~Q24 全部 24 条, 少一条就是漏保护"""
     files = _baseline_files()
-    assert len(files) == 23, f"基线应含 23 个文件, 实际 {len(files)} 个"
+    assert len(files) == 24, f"基线应含 24 个文件, 实际 {len(files)} 个"
     ids = {f.split("_")[0] for f in files}
-    assert ids == {f"Q{i:02d}" for i in range(1, 24)}
+    assert ids == {f"Q{i:02d}" for i in range(1, 25)}
 
 
 def test_analysis_sql_query_count(db_params):
@@ -131,7 +131,7 @@ def test_analysis_sql_query_count(db_params):
 
     sql_path = os.path.join(BASE_DIR, "sql", "analysis.sql")
     queries = parse_analysis(sql_path)
-    assert len(queries) == 23, (
-        f"analysis.sql 含 {len(queries)} 条查询, 基线有 23 条。"
+    assert len(queries) == 24, (
+        f"analysis.sql 含 {len(queries)} 条查询, 基线有 24 条。"
         f"新增查询后请一并生成对应基线。"
     )

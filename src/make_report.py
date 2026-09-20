@@ -39,6 +39,7 @@ Q = {  # 查询名 -> output/ 下的文件名
     "daytype":     "Q14_工作日与周末节假日能耗对比.csv",
     "carbon":      "Q21_碳排放强度.csv",
     "alerts":      "Q22_能耗突增预警_环比超25pct.csv",
+    "unit_series": "Q24_单耗每日序列与2sigma带.csv",
 }
 
 
@@ -226,12 +227,42 @@ def build() -> dict:
         for r in read(Q["alerts"])
     ]
 
+    # ---- Q24 单耗每日序列: 按车间分组, 每组自带该车间的均值/标准差 ----
+    # 每个车间一个独立的 μ/σ, 所以不能合并成一张图(量级差三个数量级), 按车间分组
+    groups: dict = {}
+    for r in read(Q["unit_series"]):
+        code = r["车间编码"]
+        g = groups.setdefault(code, {
+            "code": code,
+            "name": r["车间"],
+            "mu": f(r["车间均值"]),
+            "sd": f(r["标准差"]),
+            "points": [],
+        })
+        g["points"].append({
+            "d": r["日期"],
+            "ue": f(r["单位产品能耗_kgce"]),
+            "z": f(r["Z值"]),
+            "qty": f(r["产量"]),
+            "out": r["是否超限"] == "1",
+        })
+    series = sorted(groups.values(), key=lambda g: -len([p for p in g["points"] if p["out"]]))
+    for g in series:
+        g["n_out"] = len([p for p in g["points"] if p["out"]])
+        # σ/μ 越大, Z 值越容易被小基数放大 —— 页面上要按这个比值排序提示
+        g["cv"] = round(g["sd"] / g["mu"] * 100, 1) if g["mu"] else 0.0
+    out["unit_series"] = series
+
     # ---- 由数据推出的派生结论, 供页面文案直接引用 ----
     out["derived"] = {
         "utility_ratio": round(out["totals"]["tce_ex"] / out["totals"]["tce"] * 100, 1),
         "standby_tce": round(sum(r["tce"] for r in out["standby"]), 2),
         "standby_cost": round(sum(r["waste"] for r in out["standby"]), 2),
         "top4_pct": round(sum(w["tce_pct"] for w in out["workshops"][:4]), 1),
+        "us_total": sum(g["n_out"] for g in series),
+        "us_pts": sum(len(g["points"]) for g in series),
+        # 变异系数最高的车间 —— 小基数放大的典型案例, 文案里点名
+        "us_cv_top": max(series, key=lambda g: g["cv"])["name"] if series else "",
     }
     return out
 
@@ -268,6 +299,8 @@ def main() -> None:
     print(f"       图表数据  {len(data['workshops'])} 车间 / {len(data['energy_mix'])} 能源 / "
           f"{len(data['monthly'])} 月 / {len(data['temp_bins'])} 气温档 / "
           f"{len(data['standby'])} 待机车间 / {len(data['alerts'])} 条预警")
+    print(f"       单耗序列  {len(data['unit_series'])} 车间 / {d['us_pts']} 个日点 / "
+          f"{d['us_total']} 个超限点 (变异系数最大: {d['us_cv_top']})")
 
 
 if __name__ == "__main__":

@@ -142,6 +142,26 @@ h2{margin:0;font-size:21px;font-weight:600;letter-spacing:-.015em;line-height:1.
 }
 .toggle:hover{background:var(--surface-2);color:var(--ink)}
 
+/* ---------- 车间切换 (异常图专用) ---------- */
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.seg button{
+  font:inherit;font-size:11.5px;font-weight:500;line-height:1;
+  color:var(--ink-2);background:transparent;
+  border:1px solid var(--ring);border-radius:6px;
+  padding:6px 10px;cursor:pointer;
+  transition:background .12s ease,color .12s ease,border-color .12s ease;
+}
+.seg button:hover{background:var(--surface-2);color:var(--ink)}
+.seg button[aria-pressed="true"]{
+  background:var(--mark-1);border-color:var(--mark-1);color:#fff;
+}
+.seg button b{font-weight:600;font-variant-numeric:tabular-nums}
+.seg button i{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--critical);margin-left:5px;vertical-align:middle;
+}
+.seg button[aria-pressed="true"] i{background:#fff}
+
 /* ---------- svg text ---------- */
 .c-label{fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
 .c-value{fill:var(--ink);font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
@@ -220,7 +240,7 @@ td:first-child{color:var(--ink)}
   <header class="masthead">
     <p class="eyebrow">工业能耗分析 · 2024-01-01 ~ 2025-12-31</p>
     <h1>全厂能耗体检</h1>
-    <p class="lede">8 个车间、6 种能源、731 天的日粒度能耗与产量数据，从原始脏数据一路清洗入 MySQL 后，由 <code>sql/analysis.sql</code> 的 23 条查询算出下面每一个数字。</p>
+    <p class="lede">8 个车间、6 种能源、731 天的日粒度能耗与产量数据，从原始脏数据一路清洗入 MySQL 后，由 <code>sql/analysis.sql</code> 的 24 条查询算出下面每一个数字。</p>
     <ul class="facts">
       <li>数据来源 <b>模拟数据（随机种子 20240918，可复现）</b></li>
       <li>折标煤系数 <b>GB/T 2589-2020 当量值</b></li>
@@ -396,6 +416,35 @@ td:first-child{color:var(--ink)}
 
   <section class="sec">
     <div class="sec-head">
+      <p class="eyebrow">异常</p>
+      <h2>2σ 控制图：每日单耗偏离自身基线多少</h2>
+      <p class="sec-sub">逐日算单位产品能耗，与<b>该车间自己</b>的均值 μ 和标准差 σ 比：落入 μ±2σ 之内视为正常波动，超出上界即为异常日。注意这是<b>单变量、无监督</b>的判法——它只知道"比平时高"，不知道"为什么高"；产量、气温、检修计划都不在模型里，这正是后面要补产量基线与 CUSUM 的原因。切换车间可看各自的带与检出量。</p>
+    </div>
+    <figure class="card" style="margin:0">
+      <figcaption class="card-head">
+        <h3>单位产品能耗 · 均值 ±2σ 控制带</h3>
+        <p class="card-sub">蓝线为每日单耗，虚线为车间均值 μ，红色虚线为上界 μ+2σ，红色圆点为超限日。纵轴不以 0 为基准——单耗离 0 很远，从 0 起画会把整条控制带压成一条线。</p>
+      </figcaption>
+      <div class="seg" id="anom-seg"></div>
+      <div class="chart" data-chart="anomaly"></div>
+      <div class="card-foot">
+        <span class="card-sub" id="anom-cap"></span>
+        <button class="toggle" data-toggle="anomaly" aria-expanded="false">表格视图（仅超限点）</button>
+      </div>
+      <div class="table-view" data-table="anomaly" hidden></div>
+    </figure>
+    <div class="stack" style="margin-top:14px">
+      <div class="note warn"><span class="mark"></span><div>
+        <b>小基数车间的 Z 值会被放大</b>　σ/μ 越大，同样的绝对波动就越容易顶破 2σ。本例中<b>表面处理车间</b>的变异系数最高，其"超限日"里有相当一部分只是产量小、基数低造成的抖动，不是真的跑冒滴漏。<b>Z 值大 ≠ 问题严重</b>——要把 Z 值和产量一起看，产量越低的超限越可能是统计假象。这也是为什么下一阶段的算法对比要引入产量基线。
+      </div></div>
+      <div class="note"><span class="mark"></span><div>
+        <b>与告警清单的关系</b>　本图用的是全序列（每车间 731 天），口径与第 5 节的单耗指标一致：产量 &gt; 0、剔除公用工程车间。图上的红点集合是该口径下的<b>完整</b>异常集；而前面"能耗突增预警"用的是月度环比另一套口径，两者数字本就不该相等。
+      </div></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
       <p class="eyebrow">方法</p>
       <h2>这份报告是怎么算出来的</h2>
       <p class="sec-sub">每一个数字都能追溯到一条可重跑的 SQL。</p>
@@ -472,7 +521,9 @@ function cssv(name){ return getComputedStyle(document.documentElement).getProper
 function tokens(){
   return {
     surface: cssv("--surface"), grid: cssv("--grid"), axis: cssv("--axis"),
-    m1: cssv("--mark-1"), m2: cssv("--mark-2"), m3: cssv("--mark-3"), dim: cssv("--mark-dim")
+    m1: cssv("--mark-1"), m2: cssv("--mark-2"), m3: cssv("--mark-3"), dim: cssv("--mark-dim"),
+    // 超限点要用语义正确的红, 不能借用 m2(橙) —— 那个颜色在这份报告里已经表示"费用"
+    good: cssv("--good"), critical: cssv("--critical")
   };
 }
 
@@ -698,6 +749,117 @@ function drawLine(host, W, T, opt){
   });
   capture.addEventListener("mouseleave", function(){
     hideTip(host); hair.setAttribute("opacity", 0); dot.setAttribute("opacity", 0);
+  });
+}
+
+/* ================= chart: 单耗 2σ 异常检测 ================= */
+// 每个车间一张图: 每日单耗曲线 + 该车间自身的 μ ± 2σ 带, 超出上界的点标红。
+// σ 与 μ 都是 SQL 里按车间算的(Q24), 前端不重复实现阈值逻辑。
+var anomSel = 0;   // 当前选中车间在 D.unit_series 里的下标
+
+function drawAnomaly(host, W, T, narrow){
+  var gs = D.unit_series;
+  if (!gs || !gs.length) return;
+  if (anomSel >= gs.length) anomSel = 0;
+  var g = gs[anomSel], pts = g.points;
+
+  var padL = narrow ? 44 : 58, padR = narrow ? 40 : 54, padT = 22, padB = 30;
+  var H = narrow ? 230 : 268;
+  var plotW = Math.max(60, W - padL - padR);
+  var plotH = H - padT - padB;
+
+  // 纵轴不以 0 为基准(单耗离 0 很远, 从 0 起画会把 σ 带压成一条线), 用 rangeTicks。
+  // 下界要和 σ 带一样夹到 0: 4 个车间的 μ-2σ < 0, 若轴跟着画到负数,
+  // 带子会悬在轴上方的空白里, 而那段轴还标着不可能出现的负单耗。
+  var up = g.mu + 2 * g.sd, dn = Math.max(0, g.mu - 2 * g.sd);
+  var lo = Math.max(0, Math.min.apply(null, pts.map(function(p){ return p.ue; })));
+  var hi = Math.max.apply(null, pts.map(function(p){ return p.ue; }));
+  lo = Math.max(0, Math.min(lo, dn));
+  hi = Math.max(hi, up);
+  var span = (hi - lo) || 1;
+  lo -= span * 0.06; hi += span * 0.06;
+  var sc = rangeTicks(lo, hi, 4);
+
+  var x = function(i){ return padL + (pts.length === 1 ? plotW / 2 : i / (pts.length - 1) * plotW); };
+  var y = function(v){ return padT + plotH - (v - lo) / (hi - lo) * plotH; };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
+                       "aria-label":g.name + " 单位产品能耗与 ±2σ 控制带"});
+  host.appendChild(svg);
+
+  // ---- ±2σ 带: 先画在底层, 曲线和点压在上面 ----
+  mk("rect", {x:padL, y:y(up), width:plotW, height:Math.max(0, y(dn) - y(up)),
+              fill:T.m1, "fill-opacity":0.10, stroke:"none"}, svg);
+
+  sc.list.forEach(function(v){
+    if (v < lo || v > hi) return;
+    mk("line", {x1:padL, y1:y(v), x2:padL + plotW, y2:y(v), class:"c-grid"}, svg);
+    tx(svg, padL - 9, y(v) + 3.5, v.toFixed(g.mu < 1 ? 3 : 1), "c-label", "end");
+  });
+
+  // ---- 均值线与 ±2σ 上下界: 虚线, 不抢曲线的视觉权重 ----
+  // 下界被夹到 0 时, 它在图上就是坐标轴本身, 不必再画一条压在轴上的虚线
+  var refs = [[g.mu, T.axis, "4 4", 1]];
+  refs.push([up, T.critical, "5 4", 0.55]);
+  if (dn > 0) refs.push([dn, T.critical, "5 4", 0.55]);
+  refs.forEach(function(r){
+    mk("line", {x1:padL, y1:y(r[0]), x2:padL + plotW, y2:y(r[0]),
+                stroke:r[1], "stroke-width":1,
+                "stroke-dasharray":r[2], "stroke-opacity":r[3]}, svg);
+  });
+
+  // ---- x 轴刻度抽稀: 731 个点必须抽, 否则标签糊成一片 ----
+  var last = pts.length - 1, minGap = 50;
+  var step = Math.max(1, Math.ceil(pts.length / Math.max(2, Math.floor(plotW / minGap))));
+  var idxs = [];
+  for (var ii = 0; ii < pts.length; ii++) if (ii % step === 0) idxs.push(ii);
+  if (idxs[idxs.length - 1] !== last) idxs.push(last);
+  idxs = idxs.filter(function(i){ return i === last || Math.abs(x(i) - x(last)) >= minGap; });
+  idxs.forEach(function(i){ tx(svg, x(i), H - padB + 17, pts[i].d.slice(2, 7), "c-label", "middle"); });
+
+  // ---- 曲线 ----
+  var d = "";
+  pts.forEach(function(p, i){ d += (i ? " L" : "M") + x(i) + "," + y(p.ue); });
+  mk("path", {d:d, fill:"none", stroke:T.m1, "stroke-width":1.4,
+              "stroke-opacity":0.75, "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+
+  // ---- 超限点: 语义红 + 一圈 surface 描边, 保证压在曲线上也看得见 ----
+  var hovered = mk("circle", {cx:0, cy:0, r:5, fill:"none", stroke:T.critical,
+                              "stroke-width":2, opacity:0}, svg);
+  pts.forEach(function(p, i){
+    if (!p.out) return;
+    mk("circle", {cx:x(i), cy:y(p.ue), r:2.8, fill:T.critical,
+                  stroke:T.surface, "stroke-width":1.2}, svg);
+  });
+
+  // ---- 十字准星: 照抄 drawLine 的 hair/dot/capture 三件套 ----
+  var hair = mk("line", {x1:0, y1:padT, x2:0, y2:padT + plotH, class:"c-hair", opacity:0}, svg);
+  var dot = mk("circle", {cx:0, cy:0, r:4, fill:T.m1, stroke:T.surface, "stroke-width":2, opacity:0}, svg);
+  var capture = mk("rect", {x:padL, y:padT, width:plotW, height:plotH, class:"c-hit"}, svg);
+
+  capture.addEventListener("mousemove", function(ev){
+    var b = host.getBoundingClientRect();
+    var mx = ev.clientX - b.left;
+    var i = Math.round((mx - padL) / (plotW || 1) * (pts.length - 1));
+    i = Math.max(0, Math.min(pts.length - 1, i));
+    var p = pts[i];
+    hair.setAttribute("x1", x(i)); hair.setAttribute("x2", x(i)); hair.setAttribute("opacity", 1);
+    dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(p.ue)); dot.setAttribute("opacity", 1);
+    hovered.setAttribute("cx", x(i)); hovered.setAttribute("cy", y(p.ue));
+    hovered.setAttribute("opacity", p.out ? 0.9 : 0);
+    showTip(host, x(i), y(p.ue),
+      '<span class="tip-t">' + p.d + "</span>" +
+      '<div class="tip-r"><span><i class="tip-k" style="background:' + T.m1 + '"></i>单位产品能耗</span><span>' + p.ue.toFixed(g.mu < 1 ? 4 : 2) + " kgce</span></div>" +
+      '<div class="tip-r"><span>车间均值 μ</span><span>' + g.mu.toFixed(g.mu < 1 ? 4 : 2) + "</span></div>" +
+      '<div class="tip-r"><span>标准差 σ</span><span>' + g.sd.toFixed(g.mu < 1 ? 4 : 2) + "</span></div>" +
+      '<div class="tip-r"><span>Z 值</span><span>' + p.z.toFixed(2) + "</span></div>" +
+      '<div class="tip-r"><span>产量</span><span>' + num(p.qty, 2) + "</span></div>" +
+      '<div class="tip-r"><span>是否超限</span><span style="color:' + (p.out ? T.critical : "inherit") + '">' +
+        (p.out ? "超限 &gt; μ+2σ" : "正常") + "</span></div>");
+  });
+  capture.addEventListener("mouseleave", function(){
+    hideTip(host); hair.setAttribute("opacity", 0);
+    dot.setAttribute("opacity", 0); hovered.setAttribute("opacity", 0);
   });
 }
 
@@ -982,7 +1144,8 @@ var CHARTS = {
   temp: function(h,W,T,n){ drawTemp(h,W,T,n); },
   unittrend: function(h,W,T,n){ drawUnit(h,W,T,n); },
   deco: function(h,W,T,n){ drawDeco(h,W,T,n); },
-  standby: function(h,W,T,n){ drawStandby(h,W,T,n); }
+  standby: function(h,W,T,n){ drawStandby(h,W,T,n); },
+  anomaly: function(h,W,T,n){ drawAnomaly(h,W,T,n); }
 };
 
 function renderAll(force){
@@ -1065,8 +1228,70 @@ var TABLES = {
   daytype: function(){
     return buildTable(["日型","天数","日均能耗 tce","日均费用 元","日均碳排 tCO₂"],
       D.daytype.map(function(r){ return [r.name, String(r.days), r.tce.toFixed(3), num(r.cost,2), r.co2.toFixed(3)]; }));
+  },
+  // 只列超限点 —— 当前车间的完整序列有 731 行, 全列出来没人看
+  anomaly: function(){
+    var g = D.unit_series[anomSel];
+    var d = g.mu < 1 ? 4 : 2;
+    var rows = g.points.filter(function(p){ return p.out; });
+    if (!rows.length){
+      return '<p class="card-sub" style="padding:12px 0">该车间在当前口径下没有超出 μ+2σ 的日子。</p>';
+    }
+    return buildTable(["日期","单位产品能耗 kgce","车间均值 μ","Z 值","产量","是否超限"],
+      rows.map(function(p){
+        return [p.d, p.ue.toFixed(d), g.mu.toFixed(d), p.z.toFixed(2), num(p.qty,2),
+                '<span class="pill hot"><i class="dot"></i>超限</span>'];
+      }));
   }
 };
+
+// 卡片副标题随选中车间变化 —— μ/σ/n 都是按车间算的, 不能写死在 HTML 里
+function anomCaption(){
+  var g = D.unit_series[anomSel];
+  var d = g.mu < 1 ? 4 : 2;
+  return "均值 μ = <b>" + g.mu.toFixed(d) + "</b>　标准差 σ = <b>" + g.sd.toFixed(d) +
+    "</b>　变异系数 σ/μ = <b>" + g.cv + "%</b>　检出 <b>" + g.n_out + "</b> / " +
+    g.points.length + " 天超限。";
+}
+
+// 车间切换: 报告里唯一一处"同图换数据"的交互, 所以单独一个初始化函数。
+// 点击 -> 改 anomSel -> 同时刷新按钮态、重画图、失效表格缓存。
+function initAnomalySwitch(){
+  var bar = document.getElementById("anom-seg");
+  if (!bar || !D.unit_series) return;
+  bar.innerHTML = D.unit_series.map(function(g, i){
+    return '<button type="button" data-i="' + i + '" aria-pressed="' + (i === anomSel) + '">' +
+      g.name + " <b>" + g.n_out + "</b>" + (g.n_out ? "<i></i>" : "") + "</button>";
+  }).join("");
+
+  bar.addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-i]");
+    if (!btn) return;
+    var i = Number(btn.dataset.i);
+    if (i === anomSel) return;
+    anomSel = i;
+    bar.querySelectorAll("button").forEach(function(b){
+      b.setAttribute("aria-pressed", String(Number(b.dataset.i) === i));
+    });
+    // 图不能只改 dataset.w 就重画 —— renderAll 会用旧宽度判等跳过, 必须 force
+    var host = document.querySelector('[data-chart="anomaly"]');
+    if (host){
+      var W = Math.round(host.clientWidth);
+      host.innerHTML = ""; host.dataset.w = String(W);
+      try { drawAnomaly(host, W, tokens(), W < 560); }
+      catch (err) { host.textContent = "图表渲染失败：" + err.message; }
+    }
+    // 表格视图缓存的是上一个车间的行, 必须清掉让它重建; 若正展开则立即重建
+    var tv = document.querySelector('[data-table="anomaly"]');
+    if (tv){
+      tv.dataset.built = "";
+      tv.innerHTML = tv.hidden ? "" : TABLES.anomaly();
+      if (!tv.hidden) tv.dataset.built = "1";
+    }
+    var cap = document.getElementById("anom-cap");
+    if (cap) cap.innerHTML = anomCaption();
+  });
+}
 
 function initToggles(){
   document.querySelectorAll("[data-toggle]").forEach(function(btn){
@@ -1103,6 +1328,9 @@ function initStatic(){
            '<p class="kpi-value">' + k.v + '<span class="kpi-unit">' + k.u + '</span></p>' +
            '<p class="kpi-note">' + k.n + '</p></div>';
   }).join("");
+
+  var cap = document.getElementById("anom-cap");
+  if (cap) cap.innerHTML = anomCaption();
 
   document.getElementById("lg-mix").innerHTML =
     '<span><i style="background:'+cssv("--mark-1")+'"></i>折标煤口径占比（能耗）</span>' +
@@ -1146,6 +1374,7 @@ function initStatic(){
   }
   // 先接按钮再渲染内容: 即使静态内容渲染出错, 表格视图仍然可用
   initToggles();
+  try { initAnomalySwitch(); } catch (e) { console.error("异常图切换初始化失败:", e); }
   try { initStatic(); } catch (e) { console.error("静态内容渲染失败:", e); }
   renderAll(true);
 })();

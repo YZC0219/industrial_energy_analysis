@@ -6,7 +6,7 @@
 #
 # 五个服务:
 #   postgres          Airflow 自己的元数据库(存 DAG 状态、任务实例、变量)
-#   mysql             项目的分析仓库(星型模型 + 23 条查询跑在这里)
+#   mysql             项目的分析仓库(星型模型 + 24 条查询跑在这里)
 #   airflow-init      一次性任务: 建元数据库表 + 建管理员账号, 跑完即退出
 #   airflow-scheduler 调度器, 按 DAG 定义派发任务
 #   airflow-webserver Web UI

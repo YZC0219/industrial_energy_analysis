@@ -12,7 +12,7 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 | generate_raw_data | 按固定种子生成带脏数据的原始 CSV | `data/raw_energy_data.csv` |
 | clean_data | 10 类质量问题逐一清洗并留痕 | `output/clean_*.csv` + `clean_report.txt` |
 | load_warehouse | 建库建表 + 装载进 MySQL 星型模型 | 3 张维表 + 2 张事实表 |
-| run_analysis | 执行 23 条业务查询 | `output/Q01..Q23_*.csv` |
+| run_analysis | 执行 24 条业务查询 | `output/Q01..Q24_*.csv` |
 | build_report | 结果内联进模板, 生成自包含报告 | `output/report.html` |
 
 #### 关于幂等
@@ -143,10 +143,10 @@ with DAG(
         """
         **执行分析查询**
 
-        跑 `sql/analysis.sql` 里的 23 条业务查询, 结果逐条导出到 `output/Q*.csv`。
+        跑 `sql/analysis.sql` 里的 24 条业务查询, 结果逐条导出到 `output/Q*.csv`。
 
         单条查询失败不会中断整批(记录失败继续跑), 这样一条写错的 SQL 不至于让
-        另外 22 条的结果都拿不到。
+        另外 23 条的结果都拿不到。
         """,
     )
 
