@@ -22,7 +22,15 @@ industrial_energy_analysis/
 │   └─ energy_pipeline_dag.py   # Airflow DAG: 五个阶段串成一条可调度管道
 ├─ docker/
 │   └─ airflow/Dockerfile       # Airflow 镜像 + 项目依赖
+├─ tests/
+│   ├─ conftest.py              # 共用夹具(备份/还原产物、数据库连接)
+│   ├─ test_clean_data.py       # 清洗规则测试(离线)
+│   ├─ test_import_mysql.py     # 装载一致性测试(需要 MySQL)
+│   ├─ test_analysis_snapshot.py# Q01~Q23 结果回归基线(需要 MySQL)
+│   ├─ update_baseline.py       # 基线更新工具
+│   └─ baseline/                # 23 份查询结果快照, 作为"正确答案"
 ├─ docker-compose.yml           # 一键起: postgres + mysql + airflow
+├─ pytest.ini                   # 测试配置(默认跳过需要库的测试)
 ├─ .env.example                 # 环境变量模板(UID / Fernet key / 口令)
 ├─ output/                      # 清洗结果 + 分析结果导出 + report.html
 ├─ README.md
@@ -256,9 +264,57 @@ python src/make_report.py       # -> output/report.html
 - Python 3.9+
 - MySQL 8.0+
 
-### 关于 `local_infile`
+## 自动化测试
 
-装载这一步用 `LOAD DATA LOCAL INFILE` 批量灌数(比逐行 INSERT 快一两个数量级),
+```bash
+pip install -r requirements.txt
+
+pytest                 # 离线测试, 不需要数据库, 约 0.5 秒
+pytest -m db           # 数据库测试, 需要 MySQL 可连
+```
+
+默认 **只跑离线测试**，所以克隆仓库后 `pytest` 直接全绿，不要求先起 MySQL。
+带 `-m db` 的测试连不上数据库时会**跳过**而非失败 —— 数据库没起来属于
+"环境不具备"，不是"代码有问题"，报成失败会发出误导性的红。
+
+| 测试文件 | 覆盖什么 | 需要库 |
+|---|---|---|
+| `test_clean_data.py` | 清洗规则：文本归一、4 种日期格式、节假日历、别名表、产物一致性 | 否 |
+| `test_import_mysql.py` | 装载幂等、中断续跑、历史修正 | 是 |
+| `test_analysis_snapshot.py` | Q01~Q23 结果与基线逐行比对 | 是 |
+
+### 为什么要有这些测试
+
+这个仓库后续要动的是**装载逻辑、表结构、口径视图** —— 这三件事做错都不会
+报错，只会让数字悄悄变。测试是给这些改动准备的护栏。
+
+`test_clean_data.py` 里的 `TestCleanArtifacts` 和 `test_analysis_snapshot.py`
+是**回归基线**：前者守清洗产物的业务键唯一性/无负值/费用口径，后者守 23 条
+查询的每一行数字。基线在 `tests/baseline/`。
+
+### 基线过期了怎么办
+
+如果改动是**有意**改变业务口径（比如统一公用工程口径后单耗数字本就该变）：
+
+```bash
+python tests/update_baseline.py --check   # 先看差异
+python tests/update_baseline.py           # 确认无误后更新
+```
+
+然后**在提交信息里写明为什么变、变了多少**。反之，如果说不出数字为什么该变，
+那是 bug 不是基线过期 —— 别用刷新基线把问题盖过去。
+
+### 一个已知的预期失败
+
+`test_historical_correction_is_applied` 标记为 `xfail`（预期失败），不是写错了。
+当前装载用 `LOAD DATA ... IGNORE`，而 MySQL 的 `IGNORE` 语义是**唯一键冲突时
+保留已存在的行、丢弃新来的行** —— 所以上游修正一条历史记录后重新装载，这次
+修正会被**静默丢弃**。
+
+第二阶段引入 upsert（`ON DUPLICATE KEY UPDATE`）后，这个测试会从 `xfail` 自动
+变成 `xpass`，提示你摘掉标记。
+
+### 关于 `local_infile`
 它需要在**服务端**开启 `local_infile`, 两种跑法各自的开启方式不同:
 
 | 跑法 | 怎么开 |

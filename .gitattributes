@@ -12,6 +12,15 @@
 # CSV: 本项目的数据交换格式, 必须 LF
 *.csv   text eol=lf
 
+# 例外: 测试基线是**数据夹具**, 不是源文件, 不做行尾转换。
+#
+# 它们由 import_mysql.py 的 csv.writer 写出, 在 Windows 上带 CRLF。若被上面的
+# *.csv 规则归一成 LF, 仓库里存的和本地测试读到的就不是同一份字节 —— 在 Linux
+# 上克隆后基线是 LF、比较对象也是 LF 所以看不出问题, 但本机(基线 CRLF、新导出
+# CRLF)与仓库内容会静默不一致, 属于难查的跨平台坑。
+# 基线只做数值/行序比较, 行尾不影响语义, 因此原样存储最安全。
+tests/baseline/*.csv  -text
+
 # 源码与脚本: LF 即可
 *.py    text eol=lf
 *.sql   text eol=lf
