@@ -279,3 +279,55 @@ class TestCleanArtifacts:
         prod = pd.read_csv(os.path.join(cd.OUT_DIR, "clean_production.csv"),
                            encoding="utf-8-sig")
         assert prod.duplicated(subset=["record_date", "workshop_code"]).sum() == 0
+
+    def test_no_workshop_day_loses_an_energy_type(self, energy):
+        """每个车间每天的能源品种数必须一致 —— 少一个品种意味着丢掉了一整条记录。
+
+        这条断言守的是 2026-09-20 修掉的那个缺陷: 第 8 步判离群时用
+        `df.loc[~out_mask]` **整行删除**, 而第 10 步插补只看得见
+        `consumption.isna()` 的行, 于是被删掉的格子永久缺失、插补从不触发。
+        结果是该车间当天少一个能源品种 —— 丢掉 E02(天然气, 占当日 tce 约 70%)
+        时当日总能耗直接掉七成, 下游把它读成真实的能耗骤降(CUSUM 持续偏低报警)。
+        即清洗脚本自己造出了数据里没有的异常, 共 34 天。
+
+        现在离群只置空不删行, 该格会被第 10 步插补, 记录数不变。
+        若有人再把这里改回整行删除, 这条断言会立刻变红。
+        """
+        per_day = energy.groupby(["workshop_code", "record_date"])["energy_code"].nunique()
+        # 每个车间正常应有的品种数 = 该车间全期出现最多的那个值
+        expected = per_day.groupby(level=0).agg(lambda s: s.mode().iloc[0])
+        short = per_day[per_day < per_day.index.get_level_values(0).map(expected)]
+        assert len(short) == 0, (
+            f"有 {len(short)} 个车间-日的能源品种数少于正常水平, "
+            f"说明有记录被整行删除而非插补:\n{short.head(10)}")
+
+    def test_outlier_cells_are_imputed_not_dropped(self, energy):
+        """被判定离群的格子必须留下记录, 且已补成正常量级的估计值。
+
+        与上一条互补: 上一条查"品种数会不会少", 这条直接查那 34 个格子本身 ——
+        它们应当在 clean_energy.csv 里, 且值远小于留痕里的原始离群值
+        (原始值是正常水平 8~15 倍)。
+        """
+        rejects_path = os.path.join(cd.OUT_DIR, "clean_rejects.csv")
+        if not os.path.exists(rejects_path):
+            pytest.skip("无剔除明细")
+        rej = pd.read_csv(rejects_path, encoding="utf-8-sig")
+        out = rej[rej["reject_reason"].astype(str).str.contains("离群")]
+        if out.empty:
+            pytest.skip("本次数据没有离群值")
+
+        key = ["record_date", "workshop_code", "energy_code"]
+        merged = out[key + ["consumption"]].merge(
+            energy[key + ["consumption"]], on=key, suffixes=("_orig", "_imputed"))
+        assert len(merged) == len(out), (
+            f"{len(out) - len(merged)} 个离群格子没有回到事实表 —— 记录被整行删掉了")
+
+        # 插补值必须是无缺失的正数(与 test_no_missing_consumption 同一口径)
+        assert merged["consumption_imputed"].notna().all()
+        assert (merged["consumption_imputed"] > 0).all()
+        # 插补值应当远小于原始离群值: 中位数插补取的是组内正常水平
+        ratio = merged["consumption_imputed"] / merged["consumption_orig"]
+        assert (ratio < 1).all(), "插补值不应大于被替换的离群值"
+        assert ratio.median() < 0.2, (
+            f"插补值中位数仅为原离群值的 {ratio.median():.1%}, 预期 <20% —— "
+            f"数据注入的离群是 8~15 倍量级, 插补后应回到正常水平")

@@ -18,7 +18,7 @@ clean_data.py — 原始能耗数据清洗与结构化
   4. 单位写法归一
   5. 重复记录去重 (按 日期×车间×能源 业务键)
   6. 负消耗量 -> 取绝对值 (仪表倒走)
-  7. 消耗量离群值 (Q3 + 3*IQR) -> 剔除
+  7. 消耗量离群值 (Q3 + 3*IQR) -> 置空, 交由第 8 步插补
   8. 缺失 消耗量/单价 -> 按 车间×能源×年月 中位数插补
   9. 单价为 0 -> 按能源品种月度中位数插补
  10. 费用与 量×价 偏差 >5% -> 以 量×价 重算
@@ -26,12 +26,17 @@ clean_data.py — 原始能耗数据清洗与结构化
 处理顺序不是随意的, 三条原则:
   (1) 先定编码, 再剔除, 最后修正。车间编码/能源编码是所有分组统计的键, 必须在
       剔除与插补之前确定; 否则分组键为空会让中位数算错、甚至整组插补失败。
-  (2) 离群值剔除放在缺失插补之前。若先插补, 用混有 10 倍离群值的组内中位数去
+  (2) 离群值置空放在缺失插补之前。若先插补, 用混有 10 倍离群值的组内中位数去
       填补缺失, 会把离群污染扩散到本来正常的记录上。
   (3) 去重放在离群检测之前。重复行会把分位数算歪, 导致按 IQR 划定的离群边界失真。
 
-每一步剔除/修正的明细都会单独落盘(clean_rejects.csv / clean_fixed.csv),
-不做"静默清洗", 便于事后复盘与回答"这条数据为什么变了"。
+"剔除"与"置空"的分工(容易搞混, 这里定死):
+  - **整行剔除**只用于记录本身不可用的情况: 缺日期/缺车间/缺能源品种(没有分组键,
+    无法修补), 或业务键重复(同键多条, 只能留一条)。这些行进 clean_rejects.csv。
+  - **单格置空**用于数值不可信的情况: 离群值, 以及第 4 步转不动的脏值。记录本身
+    是好的, 只是那个数不能用, 所以置空后交给插补补一个估计值。
+  两者都不做"静默清洗", 明细分别落盘(clean_rejects.csv / clean_fixed.csv),
+  便于事后复盘与回答"这条数据为什么变了"。
 """
 
 import os
@@ -76,6 +81,13 @@ ENERGY_ALIAS = {
 # 能源编码 -> 标准单位
 CANONICAL_UNIT = {"E01": "kWh", "E02": "m³", "E03": "t",
                   "E04": "m³", "E05": "m³", "E06": "kg"}
+
+# 能源编码 -> 标准名称 (取 ENERGY_ALIAS 里每种编码的**第一个**写法, 即标准名)。
+# 用途: 分析 SQL 与报告立方体只传编码(省体积), 需要显示时在这里查名。
+# 由别名表反推而不是另写一份字面量, 是为了兑现"标准名只有一处定义"——
+# 且 test_all_energy_types_have_alias_entries 已经在守别名表的完整性。
+ENERGY_NAME = {code: next(n for n, c in ENERGY_ALIAS.items() if c == code)
+               for code in CANONICAL_UNIT}
 
 # 法定节假日 (与国务院办公厅放假安排一致)
 HOLIDAY_RANGES = [
@@ -292,12 +304,16 @@ def main() -> None:
     dup_rows["reject_reason"] = "业务键重复(日期×车间×能源)"
     rejects = pd.concat([rejects, dup_rows], ignore_index=True)
     stats["重复记录剔除"] = int(len(dup_rows))
+    # 真正被删掉的行数(报告【剔除】的合计用它, 而不是 len(rejects)):
+    # rejects 是**留痕**日志, 除了被删的行, 还收了第 8 步那些"只置空、没删行"的
+    # 离群记录, 两者混在一起会让合计虚高, 且与上方各项对不上。
+    stats["剔除-合计"] = stats["剔除-合计"] + int(len(dup_rows))
     # 保留每个业务键的首条(时间戳相同时取 df 顺序靠前者)
     keep_idx = ordered.drop_duplicates(subset=key_cols, keep="first").index
     dropped_idx = ordered.index.difference(keep_idx)
     df = df.loc[~df.index.isin(dropped_idx)].copy()
 
-    # ---- 8. 离群值剔除 (Q3 + 3*IQR, 按 车间×能源 分组) ---------------------
+    # ---- 8. 离群值处理 (Q3 + 3*IQR, 按 车间×能源 分组) ---------------------
     # 按 车间×能源 分组而非全表: 熔炼车间的天然气用量天然是包装车间的几十倍,
     # 混在一起算分位数的话, 所有高耗能车间都会被误判成离群。
     grp = df.groupby(["workshop_code", "energy_code"])["consumption"]
@@ -307,12 +323,27 @@ def main() -> None:
     # 3 倍只抓 8~15 倍的仪表故障级异常值, 与本数据的注入方式对应
     upper = q3 + OUTLIER_IQR_MULT * (q3 - q1)
     out_mask = df["consumption"] > upper
+    # 留痕行要在置空之前取 —— 它保存的是被判定离群的**原始数值**, 供事后审计
+    # "这条为什么被改写"; 而事后落盘的明细里该格已是插补值, 原始值只能从这里回看。
+    # 注意: 这些行**没有**被删除(下面只把该格置空), 所以它们出现在 clean_rejects.csv
+    # 里是作为"被规则改写过"的留痕, 不计入【剔除】的合计 —— 原因文字里写明这一点,
+    # 免得后来人看到 reject_reason 就以为整条记录没了。
     out_rows = df.loc[out_mask].copy()
-    out_rows["reject_reason"] = "消耗量离群(>Q3+3*IQR)"
+    out_rows["reject_reason"] = "消耗量离群(>Q3+3*IQR, 已置空并插补)"
     rejects = pd.concat([rejects, out_rows], ignore_index=True)
     stats["剔除-消耗量离群"] = int(out_mask.sum())
-    df = df.loc[~out_mask].copy()
-    # 说明: NaN > upper 恒为 False, 所以缺失值不会被误判为离群, 会顺利留到第 10 步插补
+    # 语义修正(2026-09-20): 离群值判决的是"这个**数值**不可信", 而不是"这条记录
+    # 不该存在"。原先写 df = df.loc[~out_mask] 把整行删掉, 而第 10 步的插补判据是
+    # df["consumption"].isna() —— 它只看得见"本来是 NaN 的行", 看不见被删掉的行,
+    # 于是被剔除的格子**永久缺失**, 插补根本不会触发。
+    # 后果不是"少了一个数"而是"少了一个能源品种": 丢掉一条 E02(天然气, 占当日
+    # tce 约 70%)后, 该车间当天只剩 3 个品种, 当日总能耗直接掉七成, 分析层把它
+    # 读成一次真实的能耗骤降(残差冲到 -11σ), 在 CUSUM 里表现为持续偏低报警。
+    # 即清洗脚本自己造出了数据里并不存在的异常 —— 全部 34 条都是这么来的。
+    # 正确做法是只把该格置空, 让它和第 4 步转不动而变 NaN 的格子走同一条插补路径。
+    df.loc[out_mask, "consumption"] = np.nan
+    # 说明: NaN > upper 恒为 False, 所以本来就是缺失的格子不会被误判为离群,
+    # 会顺利留到第 10 步插补; 上面置空的格子则在此加入它们的行列
 
     # ---- 9. 负值修正 ------------------------------------------------------
     # 负消耗量来自仪表倒走/抄表口径切换, 物理上不存在, 数值本身仍有效, 故取绝对值保留
@@ -363,10 +394,15 @@ def main() -> None:
     # 掩码是整表长度, 而 fixed 只是其中的子集, 所以必须用 .loc[fixed.index] 按子集
     # 索引取一遍, 否则长度对不上会直接报错(这里踩过坑)。一行同时命中多种修正时,
     # np.select 取第一个命中的原因作为主因
+    # 离群置空的格子与"本来就缺"的格子走了同一条插补路径, 所以都落在 miss_qty 里;
+    # 但两者的业务含义完全不同(一个是仪表故障被改写, 一个是采集缺失),
+    # np.select 按顺序取第一个命中, 把 out_mask 放最前就能把前者单独标出来。
     fixed["fix_reason"] = np.select(
-        [miss_qty.loc[fixed.index], neg_mask.loc[fixed.index],
-         bad_price.loc[fixed.index], cost_mask.loc[fixed.index]],
-        ["消耗量插补", "负值取绝对值", "单价插补", "费用重算"], default="其他")
+        [out_mask.loc[fixed.index], miss_qty.loc[fixed.index],
+         neg_mask.loc[fixed.index], bad_price.loc[fixed.index],
+         cost_mask.loc[fixed.index]],
+        ["消耗量离群置空后插补", "消耗量插补", "负值取绝对值",
+         "单价插补", "费用重算"], default="其他")
 
     # ---- 13. 事实表成型 ---------------------------------------------------
     # 生产状态由源系统的 record_status 派生; 停产日仍有基础负荷, 这些行必须保留,
@@ -431,19 +467,22 @@ def main() -> None:
     lines.append(f"清洗后产量明细        : {len(prod_fact):,}")
     lines.append(f"数据保留率            : {len(energy_fact) / n_raw:.2%}")
     lines.append("-" * 62)
-    lines.append("【剔除】")
+    lines.append("【剔除】(整行删除: 记录本身不可用)")
     lines.append(f"  日期无法解析        : {stats['日期无法解析']:,}")
     lines.append(f"  车间无法识别        : {stats['车间无法识别']:,}")
     lines.append(f"  能源品种无法识别    : {stats['能源品种无法识别']:,}")
     lines.append(f"  重复记录(业务键)    : {stats['重复记录剔除']:,}")
-    lines.append(f"  消耗量离群值        : {stats['剔除-消耗量离群']:,}")
-    lines.append(f"  合计                : {len(rejects):,}")
+    lines.append(f"  合计(实际删除行)    : {stats['剔除-合计']:,}")
     lines.append("-" * 62)
-    lines.append("【修正】")
+    lines.append("【修正】(保留记录, 只改写不可信的格)")
     lines.append(f"  单位写法归一        : {stats['单位写法归一']:,}")
     lines.append(f"  能源编码回填        : {stats['能源编码缺失(按名称回填)']:,}")
     lines.append(f"  负值取绝对值        : {stats['负值修正(取绝对值)']:,}")
-    lines.append(f"  消耗量缺失插补      : {stats['插补-消耗量']:,}")
+    # 离群值只置空不删行, 所以计在"修正"而非"剔除"里; 括号里点明它同时是被插补的
+    lines.append(f"  消耗量离群(置空)    : {stats['剔除-消耗量离群']:,}"
+                 f"  ← 已并入下方插补")
+    lines.append(f"  消耗量缺失插补      : {stats['插补-消耗量']:,}"
+                 f"  (其中离群置空 {stats['剔除-消耗量离群']:,})")
     lines.append(f"  单价缺失/0 插补     : {stats['插补-单价(含0值)']:,}")
     lines.append(f"  费用按量×价重算     : {stats['费用重算(量×价)']:,}")
     lines.append("-" * 62)
