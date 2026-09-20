@@ -15,13 +15,20 @@
   2. CUSUM 的 k / h / 白化轮廓口径 (改参数会改变所有报警结论)
   3. 字典里引用的**结构事实** (视图名、查询号、口径归属)
 
-不做的事: 不校验字典里的"实测值"(63,759.70 tce 这类)。那些是某一次
-管道运行的快照, 换了数据就该变, 写进测试只会变成需要天天维护的假绿。
-它们的正确性由 `tests/baseline/` 的 29 份回归基线负责。
+不做的事: 不校验字典里的**推导性**实测值(如"天然气费用占比 49.24%"这类)。
+那些是从某次运行算出的快照, 换了数据就该变, 写进测试只会变成需要天天维护的假绿。
+
+**但要校验「口径速查表」里的基准数字**(§7: 全厂 / 剔除公用工程两个总量)。
+它们与上面那些快照不同 —— 是字典作为"权威口径表"的立论基础, 论文和答辩
+直接引用。而且它们**有唯一正确答案**: 就是 `tests/baseline/Q01,Q02`。
+第 8 轮(#17)补上这条断言, 起因是发现它们曾静默漂移:
+字典写着 `63,759.70` / `46,400.59`, 而基线是 `63,759.63` / `46,400.52` ——
+29 份回归基线一份没红, 因为它们只锁 `output/Q*.csv`, 管不到 `docs/` 里的手写数字。
 """
 
 from __future__ import annotations
 
+import csv
 import os
 import re
 
@@ -30,6 +37,7 @@ import pytest
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC_PATH = os.path.join(BASE_DIR, "docs", "指标字典.md")
 SQL_DIR = os.path.join(BASE_DIR, "sql")
+BASELINE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "baseline")
 
 
 @pytest.fixture(scope="module")
@@ -307,3 +315,90 @@ class TestDocStructure:
             assert os.path.exists(os.path.join(BASE_DIR, *rel.split("/"))), (
                 f"字典引用了不存在的文件: {rel}"
             )
+
+
+# =============================================================================
+# 5. 口径速查表的基准数字必须与回归基线一致
+# =============================================================================
+
+class TestMeasuredBaselineNumbers:
+    """字典 §0 与 §7 引用的两个总量, 必须逐位等于 Q01/Q02 回归基线。
+
+    **为什么这条断言不该被"实测值不校验"那条豁免掉**:
+
+    字典里绝大多数实测值(占比、降幅、检出数)确实不该写进测试 —— 换数据就变。
+    但"全厂用能 / 真实用能"这两个数不一样:
+
+      1. 它们是字典的**立论基础**(§7 速查表第一、二行), 论文和答辩会直接引用;
+      2. 它们有**唯一正确答案** —— Q01/Q02 基线。没有"换数据就该变"的余地:
+         数据换了基线也会跟着更新, 两者始终应当一致。
+
+    换句话说, 一条断言该不该写, 判据是"这个数有没有唯一权威来源",
+    而不是"它是不是实测值"。有权威来源的就必须锁。
+
+    守得住的实际缺陷(#17 发现): 字典曾写着 63,759.70 / 46,400.59,
+    而基线是 63,759.63 / 46,400.52。四个数字错了三个量级之外的小数位,
+    却没有任何测试报错 —— 因为 29 份回归基线只管 output/Q*.csv。
+    """
+
+    # 基线文件 -> 字典里对应"口径"的行标签
+    CASES = [
+        ("Q01_能源消费总览.csv", "全厂"),
+        ("Q02_剔除公用工程后的能耗总览.csv", "剔除公用工程"),
+    ]
+
+    @staticmethod
+    def _baseline_row(fname: str) -> dict:
+        path = os.path.join(BASELINE_DIR, fname)
+        if not os.path.exists(path):
+            pytest.skip(f"基线 {fname} 不存在")
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            return {(k or "").strip(): (v or "").strip()
+                    for k, v in next(csv.DictReader(f)).items()}
+
+    def test_speedtable_totals_match_baseline(self, doc):
+        """§7 速查表里两个总量(tce)必须等于基线, 且千分位写法一致。"""
+        for fname, scope in self.CASES:
+            row = self._baseline_row(fname)
+            # 基线给出 6 位小数(63759.63), 字典用千分位 + 2 位(63,759.63)
+            tce = float(row["综合能耗_tce"])
+            shown = f"{tce:,.2f}"
+            assert shown in doc, (
+                f"字典未出现 {scope} 口径的正确综合能耗 {shown} tce "
+                f"(来自 {fname})。若字典写的是别的值, 说明它漂移了 —— "
+                f"这正是本测试要守的缺陷类别。"
+            )
+
+    def test_scope_ratio_matches_baseline(self, doc):
+        """字典里的"剔除/全厂"比值必须由基线现算出来, 不能手写。"""
+        full = float(self._baseline_row("Q01_能源消费总览.csv")["综合能耗_tce"])
+        excl = float(self._baseline_row("Q02_剔除公用工程后的能耗总览.csv")["综合能耗_tce"])
+        assert full > 0, "基线全厂能耗应大于 0"
+        ratio = excl / full * 100
+        assert f"{ratio:.2f}%" in doc, (
+            f"字典应出现由基线现算的比值 {ratio:.2f}% "
+            f"(剔除 {excl} / 全厂 {full})"
+        )
+
+    def test_no_stale_measured_values(self, doc):
+        """字典里**不得**残留任何与基线矛盾的"两位小数"全厂总量。
+
+        反向断言: 若字典出现一个"看起来就是全厂总量"的两位小数写法
+        (如 63,759.70) 而不等于基线, 直接报错并点名。防的是"改了速查表、
+        别处还漏了一处"。
+
+        **为什么只查两位小数**: 字典里刻意会引用**错误的**近似写法作反面例子
+        (如"只留 4 位就成了 63,759.6")。那类写法位数不同、语义上是"被截断的
+        例子"而不是"结论", 不该被误报。而两位小数 `63,759.xx` 正是速查表
+        和报告正文使用的格式 —— 出现就代表一个被引用的结论。
+        """
+        row = self._baseline_row("Q01_能源消费总览.csv")
+        tce = float(row["综合能耗_tce"])
+        prefix = f"{int(tce):,}"          # "63,759"
+        suspects = set(re.findall(prefix + r"\.\d{2}(?!\d)", doc))
+        allowed = {f"{tce:,.2f}"}
+        stale = suspects - allowed
+        assert not stale, (
+            f"字典残留了与基线不符的全厂总量: {sorted(stale)} "
+            f"(基线是 {sorted(allowed)} 即 {tce})"
+        )
