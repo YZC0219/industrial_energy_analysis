@@ -77,6 +77,32 @@ def find_scheduler() -> str:
     )
 
 
+def ensure_unpaused(container: str) -> None:
+    """DAG 若是 paused, 触发的 run 会永远停在 queued。
+
+    这种情况必须**提前**发现: 否则本脚本会一直等到 --timeout 才失败, 而且
+    报的是"run 未结束"(像是管道卡住), 真正的原因(忘了 unpause)要翻 Airflow
+    UI 才看得到。冷启动的容器默认就是 paused —— 这是最常见的第一次运行状态。
+    """
+    p = airflow(container, "dags", "list", "-o", "json", timeout=60)
+    dags = _json_blob(p.stdout)
+    if isinstance(dags, list):
+        for d in dags:
+            if d.get("dag_id") == DAG_ID:
+                if d.get("is_paused"):
+                    print(f"  {DAG_ID} 处于 paused 状态, 自动 unpause ...")
+                    airflow(container, "dags", "unpause", DAG_ID, timeout=60)
+                return
+    # 读不到就退回 CLI 文本输出判断(老版本 airflow 的 list 不支持 -o json)
+    p = airflow(container, "dags", "list", timeout=60)
+    for line in (p.stdout or "").splitlines():
+        if line.startswith(DAG_ID):
+            if line.rstrip().endswith("True"):
+                print(f"  {DAG_ID} 处于 paused 状态, 自动 unpause ...")
+                airflow(container, "dags", "unpause", DAG_ID, timeout=60)
+            return
+
+
 def airflow(container: str, *args: str, timeout: int = 120) -> subprocess.CompletedProcess:
     """在调度器容器里跑一条 airflow CLI 命令。"""
     return subprocess.run(
@@ -343,6 +369,7 @@ def main() -> None:
     section("端到端验收: Airflow DAG 全链路 (#17)")
     container = find_scheduler()
     print(f"  调度器容器: {container}")
+    ensure_unpaused(container)
 
     run_id = trigger_and_wait(container, args.timeout)
     check_tasks(container, run_id)
