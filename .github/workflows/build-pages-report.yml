@@ -5,10 +5,18 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/build-pages-report.yml"
+      # 报告的直接输入
       - "src/make_report.py"
       - "src/report_template.html"
       - "src/mobile.css"
       - "tests/baseline/**"
+      # 管道上游: 改了这些会让基线失效, 必须触发校验(否则守卫被跳过,
+      # 报告照旧发布 —— 那正是这个 workflow 要防的静默漂移)
+      - "src/generate_data.py"
+      - "src/clean_data.py"
+      - "src/import_mysql.py"
+      - "sql/**"
+      - "requirements.txt"
   workflow_dispatch:
 
 permissions:
@@ -17,6 +25,20 @@ permissions:
 jobs:
   build-report:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: energy_root_pwd
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -penergy_root_pwd"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -30,8 +52,47 @@ jobs:
       - name: Install project dependencies
         run: python -m pip install -r requirements.txt
 
+      # ---- 守卫: 基线必须先被证明是"当前正确的答案" ----
+      #
+      # 报告是用 tests/baseline/*.csv 当**数据源**生成的(不连库, 这样 CI 快且
+      # 可复现)。但这带来一个静默风险: 如果改了清洗/口径却**忘了**刷新基线,
+      # 报告会照着旧基线生成 —— 数字自洽、CI 全绿, 只是结论已经过期。
+      #
+      # 所以这里先从**真实数据库**跑一遍完整管道和 29 条查询, 与基线逐行逐列比对
+      # (tests/test_analysis_snapshot.py)。不一致就让 CI 红掉, 而不是发布一份
+      # 悄悄变旧的报告。
+      #
+      # **顺序很关键**: 必须在 `cp tests/baseline/*.csv output/` **之前**跑。
+      # 那个测试比对的是 output/ 里的 CSV, 而拷贝会让 output == baseline,
+      # 比对恒等通过 —— 守卫就成了摆设。
+      - name: Rebuild warehouse from source (for baseline verification)
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: "3307"
+          MYSQL_USER: root
+          MYSQL_PWD: energy_root_pwd
+        run: |
+          python src/generate_data.py
+          python src/clean_data.py --batch-all
+          python src/import_mysql.py --init --full
+          python src/import_mysql.py --run-analysis
+
+      - name: Verify baselines against freshly computed results
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: "3307"
+          MYSQL_USER: root
+          MYSQL_PWD: energy_root_pwd
+        run: |
+          python -m pytest tests/test_analysis_snapshot.py -m db -q
+        # 失败即中止 —— 后面的步骤不会用未经验证的基线去生成报告。
+        # 若改动是有意改变口径, 本地跑 python tests/update_baseline.py 刷新基线,
+        # 在提交信息里写明为什么变, 再 push。
+
+      # ---- 生成 Pages 报告 ----
       - name: Generate responsive report from verified baselines
         run: |
+          rm -rf output
           mkdir -p output docs
           cp tests/baseline/*.csv output/
           python src/make_report.py
