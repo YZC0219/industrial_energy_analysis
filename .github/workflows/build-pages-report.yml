@@ -7,6 +7,7 @@ on:
       - ".github/workflows/build-pages-report.yml"
       - "src/make_report.py"
       - "src/report_template.html"
+      - "src/mobile.css"
       - "tests/baseline/**"
   workflow_dispatch:
 
@@ -29,11 +30,23 @@ jobs:
       - name: Install project dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Generate report from verified baselines
+      - name: Generate responsive report from verified baselines
         run: |
           mkdir -p output docs
           cp tests/baseline/*.csv output/
           python src/make_report.py
+          python - <<'PY'
+          from pathlib import Path
+          report = Path("output/report.html")
+          css = Path("src/mobile.css").read_text(encoding="utf-8")
+          html = report.read_text(encoding="utf-8")
+          if "</head>" not in html:
+              raise SystemExit("Generated report has no </head> tag")
+          report.write_text(
+              html.replace("</head>", f"<style>\n{css}\n</style>\n</head>", 1),
+              encoding="utf-8",
+          )
+          PY
           cp output/report.html docs/index.html
           rm -f docs/docs/index.html
           rmdir docs/docs 2>/dev/null || true
