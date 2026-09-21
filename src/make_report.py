@@ -11,6 +11,7 @@ make_report.py — 把 analysis.sql 导出的查询结果渲染成一份可视�
   python src/import_mysql.py --run-analysis && python src/make_report.py
 """
 
+import calendar
 import csv
 import json
 import os
@@ -512,7 +513,39 @@ def build() -> dict:
         # 告警区正文要引用"11 月全厂环比"作为背景, 两个年份各一个。
         # 按 ym 的 "-11" 后缀取, 而不是写死 2024-11/2025-11 —— 换数据区间也不用改。
         "mom_nov": {r["ym"]: r["mom"] for r in out["monthly"] if r["ym"].endswith("-11")},
+        # 正文要说清"11 月环比含月长效应, 剔除后真实抬升更强", 所以把剔除后的数
+        # 也一并算出来 —— 光有原始环比, 读者无法判断那 3.9pp 有多大。
+        # 口径与 tools/decompose_mom.py 一致(日均环比), 两处算法必须同步修改。
+        "mom_nov_daily": _mom_daily_nov(out["monthly"]),
     }
+    return out
+
+
+def _mom_daily_nov(monthly: list) -> dict:
+    """按**日均**重算 11 月的环比 —— 把月长效应除掉。
+
+    Q05/Q22 的环比是"整月总量之比", 相邻两月天数不同（28~31 天）时, 天数差
+    会混进结果里: 11 月 30 天、上月 31 天, 于是原始环比被**压低**约 3.9pp。
+    日均环比把两个月都化成"每天多少 tce"再比, 天数影响即被约掉。
+
+    **符号与直觉相反**: 11 月比上月短, 所以月长对它是负向的, 真实抬升比
+    原始值**更强**。别照着"31 天的月更高"去推 11 月。
+
+    返回 {"2024-11": 21.00, ...}, 键与 mom_nov 一致以便正文并排引用。
+    """
+    bym = {r["ym"]: r["tce"] for r in monthly}
+    out = {}
+    for ym in sorted(bym):
+        if not ym.endswith("-11"):
+            continue
+        y, m = map(int, ym.split("-"))
+        prev = f"{y - 1}-12" if m == 1 else f"{y}-{m - 1:02d}"
+        if prev not in bym:
+            continue
+        days = calendar.monthrange(y, m)[1]
+        pdays = calendar.monthrange(*map(int, prev.split("-")))[1]
+        prev_daily = bym[prev] / pdays
+        out[ym] = (bym[ym] / days - prev_daily) / prev_daily * 100
     return out
 
 

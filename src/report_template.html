@@ -543,7 +543,7 @@ td:first-child{color:var(--ink)}
     <div class="sec-head">
       <p class="eyebrow">风险</p>
       <h2>5 个月度环比突增，全部落在年末与盛夏</h2>
-      <p class="sec-sub">以"月度环比超过 25%"为阈值筛出 5 条，其中 4 条落在 11 月。这个月份本身就有系统性抬升——全厂 11 月环比 2024 年为 <b data-fill="mom-nov-2024"></b>、2025 年为 <b data-fill="mom-nov-2025"></b>，采暖季启动把所有人都推高了。真正值得单独看的是<b>表面处理车间</b>：两次上榜、增幅最大（27.88% 与 29.44%）。包装与机加工则是基数小，同样的绝对增量会被放大成更高的百分比，要结合绝对量一起判断。</p>
+      <p class="sec-sub">以"月度环比超过 25%"为阈值筛出 5 条，其中 4 条落在 11 月。这个月份本身就有系统性抬升——全厂 11 月环比 2024 年为 <b data-fill="mom-nov-2024"></b>、2025 年为 <b data-fill="mom-nov-2025"></b>，采暖季启动把所有人都推高了。<b>但要注意这个环比是整月总量之比，含月长效应</b>：11 月 30 天、少于上月的 31 天，把这部分约 <b data-fill="nov-len-gap"></b> 剔除后，真实的抬升幅度是 <b data-fill="nov-real-2024"></b>（2024）/ <b data-fill="nov-real-2025"></b>（2025），比表面值更强。真正值得单独看的是<b>表面处理车间</b>：两次上榜、增幅最大（27.88% 与 29.44%）。包装与机加工则是基数小，同样的绝对增量会被放大成更高的百分比，要结合绝对量一起判断。</p>
     </div>
     <figure class="card" style="margin:0">
       <figcaption class="card-head">
@@ -2161,7 +2161,17 @@ function fillProse(){
     // 换数据区间时正文引用的仍是"最早/最晚那两个 11 月"。
     // 两位小数: 与告警表同精度(它也显示两位), pct() 默认一位会把尾零吃掉, 与表对不上。
     "mom-nov-2024": function(){ return pct(novMom(0), 2); },
-    "mom-nov-2025": function(){ return pct(novMom(1), 2); }
+    "mom-nov-2025": function(){ return pct(novMom(1), 2); },
+    // 剔除月长效应后的"真实抬升"。与上面两个并排出现, 读者才看得出 3.9pp 有多大。
+    // 算法在 make_report.py 的 _mom_daily_nov, 与 tools/decompose_mom.py 同源。
+    "nov-real-2024": function(){ return pct(novDaily(0), 2); },
+    "nov-real-2025": function(){ return pct(novDaily(1), 2); },
+    // 月长贡献 = 原始 − 日均, 负值(11 月变短), 取绝对值并保留两位。
+    // 正文只说"约 X pp"一个数, 所以取**最早那个 11 月**(与 nov-real-2024 同年),
+    // 两年之差只有 0.01pp(3.90 vs 3.91), 并列出来反而更啰嗦。
+    "nov-len-gap": function(){
+      return Math.abs(novMom(0) - novDaily(0)).toFixed(2) + "pp";
+    },
   };
 
   // 不设"已填过就跳过"的守卫: initStatic 在筛选后也会重跑, 而同一个 [data-fill]
@@ -2178,6 +2188,12 @@ function fillProse(){
 function novMom(i){
   var ks = Object.keys(D.derived.mom_nov || {}).sort();
   return D.derived.mom_nov[ks[i]];
+}
+
+// 日均口径的 11 月环比(已剔除月长)。键与 mom_nov 一致, 按同样顺序取。
+function novDaily(i){
+  var ks = Object.keys(D.derived.mom_nov_daily || {}).sort();
+  return D.derived.mom_nov_daily[ks[i]];
 }
 
 /* ---------------- 筛选栏 (#14 动态筛选) ----------------

@@ -440,6 +440,7 @@ class TestProseNumbersAreDerived:
             "top4_pct", "standby_tce", "standby_cost",
             "tce_peak_ym", "tce_peak", "tce_trough_ym", "tce_trough",
             "ci_max", "ci_min", "dt_weekend_pct", "dt_holiday_pct", "mom_nov",
+            "mom_nov_daily",
         ]
         missing = [k for k in need if k not in dv]
         assert not missing, f"derived 缺字段, 正文会填空白: {missing}"
@@ -514,6 +515,58 @@ class TestProseNumbersAreDerived:
             assert abs(_f(v) - _f(rows[ym]["环比_pct"])) <= 0.005, (
                 f"{ym} 环比 {v} != Q05 {rows[ym]['环比_pct']}"
             )
+
+    def test_mom_nov_daily_agrees_with_decompose_mom(self, pipeline_run):
+        """正文的"剔除月长后真实抬升"必须与 tools/decompose_mom.py 同源。
+
+        正文现在并排给出原始环比与日均环比, 好让读者看出月长那 3.9pp 有多大。
+        这两个数是**同一件事的两种算法**、分处两个文件(make_report.py 的
+        `_mom_daily_nov` 与 tools/decompose_mom.py), 极易各改一半 ——
+        所以这里用**独立的第三份实现**(不 import 任何一方)重算并比对。
+
+        **符号也要一起断言**: 11 月比上月短(30 < 31), 月长是**负向**的,
+        所以日均环比必须**大于**原始环比。若有人把它改成"31 天的月更高"那种
+        直觉式实现, 符号会反过来 —— 数值比对不一定抓得住, 这一条能。
+        """
+        import calendar
+
+        rows = _read_csv("Q05_月度能耗趋势与环比.csv")
+        bym = {r["年月"]: _f(r["综合能耗_tce"]) for r in rows}
+        raw = {r["年月"]: _f(r["环比_pct"]) for r in rows}
+        dv = _report_payload()["derived"]
+        daily = dv.get("mom_nov_daily")
+        assert daily, "mom_nov_daily 缺失 —— 正文那句'剔除月长后更强'会填空白"
+
+        for ym, got in daily.items():
+            y, m = map(int, ym.split("-"))
+            prev = f"{y - 1}-12" if m == 1 else f"{y}-{m - 1:02d}"
+            days = calendar.monthrange(y, m)[1]
+            pdays = calendar.monthrange(*map(int, prev.split("-")))[1]
+            base = bym[prev] / pdays
+            want = (bym[ym] / days - base) / base * 100
+            assert abs(_f(got) - want) <= 0.005, f"{ym} 日均环比 {got} != 复算 {want}"
+            # 11 月月长为负向 -> 日均环比必须高于原始环比
+            assert _f(got) > raw[ym], (
+                f"{ym} 日均环比 {got} 未高于原始 {raw[ym]} —— "
+                f"11 月比上月短, 月长是负向的, 剔除后应当更强"
+            )
+
+    def test_nov_len_gap_matches_the_two_mom_values(self, pipeline_run):
+        """正文那句"剔除约 X pp"的 X, 必须等于原始环比与日均环比之差。
+
+        这个 X 是正文里**唯一**还靠"算出来"的月长数字(其余月长结论都在
+        decompose_mom.py 里)。它若与并排的两个环比对不上, 读者一减就能发现
+        —— 所以在这里锁死, 而不是指望有人手动核对。
+        """
+        dv = _report_payload()["derived"]
+        ks = sorted(dv["mom_nov"])
+        assert ks, "mom_nov 为空"
+        # 正文引用的是最早的 11 月(2024), 用它的差值即可
+        gap = abs(_f(dv["mom_nov"][ks[0]]) - _f(dv["mom_nov_daily"][ks[0]]))
+        assert 3.0 < gap < 5.0, (
+            f"11 月月长贡献 {gap:.2f}pp 不在合理范围(约 3.9pp) —— "
+            f"原始与日均有一个算错了"
+        )
 
     def test_prose_has_no_stale_literals(self, pipeline_run):
         """模板里这些数字**不该**再以字面量出现 —— 防止有人改回手写。
