@@ -11,6 +11,15 @@ clean_data.py — 原始能耗数据清洗与结构化
   output/clean_fixed.csv       已修正明细(缺失插补/负值/单价异常)
   output/clean_report.txt      清洗报告
 
+增量批模式 (--batch-since / --batch-until / --batch-all / --batch-out):
+  只写出 clean_batch_energy.csv 与 clean_batch_production.csv, 供增量装载读取。
+  --batch-all 写出**全量范围**的批次文件, 管道每夜用这个: 清洗是无状态的, 不该
+  知道数据库里的水位线停在哪, 过滤交给装载端(它本来就要按水位线过滤)。
+  **清洗口径与全量模式完全一致** —— 内部仍按完整数据计算, 窗口只影响落盘范围。
+  这不是实现取巧, 而是必需的: 离群判决靠全体分位数、插补靠分组中位数, 切窗口
+  去算会得到与全量不同的值, 于是"增量入库"与"全量重建"给出两个事实表。
+  批模式下不写 clean_rejects/fixed.csv (那两份是全量口径的留痕)。
+
 清洗动作:
   1. 日期格式归一 (4 种格式 -> YYYY-MM-DD)
   2. 字符串去首尾空格/全角空格
@@ -39,6 +48,7 @@ clean_data.py — 原始能耗数据清洗与结构化
   便于事后复盘与回答"这条数据为什么变了"。
 """
 
+import argparse
 import os
 import sys
 from datetime import date, timedelta
@@ -197,6 +207,22 @@ def build_calendar() -> pd.DataFrame:
 
 def main() -> None:
     """执行完整清洗流程: 读取 -> 编码标定 -> 剔除 -> 修正 -> 结构化 -> 落盘 -> 出报告"""
+    ap = argparse.ArgumentParser(
+        description="原始能耗数据清洗与结构化",
+        epilog="不带参数时写出全量产物(clean_*.csv)。带 --batch-since 时只把窗口内的行"
+               "写成 clean_batch_*.csv, 且**不写** clean_rejects/fixed.csv —— "
+               "那两份是全量口径的留痕, 批次行掺进去会让追溯变成两套文件。"
+               "--batch-all 不设窗口, 按批次文件名写出全量范围(管道每夜用这个)。"
+               "注意: 清洗口径各模式完全一致, 窗口只影响落盘范围。")
+    ap.add_argument("--batch-since", metavar="YYYY-MM-DD",
+                    help="增量批下界(含当天), 落盘到 clean_batch_*.csv")
+    ap.add_argument("--batch-until", metavar="YYYY-MM-DD",
+                    help="增量批上界(含当天), 缺省为无上界")
+    ap.add_argument("--batch-all", action="store_true",
+                    help="按批次文件名写出**全量范围**的数据; 管道每夜用这个, 不设窗口")
+    ap.add_argument("--batch-out", help=f"批次输出目录(默认 {OUT_DIR})")
+    args = ap.parse_args()
+
     os.makedirs(OUT_DIR, exist_ok=True)
     if not os.path.exists(RAW_PATH):
         raise SystemExit(f"找不到原始数据: {RAW_PATH}\n请先运行 python src/generate_data.py")
@@ -449,13 +475,56 @@ def main() -> None:
     # 装载会整文件被当成一行, 静默装入 0 行。
     # 两个留痕文件用 if len() 判断, 该步没有命中记录时不生成空文件
     csv_kw = dict(index=False, encoding="utf-8-sig", lineterminator="\n")
-    energy_fact.to_csv(os.path.join(OUT_DIR, "clean_energy.csv"), **csv_kw)
-    prod_fact.to_csv(os.path.join(OUT_DIR, "clean_production.csv"), **csv_kw)
-    calendar.to_csv(os.path.join(OUT_DIR, "dim_calendar.csv"), **csv_kw)
-    if len(rejects):
-        rejects.to_csv(os.path.join(OUT_DIR, "clean_rejects.csv"), **csv_kw)
-    if len(fixed):
-        fixed.to_csv(os.path.join(OUT_DIR, "clean_fixed.csv"), **csv_kw)
+
+    if args.batch_since or args.batch_all:
+        # 增量批模式: 只把落在窗口内的行写成批次文件, 供增量装载读取。
+        #
+        # 为什么窗口筛选放在**最后一步**(全量算完之后), 而不是开头就只读窗口内的
+        # 原始数据: 清洗有**全局统计依赖**。第 8 步的离群判决用 车间×能源 全体的
+        # Q1/Q3, 第 10 步的消耗量插补用 车间×能源×年月 的中位数、单价插补用
+        # 能源×年月 的中位数。这些统计量必须从**完整**数据算出来, 否则"增量跑一天"
+        # 得到的中位数与"重跑全量"不同 —— 同一个格子会有两个值, 而下游事实表只有
+        # 一个位置。那种不一致不会报错, 只会让增量装载的结果与全量重建的结果出现
+        # 几十行的静默差异, 而且**只在跨月、跨年的批次边界上**出现, 极难查。
+        #
+        # 所以口径统一为: 无论增量还是全量, 清洗一律按完整数据计算; 增量模式唯一的
+        # 区别是最后只把窗口内的行写出去。这样"增量批里的一行"与"全量跑的同名行"
+        # 逐字节相同(tests/test_clean_data.py 有一条测试守着这一点)。
+        #
+        # --batch-all: 不设窗口, 批次文件名 + 全量范围。管道每夜的 clean_data 用这个。
+        # 为什么需要它: 管道是"上游给我什么, 我清洗什么", 它是**无状态**的, 不知道
+        # 数据库里的水位线停在哪。让 clean_data 自己去读水位线或猜日期, 会把"上游
+        # 边界"和"数仓进度"耦合起来 —— 换数据源就得改清洗脚本。所以固定输出**全量
+        # 范围的批次文件**, 由装载端按水位线过滤(它本来就要做这件事, 且只取
+        # updated_at > 水位线 的行, 全量批里绝大多数会被恰好滤掉)。
+        lo = args.batch_since or "0000-01-01"
+        hi = args.batch_until or "9999-12-31"
+        keep_e = ((energy_fact["record_date"] >= lo)
+                  & (energy_fact["record_date"] <= hi))
+        keep_p = (prod_fact["record_date"] >= lo) & (prod_fact["record_date"] <= hi)
+        batch_energy, batch_prod = energy_fact.loc[keep_e], prod_fact.loc[keep_p]
+        batch_dir = args.batch_out or OUT_DIR
+        os.makedirs(batch_dir, exist_ok=True)
+        batch_energy.to_csv(os.path.join(batch_dir, "clean_batch_energy.csv"), **csv_kw)
+        batch_prod.to_csv(os.path.join(batch_dir, "clean_batch_production.csv"), **csv_kw)
+        # dim_calendar 照**全量**写: 事实表有指向 dim_calendar.calendar_date 的外键,
+        # 若维表只装窗口内的日期, 跨月批次的新日期尚未入库, 外键会失败。维表是静态的
+        # (731 行)、装载幂等(INSERT IGNORE), 全量重写零成本且消除一整类边界问题。
+        calendar.to_csv(os.path.join(OUT_DIR, "dim_calendar.csv"), **csv_kw)
+        # 留痕文件在批模式下**不写**: clean_rejects/fixed.csv 是全量口径的留痕,
+        # 掺进批次行会让"这条记录为什么变了"的追溯变成两套文件。批次的留痕需求
+        # 由"重跑一次全量"来满足。
+        log(f"[批次] record_date ∈ [{lo}, {hi}] -> "
+            f"能源 {len(batch_energy):,} 行 / 产量 {len(batch_prod):,} 行 "
+            f"-> {batch_dir}")
+    else:
+        energy_fact.to_csv(os.path.join(OUT_DIR, "clean_energy.csv"), **csv_kw)
+        prod_fact.to_csv(os.path.join(OUT_DIR, "clean_production.csv"), **csv_kw)
+        calendar.to_csv(os.path.join(OUT_DIR, "dim_calendar.csv"), **csv_kw)
+        if len(rejects):
+            rejects.to_csv(os.path.join(OUT_DIR, "clean_rejects.csv"), **csv_kw)
+        if len(fixed):
+            fixed.to_csv(os.path.join(OUT_DIR, "clean_fixed.csv"), **csv_kw)
 
     # ---- 15. 报告 ---------------------------------------------------------
     lines = []
@@ -493,6 +562,17 @@ def main() -> None:
     lines.append(f"  能源品种数          : {energy_fact['energy_code'].nunique()}")
     lines.append(f"  停产记录占比        : "
                  f"{(energy_fact['is_production_day'] == 0).mean():.2%}")
+    # 批次模式下这份报告的**所有数字仍是全量口径** —— 因为清洗一律按完整数据计算,
+    # 窗口只影响落盘。不明说的话, 读报告的人会以为上面那些条数只统计了窗口内的行。
+    if args.batch_since or args.batch_all:
+        lines.append("-" * 62)
+        if args.batch_all:
+            lines.append("【批次模式】本次落盘全量范围的 clean_batch_*.csv(由装载端按水位线过滤)")
+        else:
+            lines.append(f"【批次模式】本次只落盘 record_date >= {args.batch_since}"
+                         + (f" 且 <= {args.batch_until}" if args.batch_until else "")
+                         + " 的行")
+        lines.append("  以上所有条数均为**全量口径**(清洗按完整数据计算, 窗口只影响落盘)")
     lines.append("=" * 62)
 
     report = "\n".join(lines)
@@ -502,12 +582,19 @@ def main() -> None:
     log("")
     log(report)
     log("")
-    log(f"[输出] {OUT_DIR}")
-    for name in ["clean_energy.csv", "clean_production.csv", "dim_calendar.csv",
-                 "clean_rejects.csv", "clean_fixed.csv", "clean_report.txt"]:
-        p = os.path.join(OUT_DIR, name)
-        if os.path.exists(p):
-            log(f"       {name}")
+    if args.batch_since or args.batch_all:
+        # 批模式下不列全量产物名 —— 那些文件本次并没有重新生成, 列出来会误导
+        log(f"[输出] 批次文件 -> {args.batch_out or OUT_DIR}")
+        log("       clean_batch_energy.csv")
+        log("       clean_batch_production.csv")
+        log(f"       dim_calendar.csv  (全量, 供外键) -> {OUT_DIR}")
+    else:
+        log(f"[输出] {OUT_DIR}")
+        for name in ["clean_energy.csv", "clean_production.csv", "dim_calendar.csv",
+                     "clean_rejects.csv", "clean_fixed.csv", "clean_report.txt"]:
+            p = os.path.join(OUT_DIR, name)
+            if os.path.exists(p):
+                log(f"       {name}")
 
 
 if __name__ == "__main__":

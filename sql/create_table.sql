@@ -11,6 +11,7 @@
 --         dim_calendar          日期维(周末/法定节假日)
 --   事实  fact_energy_consumption  车间×日×能源品种 消耗明细
 --         fact_production           车间×日 产量
+--   元数据 etl_watermark          ETL 水位线(增量装载进度) —— 注意它**不在** DROP 清单里
 -- =============================================================================
 
 CREATE DATABASE IF NOT EXISTS industrial_energy
@@ -29,6 +30,21 @@ DROP TABLE IF EXISTS fact_production;
 DROP TABLE IF EXISTS dim_calendar;
 DROP TABLE IF EXISTS dim_energy_type;
 DROP TABLE IF EXISTS dim_workshop;
+
+-- 注意: etl_watermark **故意不在这里 DROP**。
+--
+-- 这一串 DROP 的语义是"重建 schema"; 而水位线是"状态"不是"schema"。
+-- 判断标准: 重置它会不会丢掉已经完成的工作。
+--   - dim_workshop / dim_energy_type 的行是**主数据**(统计口径的一部分),
+--     随 --init 重置是正确的 —— 下面的 seed INSERT 会把它们重新灌成标准值。
+--   - etl_watermark 的行是**装载进度**, 重置它等于抹掉"已经装到哪了"这个事实,
+--     下一批就会从头重装。所以它只保留 CREATE TABLE IF NOT EXISTS 来保证表**存在**,
+--     表里的行由装载流程自己维护, 活过每一次 --init。
+--
+-- 这条决定有一个强制性配套: --init 不能再出现在每晚的常规运行里。
+-- 若 --init 照常每晚执行, 事实表被清空而水位线活了下来 —— 水位线说"已装到
+-- 2025-12-31", 表里却一行没有, 下一批取空集, 数据永久丢失且不报错。
+-- 所以 import_mysql.py 里 --init 与增量模式互斥, 且 load_warehouse 已改用 --incremental。
 
 
 -- -----------------------------------------------------------------------------
@@ -126,6 +142,10 @@ CREATE TABLE fact_energy_consumption (
     KEY idx_date (record_date),
     KEY idx_ws (workshop_code),
     KEY idx_energy (energy_code),
+    -- 增量装载每批要跑两次 `WHERE updated_at > <水位线>`(一次取批次, 一次取新最大值)。
+    -- 没有这个索引就是两次全表扫描。当前 19,006 行扫起来不慢, 但这条路径的意图是
+    -- 随天数增长, 索引是让它增长后仍然成立的保证。加索引不改变任何查询结果。
+    KEY idx_updated_at (updated_at),
     CONSTRAINT fk_energy_ws     FOREIGN KEY (workshop_code) REFERENCES dim_workshop (workshop_code),
     CONSTRAINT fk_energy_type   FOREIGN KEY (energy_code)   REFERENCES dim_energy_type (energy_code),
     CONSTRAINT fk_energy_date   FOREIGN KEY (record_date)   REFERENCES dim_calendar (calendar_date)
@@ -145,6 +165,29 @@ CREATE TABLE fact_production (
     CONSTRAINT fk_prod_ws   FOREIGN KEY (workshop_code) REFERENCES dim_workshop (workshop_code),
     CONSTRAINT fk_prod_date FOREIGN KEY (record_date)   REFERENCES dim_calendar (calendar_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='产量事实表';
+
+
+-- -----------------------------------------------------------------------------
+-- ETL 水位线: 记录每张目标表"已经装载到哪一刻"
+-- -----------------------------------------------------------------------------
+-- 为什么需要它: 装载从"每晚全量重建"改为增量后, 必须有一个**跨运行持久**的地方
+-- 记住上一批装到哪。放进程内存活不过一次 DAG run; 放文件则多一份需要和数据库
+-- 保持一致的副本 —— 数据库回滚而文件已推进, 中间那段记录会被**永久跳过**。
+-- 所以水位线和它描述的装载必须落在同一个事务边界内的同一份存储里。
+--
+-- 表结构由 CREATE TABLE IF NOT EXISTS 保证(每次 --init 幂等), 表里的行是状态,
+-- 不随 --init 重置 —— 理由见文件顶部 DROP 清单旁的说明。
+CREATE TABLE IF NOT EXISTS etl_watermark (
+    target_table   VARCHAR(64)  NOT NULL COMMENT '目标表名',
+    watermark_col  VARCHAR(64)  NOT NULL COMMENT '水位线列名(判新旧的依据列)',
+    watermark_val  DATETIME     NULL     COMMENT '已装载数据的最大水位线值, NULL 表示从未装载',
+    last_batch_id  VARCHAR(64)           COMMENT '最近一次装载的批次标识, 便于排查',
+    last_rows      INT          NOT NULL DEFAULT 0 COMMENT '最近一次装载实际写入的行数',
+    updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                 ON UPDATE CURRENT_TIMESTAMP COMMENT '水位线本身的最后修改时刻',
+    PRIMARY KEY (target_table),
+    UNIQUE KEY uk_watermark (target_table, watermark_col)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='ETL 水位线(增量装载进度, 不随 --init 重置)';
 
 
 -- =============================================================================

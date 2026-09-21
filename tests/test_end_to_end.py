@@ -60,10 +60,19 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # 整条管道, 与 dags/energy_pipeline_dag.py 的 5 个 task 一一对应。
 # 顺序即依赖顺序, 不能换。
+#
+# 这里的命令必须与 DAG 里的**逐字一致** —— 这份 PIPELINE 的意义就是"用与生产
+# 相同的命令行跑一遍"。曾经 load_warehouse 是 `--init`, 水位线落地后改成了
+# `--incremental`, 且 `--init` 单独使用会被运行期拒绝(它会清空事实表却留下水位线,
+# 之后的数据被永久跳过)。
+#
+# 但端到端测试要的是**从零可复现**: 它必须能在一个已有水位线的库上重跑并得到
+# 完全相同的结果。所以这里用 `--init --full` —— 显式重建 + 全量装载 + 重置水位线,
+# 这正是"首次部署"的语义, 也是唯一能让测试不依赖历史状态的组合。
 PIPELINE = [
     ("generate_raw_data", ["src/generate_data.py"]),
-    ("clean_data",        ["src/clean_data.py"]),
-    ("load_warehouse",    ["src/import_mysql.py", "--init"]),
+    ("clean_data",        ["src/clean_data.py", "--batch-all"]),
+    ("load_warehouse",    ["src/import_mysql.py", "--init", "--full"]),
     ("run_analysis",      ["src/import_mysql.py", "--run-analysis"]),
     ("build_report",      ["src/make_report.py"]),
 ]

@@ -269,3 +269,157 @@ def test_stale_version_does_not_overwrite(loaded_db):
         p = os.path.join(OUT_DIR, tmp)
         if os.path.exists(p):
             os.remove(p)
+
+
+# =============================================================================
+# 增量装载: 水位线的推进语义
+# =============================================================================
+
+def _watermark(conn, db: str):
+    """读取水位线行, 返回 (watermark_val, last_rows)；无记录返回 (None, None)。
+
+    watermark_val 归一化成 'YYYY-MM-DD HH:MM:SS' 字符串: pymysql 读 DATETIME 给的是
+    datetime 对象, 而 advance_watermark 的入参/出参都是字符串。两边混着比会在类型上
+    翻车, 掩盖真正的语义断言。
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            f"SELECT watermark_val, last_rows FROM `{db}`.etl_watermark "
+            f"WHERE target_table = 'fact_energy_consumption'")
+        row = cur.fetchone()
+    if not row or row[0] is None:
+        return (None, row[1] if row else None)
+    return (row[0].strftime("%Y-%m-%d %H:%M:%S"), row[1])
+
+
+def test_watermark_advances_within_load_transaction(loaded_db):
+    """水位线必须随装载推进, 且等于**表内实际最大值**(不是 CSV 里的最大值)。
+
+    这条同时守住三件事:
+      1. advance_watermark 确实写入(而不是静默不生效)
+      2. 取值来自已落库数据(SELECT MAX(...) WHERE col > 旧值)
+      3. 装载与推进在同一事务里完成 —— 这里先 commit=False 装载、再推进、
+         最后统一 commit, 与 import_mysql.main() 的增量分支同一路径
+    """
+    conn, db = loaded_db
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT MAX(updated_at) FROM `{db}`.fact_energy_consumption")
+        table_max = cur.fetchone()[0].strftime("%Y-%m-%d %H:%M:%S")
+
+    # fixture 的全量装载走的是 import_mysql 的 --full 路径, 它会**顺带播种**水位线。
+    # 所以这里不是"冷启动无水位线", 而是"水位线已与表内最大值对齐" —— 这本身就是
+    # 一条断言: 全量装载之后, 水位线必须等于表里最大的 updated_at, 否则下一批会
+    # 把已经装过的行再取一遍。
+    assert _watermark(conn, db)[0] == table_max
+
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) FROM `{db}`.fact_energy_consumption")
+        n_rows = cur.fetchone()[0]
+        im.advance_watermark(cur, db, "fact_energy_consumption", "updated_at",
+                             "1970-01-01 00:00:00", "test:advance", n_rows)
+    conn.commit()
+
+    val, last_rows = _watermark(conn, db)
+    assert val == table_max, f"水位线应等于表内最大值 {table_max}, 实际 {val}"
+    assert last_rows == n_rows
+
+
+def test_empty_batch_does_not_move_watermark(loaded_db):
+    """空批次(无新行)时水位线必须**保持不变**, 且不被兜底值打回 1970。
+
+    这条守的是 advance_watermark 里那个不显眼的决定: MAX(...) 在新数据为空时
+    返回 NULL, 若把它直接写进 watermark_val, 水位线会倒退回 1970 ——
+    下一批就变成全量大重装。用 GREATEST 的 COALESCE 兜底后应当保持原值。
+
+    这是静默的性能事故而非正确性事故(数据不会错), 但 19,006 行的全量重装
+    在真实场景里是每天白跑一遍, 必须被测试钉住。
+    """
+    conn, db = loaded_db
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT MAX(updated_at) FROM `{db}`.fact_energy_consumption")
+        first = cur.fetchone()[0].strftime("%Y-%m-%d %H:%M:%S")
+        im.advance_watermark(cur, db, "fact_energy_consumption", "updated_at",
+                             "1970-01-01 00:00:00", "test:seed", 1)
+    conn.commit()
+    assert _watermark(conn, db)[0] == first
+
+    # 用当前水位线作下界去推进 —— 没有更新的行, MAX 返回 NULL
+    with conn.cursor() as cur:
+        im.advance_watermark(cur, db, "fact_energy_consumption", "updated_at",
+                             first, "test:empty", 0)
+    conn.commit()
+
+    val, last_rows = _watermark(conn, db)
+    assert val == first, f"空批次把水位线改动了: {first} -> {val}"
+    assert last_rows == 0
+
+
+def test_watermark_ignores_older_replay(loaded_db):
+    """重放一个更旧的批次, 不得让水位线**倒退**。
+
+    与事实表 upsert 的 GREATEST 同一理由: 水位线是单调不减的。若用 REPLACE
+    或直接赋值, 补跑一段历史区间就会把水位线拉回去, 下一批变成大范围重装。
+    """
+    conn, db = loaded_db
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT MAX(updated_at) FROM `{db}`.fact_energy_consumption")
+        table_max = cur.fetchone()[0].strftime("%Y-%m-%d %H:%M:%S")
+        im.advance_watermark(cur, db, "fact_energy_consumption", "updated_at",
+                             "1970-01-01 00:00:00", "test:high", 1)
+    conn.commit()
+
+    # 用"更旧的上界"去推进: 实际表内最大值仍高于它, 但我们要验证的是
+    # 即使传入的 old_val 更早, 结果也不会低于已记录的值
+    with conn.cursor() as cur:
+        im.advance_watermark(cur, db, "fact_energy_consumption", "updated_at",
+                             "2024-01-01 00:00:00", "test:replay", 0)
+    conn.commit()
+
+    val, _ = _watermark(conn, db)
+    assert val == table_max, f"水位线倒退了: 期望 {table_max}, 实际 {val}"
+
+
+def test_out_of_range_batch_is_rejected_not_silently_dropped(loaded_db, tmp_path):
+    """批次日期超出 dim_calendar 范围时, 装载必须**报错终止**而不是装进去。
+
+    这条守的是一个真实踩到的静默失败: v_energy_enriched 用 INNER JOIN dim_calendar,
+    而 29 条查询全部经该视图。日期在维表范围外的行**装得进事实表, 却在视图里被
+    JOIN 滤掉** —— 事实表行数正常、水位线正常推进、管道报 success, 而所有分析
+    结果里这批数据一行都看不见。最坏的一类失败: 无声且伪装成成功。
+
+    所以现在装载前会校验批次最大 record_date 是否超出 dim_calendar 的最大日期,
+    越界抛 SystemExit(4)。这条测试锁住"校验存在且生效"——没有它, 后来者很容易
+    在重构时把这步校验当成多余的防御删掉。
+    """
+    import subprocess
+    import tempfile
+    import sys as _sys
+
+    loaded_db   # 确保库已建、水位线已播种(增量分支才会走到)
+    batch_dir = tempfile.mkdtemp(dir=str(tmp_path))
+    # 写一个日期远超维表范围的批次文件 (dim_calendar 到 2025-12-31)
+    energy_csv = os.path.join(batch_dir, "clean_batch_energy.csv")
+    prod_csv = os.path.join(batch_dir, "clean_batch_production.csv")
+    with open(energy_csv, "w", encoding="utf-8-sig", newline="") as f:
+        f.write("record_date,workshop_code,energy_code,consumption,unit,"
+                "unit_price,cost,temperature,updated_at\n")
+        f.write("2031-06-01,W01,E01,100,kWh,0.65,65.0,20,2031-06-01 09:00:00\n")
+    with open(prod_csv, "w", encoding="utf-8-sig", newline="") as f:
+        f.write("record_date,workshop_code,output_qty,output_unit\n")
+        f.write("2031-06-01,W01,500,t\n")
+    # dim_calendar.csv 也必须在这个目录里 —— 校验靠它取维表上界。
+    # 不写它会被判成"批次目录不完整"(退出码 3), 那是另一条守卫。
+    import shutil
+    shutil.copy(os.path.join(OUT_DIR, "dim_calendar.csv"),
+                os.path.join(batch_dir, "dim_calendar.csv"))
+
+    env = dict(os.environ)
+    proc = subprocess.run(
+        [_sys.executable, "src/import_mysql.py", "--incremental",
+         "--batch-dir", batch_dir],
+        cwd=BASE_DIR, env=env, capture_output=True, text=True,
+        encoding="utf-8", errors="replace",
+    )
+    assert proc.returncode == 4, \
+        f"越界批次应终止(4), 实际 {proc.returncode}\n{proc.stdout[-800:]}"
+    assert "dim_calendar" in proc.stdout, "报错信息应指明是维表覆盖不到"

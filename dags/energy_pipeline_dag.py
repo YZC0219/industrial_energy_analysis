@@ -11,18 +11,40 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 |---|---|---|
 | generate_raw_data | 按固定种子生成带脏数据的原始 CSV | `data/raw_energy_data.csv` |
 | clean_data | 10 类质量问题逐一清洗并留痕 | `output/clean_*.csv` + `clean_report.txt` |
-| load_warehouse | 建库建表 + 装载进 MySQL 星型模型 | 3 张维表 + 2 张事实表 |
+| load_warehouse | 增量装载进 MySQL 星型模型(维护水位线) | 3 张维表 + 2 张事实表 + `etl_watermark` |
 | run_analysis | 执行 24 条业务查询 | `output/Q01..Q24_*.csv` |
 | build_report | 结果内联进模板, 生成自包含报告 | `output/report.html` |
 
 #### 关于幂等
 
-`load_warehouse` 走 `import_mysql.py --init`, 该脚本执行的 `create_table.sql`
-用 `DROP TABLE IF EXISTS` 重建所有表, 所以**整条管道重跑任意次结果都一致**,
-不会出现数据翻倍。配合 `max_active_runs=1`, 也排除了两次运行互相踩踏的可能。
+`load_warehouse` 走 `import_mysql.py --incremental`, 幂等由**三层**共同保证:
 
-下一步的改造方向是把这里的全量重建换成增量装载 + 水位线, 那时幂等要靠
-`INSERT ... ON DUPLICATE KEY UPDATE` 来保证, 而不是靠 DDL 重建。
+1. **装载是 upsert** —— `INSERT ... SELECT ... ON DUPLICATE KEY UPDATE`, 冲突时按
+   `updated_at` 判新旧。重放同一批数据不产生重复行。
+2. **水位线只前进** —— 每次装载后把已入库数据的最大 `updated_at` 记进
+   `etl_watermark`, 下一批只取水位线之后的行。水位线用 `GREATEST` 推进,
+   重放旧批次不会让它倒退。
+3. **装载与水位线推进在同一事务** —— 这是最关键的一条。若分两个事务提交,
+   "装载写了一半就崩溃"会让水位线**领先于数据**, 下次从崩溃点之后取数,
+   那半批记录**永久丢失且不报错**, 管道每次还报 success。同事务之后, 所有不一致
+   都退化成"数据领先于水位线"这种可自愈形态: 下批重放同一区间, upsert 消化掉。
+
+配合 `max_active_runs=1` —— 这里拦住的不再是"两次全量重建互相覆盖",
+而是**水位线的读-改-写序列不许交错**: 两个 run 同时读到同一个旧水位线、
+各自装载、各自推进, 后写的那个会把先写的进度覆盖掉。
+
+首次部署需要手工执行一次 `src/import_mysql.py --init --full`; 之后每天走增量。
+
+#### 一个诚实的说明: 模拟环境下水位线不会自己前进
+
+`generate_raw_data` 每次都是**全量重新生成**, 且 `updated_at` 是业务键的确定函数
+(见 `src/generate_data.py`), 所以重跑产出的 CSV 与上一批逐字节相同 ——
+没有一行是"新的", 水位线自然不会推进, 每次增量装载都是 0 行。
+
+这不代表增量逻辑没生效, 而是模拟数据源**不具备"上游有新数据"这个前提**。
+真实场景把这一步换成上游导出即可(上游的 ERP/MES 导出天然带新的 `updated_at`)。
+在模拟环境里验证增量走的是测试注入, 见 `tools/` 下的验收脚本与
+`tests/test_import_mysql.py` 的水位线测试。
 """
 
 from __future__ import annotations
@@ -84,8 +106,8 @@ with DAG(
     default_args=DEFAULT_ARGS,
     start_date=datetime(2024, 1, 1),
     schedule="0 2 * * *",          # 每天凌晨 2 点
-    catchup=False,                 # 不回补历史: 管道是全量重建, 回补没有意义
-    max_active_runs=1,             # 全量重建期间不允许并发, 否则两次运行会互相覆盖
+    catchup=False,                 # 不回补历史: 回补交给手工重放, 不靠 Airflow 补齐调度区间
+    max_active_runs=1,             # 水位线的读-改-写序列不许交错, 并发会让进度互相覆盖
     tags=["energy", "etl", "mysql"],
 ) as dag:
 
@@ -106,7 +128,7 @@ with DAG(
 
     clean_data = project_task(
         "clean_data",
-        "src/clean_data.py",
+        "src/clean_data.py --batch-all",
         """
         **清洗与结构化**
 
@@ -115,24 +137,42 @@ with DAG(
         的处理条数与数据保留率。
 
         留痕比清洗本身更重要 —— 数据管道出问题时, 你需要能回答"这条记录去哪了"。
+
+        产出额外写一份 `clean_batch_*.csv` 给下一步装载用。`--batch-all` 表示
+        **不设窗口**, 写出全量范围的批次文件 —— 这一步是**无状态**的, 它不知道
+        数据库里的水位线停在哪, 也不该知道(否则换数据源就得改清洗脚本)。按水位线
+        过滤是装载端的事, 它本来就要做。
+
+        > 注意清洗口径与窗口无关: 离群判决用全体分位数、插补用分组中位数,
+        > 这些统计量一律从**完整**数据算, 窗口只影响落盘范围。有一条测试守着
+        > "批次行必须是全量行的逐字节子集"。
         """,
     )
 
     load_warehouse = project_task(
         "load_warehouse",
-        "src/import_mysql.py --init",
+        "src/import_mysql.py --incremental",
         """
-        **建库建表 + 装载**
+        **增量装载**
 
-        执行 `sql/create_table.sql`: 建 3 张维表(车间/能源品种/日历)、2 张事实表,
-        以及 3 个封装口径计算的视图。
+        读 `etl_watermark` 里记的水位线, 只装载 `updated_at` 在水位线之后的行,
+        装载完把水位线推进到已入库数据的最大 `updated_at` —— 装载与推进在**同一个
+        事务**内完成。首次运行(水位线为空)等价于全量装载。
 
         装载走 `LOAD DATA LOCAL INFILE` 批量导入, 比逐行 INSERT 快 1~2 个数量级;
         若服务端未开 `local_infile`, 自动退回批量 `executemany`。
-        事实表在此基础上做 upsert: 先灌临时表, 再按 `updated_at` 判新旧写入,
-        使上游修正的历史记录能覆盖旧值, 而过期数据重放不会把新值改回去。
+        事实表写入是 upsert: 先灌临时表, 再按 `updated_at` 判新旧, 使上游修正的
+        历史记录能覆盖旧值, 而过期数据重放不会把新值改回去。
 
-        因为 DDL 里是 `DROP TABLE IF EXISTS`, 这一步**重复执行结果一致**。
+        水位线列选 `updated_at` 而不是 `record_date`, 是因为上游**修正**一条历史记录时
+        `record_date` 不变而 `updated_at` 变晚 —— 用 `record_date` 做水位线会让修正
+        记录永远落在水位线左侧, 永远进不了增量批次。
+
+        这一步**不做建表**。建表走 `sql/create_table.sql`, 只在首次部署时手工执行一次
+        (`import_mysql.py --init --full`), 之后不再进每晚路径:
+        `create_table.sql` 会把事实表 DROP 重建, 而 `etl_watermark` **故意不在
+        DROP 清单里** —— 若每晚重建事实表却留着水位线, 水位线会领先于数据,
+        之后的数据被永久跳过。所以 `--init` 单独使用会被运行期直接拒绝。
         """,
         retries=3,   # 数据库冷启动可能还没就绪, 多给一次机会
     )

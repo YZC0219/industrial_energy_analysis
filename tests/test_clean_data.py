@@ -331,3 +331,112 @@ class TestCleanArtifacts:
         assert ratio.median() < 0.2, (
             f"插补值中位数仅为原离群值的 {ratio.median():.1%}, 预期 <20% —— "
             f"数据注入的离群是 8~15 倍量级, 插补后应回到正常水平")
+
+
+# =============================================================================
+# 5. 增量批模式: 窗口只影响落盘, 不影响清洗口径
+# =============================================================================
+
+class TestIncrementalBatch:
+    """守住"增量批里的一行 == 全量跑的同名行"。
+
+    这是增量装载的正确性前提。若两者不同, "增量入库"与"全量重建"会给出两个
+    事实表, 而且差异只在跨月/跨年的批次边界上暴露, 极难排查。
+
+    clean_data.py 的做法是**清洗一律按完整数据计算, 只在最后一步把窗口内的行
+    写出去**。若有人图省事把窗口筛选提前到读数据之前(只读窗口内的原始行),
+    第 8 步的离群判决(全体的 Q1/Q3)与第 10 步的插补中位数都会变 ——
+    下面第一条测试立刻变红, 这正是它存在的意义。
+
+    两条测试都要重跑管道, 所以用 preserve_outputs 夹具把 data/ 与 output/
+    整体备份并在结束后还原(见 conftest.py)。
+    """
+
+    @staticmethod
+    def _run(*args):
+        import subprocess
+        import sys
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        r = subprocess.run([sys.executable, "src/clean_data.py", *args],
+                           cwd=base, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        assert r.returncode == 0, f"clean_data.py 失败:\n{r.stdout}\n{r.stderr}"
+
+    def test_batch_slice_is_exact_subset_of_full(self, preserve_outputs):
+        """批次产出的每一行, 必须与全量产出的对应行**逐列完全相同**。"""
+        self._run()
+        full = pd.read_csv(os.path.join(cd.OUT_DIR, "clean_energy.csv"),
+                           encoding="utf-8-sig", dtype=str)
+        full_prod = pd.read_csv(os.path.join(cd.OUT_DIR, "clean_production.csv"),
+                                encoding="utf-8-sig", dtype=str)
+
+        # 窗口取数据集末尾一个月, 保证非空
+        lo = "2025-12-01"
+        self._run("--batch-since", lo)
+        batch = pd.read_csv(os.path.join(cd.OUT_DIR, "clean_batch_energy.csv"),
+                            encoding="utf-8-sig", dtype=str)
+        batch_prod = pd.read_csv(
+            os.path.join(cd.OUT_DIR, "clean_batch_production.csv"),
+            encoding="utf-8-sig", dtype=str)
+
+        assert len(batch) > 0, "批次为空, 测试前提不成立"
+        assert batch["record_date"].min() >= lo
+
+        # 逐列比对: 批次里的每一行都要能在全量里找到完全相同的对应行
+        key = ["record_date", "workshop_code", "energy_code"]
+        m = full.merge(batch, on=key, suffixes=("_f", "_b"), how="inner")
+        assert len(m) == len(batch), (
+            f"批次有 {len(batch)} 行, 只有 {len(m)} 行能在全量里找到对应 —— "
+            f"说明批次清洗口径与全量不同"
+        )
+        cols = [c for c in full.columns if c not in key]
+        identical = (m[[c + "_f" for c in cols]].fillna("~NA~").values
+                     == m[[c + "_b" for c in cols]].fillna("~NA~").values)
+        assert identical.all(), (
+            "批次行与全量同名行存在差异 —— 窗口筛选很可能被提前到了清洗之前, "
+            "导致分位数/中位数按窗口而非全体计算"
+        )
+
+        # 产量表同理
+        pk = ["record_date", "workshop_code"]
+        mp = full_prod.merge(batch_prod, on=pk, suffixes=("_f", "_b"), how="inner")
+        assert len(mp) == len(batch_prod)
+        pcols = [c for c in full_prod.columns if c not in pk]
+        assert (mp[[c + "_f" for c in pcols]].fillna("~NA~").values
+                == mp[[c + "_b" for c in pcols]].fillna("~NA~").values).all()
+
+    def test_batch_mode_does_not_touch_full_artifacts(self, preserve_outputs):
+        """批次模式不得覆盖全量产物。
+
+        若批次模式顺手把 clean_energy.csv 覆盖成"只有窗口内的行", 下一次
+        全量装载会拿到一份残缺的 CSV —— 那是静默的数据事故。
+        """
+        self._run()
+        before = {}
+        for name in ["clean_energy.csv", "clean_production.csv",
+                     "clean_rejects.csv", "clean_fixed.csv"]:
+            p = os.path.join(cd.OUT_DIR, name)
+            if os.path.exists(p):
+                before[name] = open(p, "rb").read()
+
+        self._run("--batch-since", "2025-12-01", "--batch-out", cd.OUT_DIR)
+
+        for name, data in before.items():
+            p = os.path.join(cd.OUT_DIR, name)
+            assert os.path.exists(p), f"批次模式把 {name} 删掉了"
+            assert open(p, "rb").read() == data, \
+                f"批次模式改写了全量产物 {name}"
+
+    def test_batch_window_is_respected(self, preserve_outputs):
+        """批次文件必须只含窗口内的行, 且与全量的同名行数一致。"""
+        self._run()
+        full = pd.read_csv(os.path.join(cd.OUT_DIR, "clean_energy.csv"),
+                           encoding="utf-8-sig", dtype=str)
+        lo = "2025-12-01"
+        self._run("--batch-since", lo)
+        batch = pd.read_csv(os.path.join(cd.OUT_DIR, "clean_batch_energy.csv"),
+                            encoding="utf-8-sig", dtype=str)
+        expected = full[full["record_date"] >= lo]
+        assert len(batch) == len(expected), \
+            f"批次 {len(batch)} 行, 窗口内应有 {len(expected)} 行"
+        assert (batch["record_date"] >= lo).all()

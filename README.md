@@ -41,7 +41,7 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 ```
 
 （上面是 `dags/energy_pipeline_dag.py` 里的 `task_id`；对应的脚本依次是
-`generate_data.py`、`clean_data.py`、`import_mysql.py --init`、
+`generate_data.py`、`clean_data.py`、`import_mysql.py --incremental`、
 `import_mysql.py --run-analysis`、`make_report.py`。）
 
 ## 技术栈
@@ -50,7 +50,7 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 |---|---|
 | 数据处理 | Python、pandas、NumPy |
 | 数据仓库 | MySQL 8.0、星型模型、窗口函数 |
-| 数据装载 | PyMySQL、`LOAD DATA LOCAL INFILE`、幂等 upsert |
+| 数据装载 | PyMySQL、`LOAD DATA LOCAL INFILE`、幂等 upsert、水位线增量抽取 |
 | 调度与运行 | Apache Airflow、Docker Compose |
 | 分析方法 | 同比/环比、2σ、最小二乘基线、CUSUM |
 | 可视化 | HTML、CSS、JavaScript、SVG |
@@ -102,8 +102,8 @@ python src/generate_data.py
 # 2. 清洗并生成质量报告
 python src/clean_data.py
 
-# 3. 建表、装载数据并执行全部分析
-python src/import_mysql.py --init --run-analysis --user root --password 你的密码
+# 3. 首次部署：建表 + 全量装载 + 执行全部分析
+python src/import_mysql.py --init --full --run-analysis --user root --password 你的密码
 
 # 4. 生成自包含 HTML 报告
 python src/make_report.py
@@ -114,18 +114,35 @@ python src/make_report.py
 ```powershell
 # Windows PowerShell
 $env:MYSQL_PWD="你的密码"
-python src/import_mysql.py --init --run-analysis
+python src/import_mysql.py --init --full --run-analysis
 ```
 
 ```bash
 # Linux / macOS
-MYSQL_PWD=你的密码 python src/import_mysql.py --init --run-analysis
+MYSQL_PWD=你的密码 python src/import_mysql.py --init --full --run-analysis
 ```
 
 只重新执行分析时，可以运行：
 
 ```bash
 python src/import_mysql.py --run-analysis
+```
+
+**首次部署用 `--init --full`，之后每天走增量**（不加参数就是增量）：
+
+```bash
+# 只装载水位线之后的新数据，并推进水位线
+python src/import_mysql.py
+```
+
+`--init` 会按 `sql/create_table.sql` 重建事实表，而水位线表**故意不随之重置**
+（它是进度状态，不是 schema）。所以 `--init` 不能单独使用 —— 那会让水位线领先于
+被清空的数据，之后的数据被永久跳过。脚本会在运行期直接拒绝这种组合：
+
+```
+[错误] --init 会清空事实表, 但不会重置水位线 —— 单独使用会让水位线领先于数据,
+       之后的数据会被永久跳过。
+       首次部署请用: --init --full
 ```
 
 最终报告位于 `output/report.html`，它已经内联全部数据和样式，可以直接在浏览器中打开。
@@ -288,7 +305,7 @@ python tools/verify_dag_run.py
 |---|---|---|
 | `test_clean_data.py` | 清洗规则、业务键、缺失值、产物一致性 | 否 |
 | `test_metric_dictionary.py` | 指标字典与代码中的系数、参数和口径一致 | 否 |
-| `test_import_mysql.py` | 幂等装载、中断续跑、历史修正和旧版本保护 | 是 |
+| `test_import_mysql.py` | 幂等装载、中断续跑、历史修正、旧版本保护、水位线推进与不倒退 | 是 |
 | `test_analysis_snapshot.py` | Q01～Q29 与基线逐行比对 | 是 |
 | `test_end_to_end.py` | 产物完整性、时效性和多条链路结果自洽 | 是 |
 
@@ -303,13 +320,65 @@ python tests/update_baseline.py
 
 每一层测试分别防什么、为什么这么分层、哪些地方**故意没有**加断言，见 [`docs/测试文档.md`](docs/测试文档.md)。
 
-## 幂等装载与历史修正
+## 幂等装载、历史修正与增量水位线
 
 能源事实表以 `(record_date, workshop_code, energy_code)` 作为业务唯一键。我先把 CSV 装入临时表，再执行 `INSERT ... SELECT ... ON DUPLICATE KEY UPDATE`。
 
 更新时，我通过 `updated_at` 判断版本：只有严格更新的记录才能覆盖现有数据，旧批次重放不会把后来修正过的值改回去。`LOAD DATA LOCAL INFILE` 不可用时，批量 `INSERT` 分支复用同一套 upsert 逻辑。
 
 这个设计解决了 `INSERT IGNORE` 会静默丢弃历史修正的问题，也保证了任务失败后可以安全重跑。
+
+### 增量装载与水位线
+
+每晚全量重建 19,006 行事实表在演示环境够用，但这不是数据仓库该有的装载方式。所以我加了 `etl_watermark` 表记录装载进度，之后每次只装箱内新增的行。
+
+**三个设计决定值得说明：**
+
+**水位线列用 `updated_at`，不用 `record_date`。** 对"每天追加一天"的新数据两者等价。但上游**修正**一条历史记录时，`record_date` 不变而 `updated_at` 变晚 —— 用 `record_date` 做水位线，修正记录会永远落在水位线左侧，永远进不了增量批次。那等于把刚做好的历史修正能力，在增量路径上又关掉了。用 `updated_at` 则"水位线判新旧"与"upsert 判新旧"共用同一列，语义自洽。
+
+代价是无法发现**删除**（上游删了一行，水位线右侧没有它，增量装载感知不到），且依赖源系统时间戳单调递增。这两条都写进了[系统设计文档](docs/系统设计文档.md)的已知局限。
+
+**`etl_watermark` 不进 `create_table.sql` 的 `DROP` 清单。** 判定标准是"重置它会不会丢已完成的工作"：`dim_workshop` 的种子行是主数据，该随之重置；水位线的行是进度，不该重置。所以它用 `CREATE TABLE IF NOT EXISTS`，独立于重建。
+
+这条决定有一个**强制性配套**，不是可选项：`--init` 因此必须退出每晚路径。如果保留 `--init` 而水位线不在 `DROP` 清单里，每晚事实表被清空、水位线却活了下来 —— 下一批取空集，**数据永久丢失且管道报 success**。所以 `load_warehouse` 改成 `--incremental`，`--init` 只在首次部署手工跑一次，且 `--init` 不带 `--full` 的组合会被运行期直接拒绝。
+
+**装载与水位线推进必须在同一个事务里。** 这是整个方案的核心正确性属性。若分成两个事务提交，"装载写了一半就崩溃"会让水位线**领先于数据**：下次从崩溃点之后取数，那半批记录永久丢失，且管道每次报 success —— 这类缺陷极难排查。放进同一事务后，所有不一致都退化成"数据领先于水位线"这种可自愈形态：下一批重放同一区间，upsert 幂等，不产生重复。
+
+为了让这条约束在代码里看得见，`advance_watermark()` **只接收 `cursor` 不接收 `conn`** —— 它没有 commit 的能力，用签名表达"你不得自己提交"。
+
+实现上还有几个细节：水位线用 `GREATEST` 推进（重放旧批次不会让它倒退），空批次（`MAX` 返回 `NULL`）**不推进**水位线只记 `last_rows=0`，以及 `MAX` 从**已入库数据**取而不是从 CSV 取 —— 水位线描述"表里有什么"，而不是"我尝试过什么"。
+
+### 清洗是无状态的，过滤是装载端的事
+
+每晚的 `clean_data` 用 `--batch-all`：**不设窗口**，按批次文件名写出全量范围的数据。理由是清洗不该知道数据库里的水位线停在哪——否则换一个数据源就得改清洗脚本。按 `updated_at > 水位线` 过滤是装载端的事，它本来就要做这个判断。
+
+代价是模拟环境里批次文件装了一整天、其中绝大多数行被恰好滤掉。这是刻意的：把"上游的边界"和"数仓的进度"解耦，比省这点 IO 重要。
+
+### 一个只有真跑才发现的问题
+
+注入一天新数据后做增量装载，事实表**正确**变成 19,054 行、水位线**正确**推进，但 Q01 的综合能耗**纹丝不动**。
+
+原因是 `v_energy_enriched` 用 `INNER JOIN dim_calendar`，而全部 29 条查询都经这个视图。日期维表的范围写死在 `clean_data.build_calendar()` 里（2024-01-01 ~ 2025-12-31），所以新日期的行**装得进事实表，却在视图的 JOIN 里被整批滤掉**——事实表行数正常、水位线正常、管道报 success，而所有分析结果里这批数据一行都看不见。
+
+这是最坏的一类失败：无声，且伪装成成功。所以我给增量装载加了一道守卫，越界直接终止：
+
+```
+[错误] 批次数据有 2026-01-01, 但 dim_calendar 只到 2025-12-31。
+       这些行能装进事实表, 但会在 v_energy_enriched 的 JOIN 里被
+       静默滤掉 —— 分析结果看不见它们, 而管道不会报错。
+```
+
+真实场景的修法是让日期维表随日期滚动生成。但无论维表怎么维护，装载端都该**校验而不是假设**——维表范围是上游给的，上游会变。
+
+> 这个问题的发现方式值得记一笔：它不是读代码看出来的，是靠"注入一天数据、然后逐项断言 Q01 该涨多少"跑出来的。前两轮验证（重复装 0 行、历史修正）都碰不到它，因为那些日期都在维表范围内。
+
+### 清洗按完整数据计算，窗口只影响落盘
+
+一个容易踩的坑：我**没有**给 `clean_data.py` 加"只读窗口内数据"的参数。
+
+清洗有全局统计依赖 —— 离群判决用 `车间×能源` 全体的 Q1/Q3，缺失值插补用 `车间×能源×年月` 的中位数。如果切窗口清洗，插补值会和全量跑不同，于是"增量跑一天"与"重跑全量"给出**两份不同的事实表**，而且只在跨月/跨年批次边界暴露，极难查证。
+
+正确做法是内部仍全量计算（口径和逐字节可复现性都不变），只把窗口内的行写成 `clean_batch_energy.csv` / `clean_batch_production.csv`。有一条测试专门守这个：批次行必须是全量行的逐字节子集。
 
 ## 当前结果
 

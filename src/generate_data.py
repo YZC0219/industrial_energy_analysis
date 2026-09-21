@@ -21,6 +21,7 @@ generate_data.py — 生成工业能耗原始数据(模拟 ERP/MES 导出)
   - 产量年增长 5%, 单位产品能耗年下降 3%(节能改造)
 """
 
+import argparse
 import hashlib
 import os
 import sys
@@ -249,6 +250,13 @@ def build_clean_rows(rng: np.random.Generator) -> pd.DataFrame:
                     # 为什么用 md5 而不是内置 hash(): Python 对 str 的 hash
                     # 带随机化种子(PYTHONHASHSEED), 跨进程不稳定, 换个进程
                     # 重跑就会得到不同的时间戳。md5 在任何进程/机器上一致。
+                    #
+                    # 取值范围(下游增量装载依赖这个性质): `% 720` 分钟即 [0,12) 小时,
+                    # 所以 updated_at 恒落在 record_date **当天**的 [08:00, 20:00) 内。
+                    # 这使"按 updated_at 切"与"按天切"在整天边界上等价 —— 水位线
+                    # 方案正是靠它把"每日一批"的语义与"时间戳水位线"对齐的。
+                    # 若把这里改成 `% 86400`(跨天), 该性质立刻失效, 水位线会切到
+                    # 半天上, 日边界不再与水位线重合。
                     "updated_at": (
                         datetime.combine(d, time(hour=8))
                         + timedelta(minutes=int(hashlib.md5(
@@ -321,6 +329,12 @@ def inject_dirt(df: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description="生成工业能耗原始数据(模拟 ERP/MES 导出)")
+    ap.add_argument("--since-updated-at", metavar="'YYYY-MM-DD HH:MM:SS'",
+                    help="只写出 updated_at 严格大于该时刻的行(增量产出)")
+    ap.add_argument("--out", help=f"输出路径(默认 {OUT_PATH})")
+    args = ap.parse_args()
+
     rng = np.random.default_rng(RANDOM_SEED)
     clean = build_clean_rows(rng)
     print(f"[1/3] 生成业务明细 {len(clean):,} 行 "
@@ -330,9 +344,29 @@ def main() -> None:
     print(f"[2/3] 注入脏数据后 {len(dirty):,} 行 "
           f"(重复 {len(dirty) - len(clean):,} 行)")
 
-    os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
-    dirty.to_csv(OUT_PATH, index=False, encoding="utf-8-sig", lineterminator="\n")
-    print(f"[3/3] 已写出 -> {OUT_PATH}")
+    # 增量产出: 在**全部生成并注入脏数据之后**才过滤。
+    #
+    # 为什么必须后置过滤, 不能在生成阶段就少造行: rng 是单个共享的全局随机序列,
+    # build_clean_rows 逐日/逐车间/逐能源地消耗它, inject_dirt 接着消耗同一个序列。
+    # 让 build_clean_rows 跳过若干天, 它消耗的随机数个数就变了, 后面所有取值整体
+    # 偏移 —— 于是"只产出一部分数据"会连带改变**全量路径**的能耗、价格与脏数据位置,
+    # 29 份回归基线全部失效。数据变化应当只来自有意的口径调整, 不能来自"少造几天
+    # 碰巧动了随机数"。(同样的坑在 docs/交接说明_第二阶段任务A.md 的"关键教训 1"
+    # 里记录过一次, 那次是加 updated_at 时误用了 rng。这里不再重蹈。)
+    #
+    # 放在 inject_dirt 之后还有一层作用: 第 9 步 concat 出来的重复行也各自带
+    # updated_at, 会被同一条规则一起选出或排除, 不会出现"孤立的重复行"。
+    out_path = args.out or OUT_PATH
+    if args.since_updated_at:
+        cutoff = args.since_updated_at
+        before = len(dirty)
+        dirty = dirty[dirty["updated_at"] > cutoff]
+        print(f"      [增量] updated_at > {cutoff} -> {len(dirty):,} 行 "
+              f"(由 {before:,} 行筛出)")
+
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+    dirty.to_csv(out_path, index=False, encoding="utf-8-sig", lineterminator="\n")
+    print(f"[3/3] 已写出 -> {out_path}")
 
 
 if __name__ == "__main__":
