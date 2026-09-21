@@ -1,0 +1,47 @@
+/* Mobile overrides for the generated energy-analysis report. */
+@media (max-width: 700px) {
+  html, body { max-width: 100%; overflow-x: hidden; }
+  body { font-size: 13px; }
+  .page { width: 100%; padding: 26px 12px 64px; gap: 38px; }
+
+  /* A wrapped sticky toolbar can cover most of a phone viewport. */
+  .filterbar { position: relative; top: auto; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .fbar-in { display: grid; grid-template-columns: minmax(0, 1fr); padding: 10px 12px; gap: 10px; }
+  .fgroup { width: 100%; height: auto; align-items: flex-start; flex-direction: column; gap: 5px; }
+  .fgroup-body { width: 100%; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; padding-bottom: 2px; }
+  .fseg, .fchips { max-width: 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .fseg button, .fchip { flex: 0 0 auto; }
+  .fseg button, .fchip span, .freset { min-height: 36px; display: inline-flex; align-items: center; }
+  #f-range { width: 100%; flex-wrap: nowrap; overflow: visible; }
+  .fdate { width: 0; min-width: 0; flex: 1 1 0; min-height: 38px; }
+  .fspacer { display: none; }
+  .freset { width: 100%; justify-content: center; }
+  .fscope { line-height: 1.45; }
+
+  .masthead { gap: 11px; padding-bottom: 20px; }
+  h1 { font-size: clamp(25px, 8vw, 34px); }
+  .lede { font-size: 14px; }
+  .facts { gap: 5px 16px; }
+  .hero-value { font-size: clamp(38px, 13vw, 56px); overflow-wrap: anywhere; }
+
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi { padding: 13px 12px; }
+  .kpi-value { font-size: 19px; overflow-wrap: anywhere; }
+
+  .grid2 { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .card { width: 100%; padding: 15px 11px 12px; gap: 11px; overflow: hidden; }
+  .card-head, .chart { min-width: 0; }
+  .chart svg { display: block; max-width: 100%; height: auto; }
+  .legend { gap: 5px 12px; }
+  .tip { max-width: min(250px, calc(100vw - 40px)); }
+  .table-wrap { max-width: calc(100vw - 24px); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .dt-row { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; }
+  .dt-delta { grid-column: 1 / -1; min-width: 0; text-align: left; }
+}
+
+@media (max-width: 420px) {
+  .kpis { grid-template-columns: minmax(0, 1fr); }
+  .hero-unit { display: block; margin: 7px 0 0; font-size: .3em; }
+  .card { border-radius: 8px; }
+}
