@@ -412,7 +412,7 @@ td:first-child{color:var(--ink)}
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
           <h3>能源品种：折标煤口径与费用口径对比</h3>
-          <p class="card-sub">每种能源在各自口径下的占比。天然气折标煤占 <b>64.09%</b> 而费用只占 <b>49.24%</b>；电力恰好相反，折标煤 <b>24.18%</b>、费用 <b>39.61%</b>。</p>
+          <p class="card-sub">每种能源在各自口径下的占比。天然气折标煤占 <b data-fill="mix-gas-tce"></b> 而费用只占 <b data-fill="mix-gas-cost"></b>；电力恰好相反，折标煤 <b data-fill="mix-el-tce"></b>、费用 <b data-fill="mix-el-cost"></b>。</p>
         </figcaption>
         <div class="legend" id="lg-mix"></div>
         <div class="chart" data-chart="mix"></div>
@@ -422,7 +422,7 @@ td:first-child{color:var(--ink)}
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
           <h3>车间综合能耗排名</h3>
-          <p class="card-sub">前四名（动力站、熔炼、热处理、轧制）合计占 <b>88.8%</b>，全部是连续型生产单元。其中<b>动力站是唯一被高亮的柱子</b>——它是公用工程，产出的蒸汽由其他车间二次消费，全厂口径下这部分被算了两遍。</p>
+          <p class="card-sub">前四名（动力站、熔炼、热处理、轧制）合计占 <b data-fill="top4-pct"></b>，全部是连续型生产单元。其中<b>动力站是唯一被高亮的柱子</b>——它是公用工程，产出的蒸汽由其他车间二次消费，全厂口径下这部分被算了两遍。</p>
         </figcaption>
         <div class="chart" data-chart="workshops"></div>
         <div class="card-foot"><button class="toggle" data-toggle="workshops" aria-expanded="false">表格视图</button></div>
@@ -441,7 +441,7 @@ td:first-child{color:var(--ink)}
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
           <h3>月度综合能耗</h3>
-          <p class="card-sub">峰值 2025-12 <b>3,489.12 tce</b>，谷值 2024-06 <b>2,159.25 tce</b>。</p>
+          <p class="card-sub">峰值 <span data-fill="tce-peak-ym"></span> <b data-fill="tce-peak"></b>，谷值 <span data-fill="tce-trough-ym"></span> <b data-fill="tce-trough"></b>。</p>
         </figcaption>
         <div class="chart" data-chart="monthly"></div>
         <div class="card-foot"><button class="toggle" data-toggle="monthly" aria-expanded="false">表格视图</button></div>
@@ -450,7 +450,7 @@ td:first-child{color:var(--ink)}
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
           <h3>碳排放强度</h3>
-          <p class="card-sub">每 tce 能耗对应的碳排，夏季最高 <b>2.72</b>、冬季最低 <b>2.31</b>——夏季天然气占比低、电力占比高，单位能耗更"脏"。</p>
+          <p class="card-sub">每 tce 能耗对应的碳排，最高 <b data-fill="ci-max"></b>、最低 <b data-fill="ci-min"></b>——夏季天然气占比低、电力占比高，单位能耗更"脏"。</p>
         </figcaption>
         <div class="chart" data-chart="carbon"></div>
         <div class="card-foot"><button class="toggle" data-toggle="carbon" aria-expanded="false">表格视图</button></div>
@@ -518,7 +518,7 @@ td:first-child{color:var(--ink)}
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
           <h3>停产日待机损耗</h3>
-          <p class="card-sub">四个间歇型车间，全年各停产 58 天。合计待机能耗 <b>173.27 tce</b>，折合能源费用 <b>¥79.4 万</b>。</p>
+          <p class="card-sub">四个间歇型车间，全年各停产 58 天。合计待机能耗 <b data-fill="standby-tce"></b>，折合能源费用 <b data-fill="standby-cost"></b>。</p>
         </figcaption>
         <div class="chart" data-chart="standby"></div>
         <div class="card-foot"><button class="toggle" data-toggle="standby" aria-expanded="false">表格视图</button></div>
@@ -531,7 +531,7 @@ td:first-child{color:var(--ink)}
         </figcaption>
         <div class="dt" id="daytype"></div>
         <div class="card-foot">
-          <span class="card-sub">周末与节假日仍分别保有工作日 <b>91%</b> 与 <b>83%</b> 的能耗水平。</span>
+          <span class="card-sub">周末与节假日仍分别保有工作日 <b data-fill="dt-weekend-pct"></b> 与 <b data-fill="dt-holiday-pct"></b> 的能耗水平。</span>
           <button class="toggle" data-toggle="daytype" aria-expanded="false">表格视图</button>
         </div>
         <div class="table-view" data-table="daytype" hidden></div>
@@ -543,7 +543,7 @@ td:first-child{color:var(--ink)}
     <div class="sec-head">
       <p class="eyebrow">风险</p>
       <h2>5 个月度环比突增，全部落在年末与盛夏</h2>
-      <p class="sec-sub">以"月度环比超过 25%"为阈值筛出 5 条，其中 4 条落在 11 月。这个月份本身就有系统性抬升——全厂 11 月环比 2024 年为 <b>+17.10%</b>、2025 年为 <b>+17.49%</b>，采暖季启动把所有人都推高了。真正值得单独看的是<b>表面处理车间</b>：两次上榜、增幅最大（27.88% 与 29.44%）。包装与机加工则是基数小，同样的绝对增量会被放大成更高的百分比，要结合绝对量一起判断。</p>
+      <p class="sec-sub">以"月度环比超过 25%"为阈值筛出 5 条，其中 4 条落在 11 月。这个月份本身就有系统性抬升——全厂 11 月环比 2024 年为 <b data-fill="mom-nov-2024"></b>、2025 年为 <b data-fill="mom-nov-2025"></b>，采暖季启动把所有人都推高了。真正值得单独看的是<b>表面处理车间</b>：两次上榜、增幅最大（27.88% 与 29.44%）。包装与机加工则是基数小，同样的绝对增量会被放大成更高的百分比，要结合绝对量一起判断。</p>
     </div>
     <figure class="card" style="margin:0">
       <figcaption class="card-head">
@@ -2125,6 +2125,59 @@ function initStatic(){
   document.getElementById("alerts").innerHTML =
     "<table><thead><tr><th>年月</th><th>车间</th><th>当月 tce</th><th>上月 tce</th><th>环比</th><th>状态</th></tr></thead><tbody>" +
     rows + "</tbody></table>";
+
+  // ---- 散文里的数字 ----
+  // 上面那些 <b> 原先是手写死的字面量, 与图表用的是同一个数据源却各写各的, 改数据
+  // 后不会跟着变、也没有测试会发现。改成从 D.derived / D.energy_mix 取数。
+  // 这里只填**能从查询算出来**的量; 报告里的"论断型数字"(如"CUSUM 12 段里 9 段是
+  // 偏高")是人工判读的结论, 算不出来, 仍留在正文由人核对 —— 两者不可混淆。
+  fillProse();
+}
+
+// 按 data-fill 键取值。键 -> 取值函数, 集中在这里便于与模板一一对照。
+function fillProse(){
+  var dv = D.derived || {};
+  var mix = {};
+  (D.energy_mix || []).forEach(function(e){ mix[e.name] = e; });
+  var gas = mix["天然气"] || {}, el = mix["电力"] || {};
+
+  var FILL = {
+    "mix-gas-tce":  function(){ return gas.tce_pct.toFixed(2) + "%"; },
+    "mix-gas-cost": function(){ return gas.cost_pct.toFixed(2) + "%"; },
+    "mix-el-tce":   function(){ return el.tce_pct.toFixed(2) + "%"; },
+    "mix-el-cost":  function(){ return el.cost_pct.toFixed(2) + "%"; },
+    "top4-pct":     function(){ return dv.top4_pct.toFixed(1) + "%"; },
+    "tce-peak-ym":  function(){ return dv.tce_peak_ym; },
+    "tce-peak":     function(){ return num(dv.tce_peak, 2) + " tce"; },
+    "tce-trough-ym": function(){ return dv.tce_trough_ym; },
+    "tce-trough":   function(){ return num(dv.tce_trough, 2) + " tce"; },
+    "ci-max":       function(){ return dv.ci_max.toFixed(2); },
+    "ci-min":       function(){ return dv.ci_min.toFixed(2); },
+    "standby-tce":  function(){ return dv.standby_tce.toFixed(2) + " tce"; },
+    "standby-cost": function(){ return "¥" + (dv.standby_cost / 1e4).toFixed(1) + " 万"; },
+    "dt-weekend-pct": function(){ return dv.dt_weekend_pct + "%"; },
+    "dt-holiday-pct": function(){ return dv.dt_holiday_pct + "%"; },
+    // 11 月的环比按年份取。年份本身也不写死 —— 从 mom_nov 的键排序后取,
+    // 换数据区间时正文引用的仍是"最早/最晚那两个 11 月"。
+    // 两位小数: 与告警表同精度(它也显示两位), pct() 默认一位会把尾零吃掉, 与表对不上。
+    "mom-nov-2024": function(){ return pct(novMom(0), 2); },
+    "mom-nov-2025": function(){ return pct(novMom(1), 2); }
+  };
+
+  // 不设"已填过就跳过"的守卫: initStatic 在筛选后也会重跑, 而同一个 [data-fill]
+  // 集合里既有 hero 那种**必须**随筛选变的, 也有本函数这些全期口径的散文数字。
+  // 加守卫会把前者锁死在首屏的值上。散文数字每次重算结果相同, 重填无害。
+  document.querySelectorAll("[data-fill]").forEach(function(el){
+    var k = el.dataset.fill;
+    if (!FILL[k]) return;
+    try { el.textContent = FILL[k](); }
+    catch (e) { el.textContent = "—"; }
+  });
+}
+
+function novMom(i){
+  var ks = Object.keys(D.derived.mom_nov || {}).sort();
+  return D.derived.mom_nov[ks[i]];
 }
 
 /* ---------------- 筛选栏 (#14 动态筛选) ----------------

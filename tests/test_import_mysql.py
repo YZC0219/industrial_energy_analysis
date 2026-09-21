@@ -379,7 +379,7 @@ def test_watermark_ignores_older_replay(loaded_db):
     assert val == table_max, f"水位线倒退了: 期望 {table_max}, 实际 {val}"
 
 
-def test_out_of_range_batch_is_rejected_not_silently_dropped(loaded_db, tmp_path):
+def test_out_of_range_batch_is_rejected_not_silently_dropped(loaded_db, db_params, tmp_path):
     """批次日期超出 dim_calendar 范围时, 装载必须**报错终止**而不是装进去。
 
     这条守的是一个真实踩到的静默失败: v_energy_enriched 用 INNER JOIN dim_calendar,
@@ -413,7 +413,13 @@ def test_out_of_range_batch_is_rejected_not_silently_dropped(loaded_db, tmp_path
     shutil.copy(os.path.join(OUT_DIR, "dim_calendar.csv"),
                 os.path.join(batch_dir, "dim_calendar.csv"))
 
+    # 显式把连接参数传给子进程: 否则子进程用默认端口(3306)去连, 而本机 3306 上
+    # 往往是另一个 MySQL —— 连不上就退出 1, 断言把它读成"没做越界校验", 属于误报。
     env = dict(os.environ)
+    env["MYSQL_HOST"] = db_params["host"]
+    env["MYSQL_PORT"] = str(db_params["port"])
+    env["MYSQL_USER"] = db_params["user"]
+    env["MYSQL_PWD"] = db_params["password"]
     proc = subprocess.run(
         [_sys.executable, "src/import_mysql.py", "--incremental",
          "--batch-dir", batch_dir],

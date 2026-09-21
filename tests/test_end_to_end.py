@@ -416,6 +416,124 @@ class TestThreeWayConsistency:
 
 
 # =============================================================================
+# 3b. 报告"散文里的数字"必须由查询算出来, 不能手写死
+# =============================================================================
+
+class TestProseNumbersAreDerived:
+    """讲结论的段落里那些数字, 必须能在 `derived` 里找到来源。
+
+    **为什么需要这一组**: 报告正文的数字原来全是手写死的字面量, 与图表用的是
+    同一个数据源却各写各的 —— 改了清洗/口径之后, 图表跟着变、正文不动,
+    **且没有任何测试会报警**(见 docs/系统设计文档.md §9 第 6 条)。
+    现在改成从 `derived` / `energy_mix` 插值, 这一组测试守住那个改造:
+    既防"有人改回手写", 也防"插值的键算错了"。
+
+    **注意边界**: 这里只测**能从查询算出来**的量。报告里还有一类"论断型数字"
+    (如"CUSUM 12 段里 9 段偏高"), 是人工判读的结论, 算不出来, 仍由人核对 ——
+    本测试**不**覆盖它们, 也不该假装覆盖。
+    """
+
+    def test_derived_prose_fields_exist(self, pipeline_run):
+        """插值依赖的派生字段必须齐全 —— 缺一个, 正文就填个"—"。"""
+        dv = _report_payload()["derived"]
+        need = [
+            "top4_pct", "standby_tce", "standby_cost",
+            "tce_peak_ym", "tce_peak", "tce_trough_ym", "tce_trough",
+            "ci_max", "ci_min", "dt_weekend_pct", "dt_holiday_pct", "mom_nov",
+        ]
+        missing = [k for k in need if k not in dv]
+        assert not missing, f"derived 缺字段, 正文会填空白: {missing}"
+
+    def test_top4_pct_equals_q03_top4(self, pipeline_run):
+        """正文"前四名合计占 X%"必须等于 Q03 前四名的占比之和。"""
+        rows = _read_csv("Q03_各车间综合能耗排名.csv")
+        want = sum(_f(r["能耗占比_pct"]) for r in rows[:4])
+        got = _report_payload()["derived"]["top4_pct"]
+        assert abs(got - want) <= 0.05, f"top4_pct {got} != Q03 前四名之和 {want}"
+
+    def test_standby_totals_equal_q13(self, pipeline_run):
+        """正文的待机合计必须等于 Q13 明细之和。"""
+        rows = _read_csv("Q13_停产日待机损耗分析.csv")
+        dv = _report_payload()["derived"]
+        want_tce = sum(_f(r["待机能耗_tce"]) for r in rows if r["待机能耗_tce"])
+        want_cost = sum(_f(r["待机浪费_元"]) for r in rows if r["待机浪费_元"])
+        assert abs(_f(dv["standby_tce"]) - want_tce) <= 0.05, (
+            f"standby_tce {dv['standby_tce']} != Q13 之和 {want_tce}"
+        )
+        assert abs(_f(dv["standby_cost"]) - want_cost) <= 0.5, (
+            f"standby_cost {dv['standby_cost']} != Q13 之和 {want_cost}"
+        )
+
+    def test_peak_trough_match_q05(self, pipeline_run):
+        """正文点名的峰谷月与数值, 必须与 Q05 的 argmax/argmin 一致。
+
+        连**年月**一起断言: 只测数值的话, 数值随数据变了而月份还停在旧值,
+        读者看到的就是"2025-12 显示 3000 tce"这种对不上的组合。
+        """
+        rows = _read_csv("Q05_月度能耗趋势与环比.csv")
+        rows = [r for r in rows if r["综合能耗_tce"]]
+        peak = max(rows, key=lambda r: _f(r["综合能耗_tce"]))
+        trough = min(rows, key=lambda r: _f(r["综合能耗_tce"]))
+        dv = _report_payload()["derived"]
+        assert dv["tce_peak_ym"] == peak["年月"], (
+            f"峰值月 {dv['tce_peak_ym']} != Q05 argmax {peak['年月']}"
+        )
+        assert abs(_f(dv["tce_peak"]) - _f(peak["综合能耗_tce"])) <= 0.005
+        assert dv["tce_trough_ym"] == trough["年月"], (
+            f"谷值月 {dv['tce_trough_ym']} != Q05 argmin {trough['年月']}"
+        )
+        assert abs(_f(dv["tce_trough"]) - _f(trough["综合能耗_tce"])) <= 0.005
+
+    def test_mix_pcts_match_q04(self, pipeline_run):
+        """正文点名的天然气/电力占比必须等于 Q04。"""
+        rows = {r["能源"]: r for r in _read_csv("Q04_能源结构_折标煤与费用双口径.csv")}
+        mix = {e["name"]: e for e in _report_payload()["energy_mix"]}
+        for name in ("天然气", "电力"):
+            assert abs(_f(mix[name]["tce_pct"]) - _f(rows[name]["折标煤占比_pct"])) <= 0.005, (
+                f"{name} 折标煤占比 与 Q04 不符"
+            )
+            assert abs(_f(mix[name]["cost_pct"]) - _f(rows[name]["费用占比_pct"])) <= 0.005, (
+                f"{name} 费用占比 与 Q04 不符"
+            )
+
+    def test_daytype_ratio_matches_q14(self, pipeline_run):
+        """正文"周末/节假日保有工作日的 X%"必须能从 Q14 的日均重算出来。"""
+        rows = {r["日型"].split("_")[-1]: r for r in _read_csv("Q14_工作日与周末节假日能耗对比.csv")}
+        base = _f(rows["工作日"]["日均能耗_tce"])
+        dv = _report_payload()["derived"]
+        assert abs(dv["dt_weekend_pct"] - round(100.0 * _f(rows["周末"]["日均能耗_tce"]) / base)) <= 1
+        assert abs(dv["dt_holiday_pct"] - round(100.0 * _f(rows["法定节假日"]["日均能耗_tce"]) / base)) <= 1
+
+    def test_mom_nov_matches_q05(self, pipeline_run):
+        """正文引用的"11 月全厂环比"必须等于 Q05 对应月份的环比。"""
+        rows = {r["年月"]: r for r in _read_csv("Q05_月度能耗趋势与环比.csv")}
+        mom = _report_payload()["derived"]["mom_nov"]
+        assert mom, "mom_nov 为空 —— 正文里的 11 月环比会填不出来"
+        for ym, v in mom.items():
+            assert ym.endswith("-11"), f"mom_nov 混入了非 11 月: {ym}"
+            assert abs(_f(v) - _f(rows[ym]["环比_pct"])) <= 0.005, (
+                f"{ym} 环比 {v} != Q05 {rows[ym]['环比_pct']}"
+            )
+
+    def test_prose_has_no_stale_literals(self, pipeline_run):
+        """模板里这些数字**不该**再以字面量出现 —— 防止有人改回手写。
+
+        只查我们确实改掉的那几个特征串, 不做通用的"正文不许有数字"检查:
+        论断型数字(如"12 段""9 段")本来就必须留在正文, 一刀切会误伤。
+        """
+        path = os.path.join(BASE_DIR, "src", "report_template.html")
+        with open(path, encoding="utf-8") as f:
+            tpl = f.read()
+        # 这些是改造前的手写值, 现在都该由 data-fill 生成
+        stale = ["64.09%", "49.24%", "24.18%", "39.61%", "88.8%",
+                 "3,489.12", "2,159.25", "173.27 tce", "+17.10%", "+17.49%"]
+        hit = [s for s in stale if s in tpl]
+        assert not hit, (
+            f"这些数字又在模板里手写出现了, 应改用 data-fill 插值: {hit}"
+        )
+
+
+# =============================================================================
 # 4. 与回归基线接上: 端到端跑出来的结果必须仍然等于基线
 # =============================================================================
 

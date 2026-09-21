@@ -489,6 +489,29 @@ def build() -> dict:
                         if c["s_white"] < c["s_raw"] * 0.6)
             / max(1, len([c for c in out["cmp"] if c["s_white"] < c["s_raw"] * 0.6])), 1
         ),
+        # ---- 正文散文里引用的数字, 一律从这里取, 不在模板里手写 ----
+        # 峰谷月与碳排强度极值: 正文要点名"哪个月最高", 所以连年月一起带出来,
+        # 否则数字随数据变了、月份还停在旧值, 读者对不上。
+        "tce_peak_ym": max(out["monthly"], key=lambda r: r["tce"])["ym"],
+        "tce_peak": max(out["monthly"], key=lambda r: r["tce"])["tce"],
+        "tce_trough_ym": min(out["monthly"], key=lambda r: r["tce"])["ym"],
+        "tce_trough": min(out["monthly"], key=lambda r: r["tce"])["tce"],
+        "ci_max": max(out["monthly"], key=lambda r: r["ci"])["ci"],
+        "ci_min": min(out["monthly"], key=lambda r: r["ci"])["ci"],
+        # 日型对比: 周末/节假日相对工作日的百分比, 正文用整数百分数叙述。
+        # 名字取自 Q14 的 "1_法定节假日".split("_")[-1] == "法定节假日"
+        # (前端 chip 上显示的 "节假日" 是缩短后的标签, 不是这里的数据键)
+        "dt_weekend_pct": round(
+            100.0 * next(r["tce"] for r in out["daytype"] if r["name"] == "周末")
+            / next(r["tce"] for r in out["daytype"] if r["name"] == "工作日")
+        ),
+        "dt_holiday_pct": round(
+            100.0 * next(r["tce"] for r in out["daytype"] if r["name"] == "法定节假日")
+            / next(r["tce"] for r in out["daytype"] if r["name"] == "工作日")
+        ),
+        # 告警区正文要引用"11 月全厂环比"作为背景, 两个年份各一个。
+        # 按 ym 的 "-11" 后缀取, 而不是写死 2024-11/2025-11 —— 换数据区间也不用改。
+        "mom_nov": {r["ym"]: r["mom"] for r in out["monthly"] if r["ym"].endswith("-11")},
     }
     return out
 
