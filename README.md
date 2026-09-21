@@ -37,8 +37,12 @@ flowchart LR
 Airflow 中的执行链为：
 
 ```text
-generate_data → clean_data → init_and_load_mysql → run_analysis → make_report
+generate_raw_data → clean_data → load_warehouse → run_analysis → build_report
 ```
+
+（上面是 `dags/energy_pipeline_dag.py` 里的 `task_id`；对应的脚本依次是
+`generate_data.py`、`clean_data.py`、`import_mysql.py --init`、
+`import_mysql.py --run-analysis`、`make_report.py`。）
 
 ## 技术栈
 
@@ -164,7 +168,8 @@ docker compose up -d --build
 - `v_unit_energy_baseline`：计算产量基线、残差和白化残差。
 - `v_unit_energy_cusum`：计算上下侧 CUSUM 和判定限。
 
-完整指标定义、单位和适用口径见 [`docs/指标字典.md`](docs/指标字典.md)。
+完整指标定义、单位和适用口径见 [`docs/指标字典.md`](docs/指标字典.md)；
+整体的设计取舍与分层见 [`docs/系统设计文档.md`](docs/系统设计文档.md)。
 
 ## 我统一的统计口径
 
@@ -295,6 +300,8 @@ python tests/update_baseline.py
 ```
 
 如果我无法解释数字为什么变化，就不会用刷新基线掩盖问题，而是先检查数据库数据是否陈旧、装载是否完整以及统计口径是否被意外修改。
+
+每一层测试分别防什么、为什么这么分层、哪些地方**故意没有**加断言，见 [`docs/测试文档.md`](docs/测试文档.md)。
 
 ## 幂等装载与历史修正
 
