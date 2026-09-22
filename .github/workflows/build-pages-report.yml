@@ -139,5 +139,10 @@ jobs:
             echo "Report is already current."
           else
             git commit -m "Deploy visualization report to GitHub Pages"
+            # push 前先 rebase: 本 workflow 从 checkout 到 push 要跑一分多钟,
+            # 期间 main 可能已经往前走(实测撞到过)。直接 push 会因 non-fast-forward
+            # 被拒, 整步红掉 —— 而报告本身是对的, 失败与内容无关。
+            # 本提交只改 docs/index.html, 与代码提交不同文件, rebase 不会冲突。
+            git pull --rebase origin main
             git push
           fi
