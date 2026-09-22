@@ -950,7 +950,7 @@ td:first-child{color:var(--ink)}
       <div class="dchart" data-dchart="dws"></div>
     </figure>
 
-    <figure class="dcard span5">
+    <figure class="dcard span6">
       <figcaption class="dcard-head">
         <h3>能源品种 × 车间热力图</h3>
         <p class="dcard-sub">行为能源品种、列为车间，格值单位为 <b>tce</b>，颜色越深用能越多。</p>
@@ -3287,17 +3287,70 @@ function drawDashHeat(host, W, T, narrow){
   }
 
   var labW = narrow ? 58 : 68, top = 22, rowH = 30;
-  var colW = Math.max(24, (W - labW - 6) / wss.length);
-  var H = top + ens.length * rowH + 22;
+  // 列宽**不设下限**。原来写的是 Math.max(24, ...): 下限本意是"列太窄画不出格子",
+  // 但它掩盖了真实矛盾 —— 手机上台面只有 ~190px 可分配, 8 列就是 24px/列, 而中文
+  // 4 字标签有 44px 宽, 于是格子照画、标签全叠在一起(线上实测: 相邻标签中心距
+  // 24px, 每个宽 44px, 每对重叠 20px)。宁可列窄一点, 也不能让标签叠。
+  var colW = (W - labW - 6) / wss.length;
+
+  // 标签策略: c-label 是 11px, 中文按 1em/字 估。
+  // 判定用**这一批车间里最长的名字**, 不是硬编码 4 —— 早先按"4 字"判, 而
+  // "表面处理车间"是 6 字, 于是在 1280px(列宽 52px)上误判成放得下, 实测叠了 3 对。
+  // 放得下最长名就写全名; 放不下就退到**只写列号**, 全名挪到图下方的对照行 ——
+  // 之所以不是"截到 2 字": "热处理车间"截成"热处"、"表面处理车间"截成"表面",
+  // 读者对不上是哪个车间; 列号 + 对照是**无歧义**的, 且列号只占 7px, 永不重叠。
+  var longest = 0;
+  wss.forEach(function(c){
+    var L = ((D.ws_meta[c] || {name:c}).name || "").length;
+    if (L > longest) longest = L;
+  });
+  var numbered = (colW - 2) < longest * 11;
+
+  // 对照行要在定高度**之前**折好 —— 它占几行决定了 svg 要多高。
+  // 早先的写法是先定 H(只预留 15px)、再画对照、最后按 H-11 硬算图例位置:
+  // 对照折了 3 行(36px)时直接压进图例区, 两者叠在一起(手机截图实测)。
+  // 现在: 先折行 -> 用行数定 H -> 图例排在对照之下。
+  //
+  // 宽度必须**按字符类型分别估**: 早先一律乘 6.3px, 那是西文的经验值, 而中文在
+  // c-note(10.5px)下是约 10.5px/字 —— 低估近一倍, 于是"看着放得下"的行实际捅出
+  // 右边界(实测 360/430/540/1024/1152 五个宽度都溢出)。中文按 10.5 算全宽,
+  // 数字与点按 5.8 算半宽。
+  function noteW(s){
+    var w = 0;
+    for (var ci = 0; ci < s.length; ci++){
+      w += s.charCodeAt(ci) > 0x2E80 ? 10.5 : 5.8;
+    }
+    return w;
+  }
+  var noteLines = [];
+  if (numbered){
+    var pairs = wss.map(function(c, j){
+      return (j + 1) + "." + ((D.ws_meta[c] || {name:c}).name);
+    });
+    var line = "";
+    for (var pi = 0; pi < pairs.length; pi++){
+      var cand = line ? line + "  " + pairs[pi] : pairs[pi];
+      if (noteW(cand) > W && line){ noteLines.push(line); line = pairs[pi]; }
+      else { line = cand; }
+    }
+    if (line) noteLines.push(line);
+  }
+
+  var noteH = noteLines.length * 12;
+  var H = top + ens.length * rowH + 22 + (noteH ? noteH + 4 : 0);
   svg.setAttribute("height", H);
   svg.setAttribute("viewBox", "0 0 " + W + " " + H);
 
   var gap = 2;   // 格间底色缝, 与叠加条同一套做法
   wss.forEach(function(c, j){
     var m = D.ws_meta[c] || {name:c};
-    tx(svg, labW + colW * j + colW / 2, top - 8,
-       m.name.length > 4 ? m.name.slice(0, 4) : m.name, "c-label", "middle");
+    tx(svg, labW + colW * j + colW / 2, top - 8, numbered ? String(j + 1) : m.name,
+       "c-label", "middle");
   });
+  var baseY = top + ens.length * rowH + 11;
+  for (var ni = 0; ni < noteLines.length; ni++){
+    tx(svg, 0, baseY + ni * 12, noteLines[ni], "c-note");
+  }
   ens.forEach(function(code, i){
     var m = D.en_meta[code] || {name:code};
     tx(svg, 0, top + rowH * i + rowH / 2 + 4, m.name, "c-name");
