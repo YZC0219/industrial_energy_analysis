@@ -75,6 +75,7 @@ industrial_energy_analysis/
 │  └─ airflow/Dockerfile
 ├─ docs/
 │  ├─ index.html                    # GitHub Pages 在线报告
+│  ├─ 交接说明_第二阶段任务A.md      # 增量装载的环境、遗留与验收
 │  ├─ 指标字典.md
 │  ├─ 数据清洗质量说明.md
 │  ├─ 系统设计文档.md
@@ -305,7 +306,11 @@ docker compose up -d --build
 python src/make_report.py
 ```
 
-`src/report_template.html` 只是模板，本地成品是 `output/report.html`。推送报告模板、生成脚本、移动端样式或查询基线后，GitHub Actions 会从已验证的基线重新构建报告并更新 `docs/index.html`。
+`src/report_template.html` 只是模板，本地成品是 `output/report.html`。推送报告模板、生成脚本、移动端样式、查询基线或管道上游（`generate_data.py`、`clean_data.py`、`import_mysql.py`、`sql/`）后，GitHub Actions 会重建报告并更新 `docs/index.html`。
+
+CI 里报告是**用 `tests/baseline/` 的查询结果当数据源**生成的，不连数据库——这样构建快且可复现。代价是有一个静默风险：如果我改了口径却忘了刷新基线，报告会照着旧基线生成，数字自洽、CI 全绿，只是结论已经过期。所以发布**之前**先起 MySQL 跑一遍完整管道和 29 条查询，与基线逐行比对，不一致就中止发布，并提示运行 `tests/update_baseline.py`。
+
+校验必须排在"把基线拷进 `output/`"之前——那个比对读的正是 `output/` 下的 CSV，先拷贝会让两者相等、比对恒等通过，守卫就成了摆设。
 
 在线版本：<https://yzc0219.github.io/industrial_energy_analysis/>
 
