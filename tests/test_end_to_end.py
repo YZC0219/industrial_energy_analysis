@@ -744,6 +744,57 @@ class TestProseNumbersAreDerived:
             f"{round(statistics.median(ratios) * 100)}"
         )
 
+    def test_clean_ledgers_present_flag_reflects_inputs(self, pipeline_run):
+        """`clean_ledgers_present` 必须如实反映"台账到底读着没有"。
+
+        这不是个可有可无的开关: CI 只用 tests/baseline/*.csv 渲染, 清洗产物
+        一份都没有, 于是 §6 那几个计数**整体退化成 0**, 正文会写出
+        "装载 0 条能耗明细"这种错话 —— 而它一度真的发布到了线上。
+        模板按这个标志把整段隐掉; 标志一旦为假而正文照常显示, 那个错句子
+        就会回来, 且没有任何测试会红。
+
+        本地台账是在场的, 所以这里断言为 True; 同时**反向**守住语义:
+        计数取自台账行数, 台账在就绝不为 0(否则标志"在"但数字"空",
+        等于用错误的方式显示同一句错话)。
+
+        **还要把标志本身绑回输入**, 否则 `"clean_ledgers_present": True` 写死
+        也能通过 —— 而那恰是线上出问题的形态(声称有台账、实则计数全 0)。
+        这里直接按台账文件重算一遍"该不该为真"。
+        """
+        dv = _report_payload()["derived"]
+        # 与 make_report._clean_volumes 同源的判据: 任一留痕文件存在即为真。
+        present = any(
+            os.path.exists(os.path.join(OUT_DIR, n))
+            and os.path.getsize(os.path.join(OUT_DIR, n)) > 0
+            for n in ("clean_energy.csv", "clean_rejects.csv", "clean_fixed.csv")
+        )
+        assert dv["clean_ledgers_present"] is present, (
+            f"标志 {dv['clean_ledgers_present']} 与台账实际在场情况 {present} 不符 "
+            "—— 标志写死会让零值句子重新上线"
+        )
+        if present:
+            assert _f(dv["clean_energy"]) > 0 and _f(dv["clean_fixed_n"]) > 0, (
+                "台账在场时计数不该为 0 —— 否则正文仍会写出'装载 0 条'"
+            )
+
+    def test_template_hides_ledger_blocks_when_absent(self, pipeline_run):
+        """模板必须把依赖台账的段落标成 data-requires-ledgers 并受标志控制。
+
+        只查模板文本, 不起浏览器: 这条守的是"接线还在", 渲染行为由
+        tools/check_filter_ui.py 那类真实浏览器检查覆盖。缺了标记或缺了
+        querySelectorAll 那一行, 零值句子就会重新出现在页面上。
+        """
+        path = os.path.join(BASE_DIR, "src", "report_template.html")
+        with open(path, encoding="utf-8") as f:
+            tpl = f.read()
+        assert "data-requires-ledgers" in tpl, (
+            "依赖清洗台账的段落必须带 data-requires-ledgers 标记"
+        )
+        assert re.search(r'querySelectorAll\(\s*"\[data-requires-ledgers\]"\s*\)', tpl), (
+            "fillProse() 里必须按 clean_ledgers_present 统一显隐这些段落"
+        )
+        assert "clean_ledgers_present" in tpl, "标志名要与 derived 的键一致"
+
     def test_utility_ratio_matches_q02_over_q01(self, pipeline_run):
         """口径提示的"相当于全厂口径的 X%"必须等于 Q02/Q01 之比, 且**进位**。
 

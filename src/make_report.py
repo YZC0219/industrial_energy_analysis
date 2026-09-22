@@ -667,9 +667,11 @@ def _read_soft(name: str) -> list:
     (29 份 Q*.csv), 清洗产物一份都没有 —— 报告是照基线离线渲染的。硬读会
     让报告根本生成不出来, 而这几行只是叙述性计数, 不该有这种权力。
 
-    **代价要认清**: 缺失时退化成 0, 报告仍会生成, 于是"清除了 0 条"这种
-    明显不对的句子可能悄悄出现在页面上。CI 里那条 `test_prose_numbers_*`
-    (对着真实 output/ 跑)才是真正守住这些数字的东西, 这里只保证不崩。
+    **代价要认清**: 缺失时退化成 0, 报告仍会生成。这个代价**不能只靠"CI 里
+    看不到"来兜底** —— 线上确实因此出现过一整段"装载 0 条能耗明细"零值句子。
+    所以 `_clean_volumes()` 另外返回 `clean_ledgers_present`(任一留痕文件在
+    即为真), 页面据此把依赖台账的整段隐掉, 而不是显示一串 0。
+    字数计数本身仍由对着真实 output/ 跑的 `test_prose_numbers_*` 守住。
     """
     try:
         return read(name)
@@ -748,6 +750,10 @@ def _clean_volumes() -> dict:
     if ratios:
         imp_ratio = round(statistics.median(ratios) * 100)
     return {
+        # ledgers 是否在场。CI 只用 tests/baseline/*.csv 渲染, 清洗产物一份都没有,
+        # 上面那几个计数会整体退化成 0 —— 那不是"清洗掉了 0 条", 是"根本没读着"。
+        # 页面据此把整段隐掉, 而不是显示一串 0(详见 _read_soft 的 docstring)。
+        "clean_ledgers_present": bool(energy or fixed or rejects),
         "clean_raw": len(raw),
         "clean_energy": len(energy),
         "clean_prod": len(prod),

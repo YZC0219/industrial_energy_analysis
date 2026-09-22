@@ -810,7 +810,7 @@ td:first-child{color:var(--ink)}
       <div class="note warn"><span class="mark"></span><div>
         <b>✅ 已修复：一处清洗缺陷曾让 CUSUM 自造异常</b>　上一版报告里，偏低（S⁻）的 3 段触发日当天都<b>少了一个能源品种</b>，追下去是这样一条链：<code>clean_data.py</code> 第 8 步按 Q3+3×IQR 判离群，命中的行用 <code>df.loc[~out_mask]</code> <b>整行删除</b>；而第 10 步插补只填 <code>consumption</code> 本来就为 NaN 的行——<b>被删掉的行，插补根本看不见</b>。于是天然气这种高权重品种一删，当天折标煤直接掉约 70%，分析层就把它读成了一次真实的能耗骤降（残差 <b>−11σ</b>）。
         <br>证据当时是能对上号的：熔炼车间正常每天 4 个能源品种，全期恰有 <b>5 天</b>是 3 个；热处理正常 3 个，恰有 <b>6 天</b>是 2 个——与这两个车间被剔除的离群行数（5 行、6 行）<b>精确相等</b>。全部 <b>34</b> 条被判离群的记录，<b>34 条都没有被插补补回</b>。
-        <br>修法只有一行：<code>df.loc[out_mask, "consumption"] = np.nan</code>，把"这个值不可信"交给第 10 步按（车间×能源×月）中位数插补，而不是让整条记录消失。修复后 34 个格子全部回到事实表且被插补（原值是正常水平的 <span data-fill="outlier-mult">—</span> 倍，插补值中位数只有它的 <b data-fill="outlier-impute-pct">—</b>%），装载行数 18,972 → <b>19,006</b>。
+        <br>修法只有一行：<code>df.loc[out_mask, "consumption"] = np.nan</code>，把"这个值不可信"交给第 10 步按（车间×能源×月）中位数插补，而不是让整条记录消失。修复后 34 个格子全部回到事实表且被插补<!-- 倍数与占比来自清洗台账, CI 无台账时整句隐去 --><span data-requires-ledgers>（原值是正常水平的 <span data-fill="outlier-mult">—</span> 倍，插补值中位数只有它的 <b data-fill="outlier-impute-pct">—</b>%）</span>，装载行数 18,972 → <b>19,006</b>。
         <br><b>下游影响</b>：那 3 段 −11σ 的"能耗骤降"<b>消失了</b>——触发日的 Z 值回到 −0.48 ~ +0.20，不再报警。全表最小 Z 从 −11.6 收敛到 <b>−3.27</b>，而最大 Z（+19.62，包装车间春节）纹丝不动，因为它是真实效应。这正说明：<b>脚本自造的异常只出现在低端，真实的日历效应一个都没被误伤</b>。回归测试里新增了两条断言（<code>test_no_workshop_day_loses_an_energy_type</code>、<code>test_outlier_cells_are_imputed_not_dropped</code>）守住这个行为，若有人再改回整行删除会立刻变红。
       </div></div>
       <div class="note"><span class="mark"></span><div>
@@ -832,7 +832,10 @@ td:first-child{color:var(--ink)}
       <div class="note"><span class="mark"></span><div>
         <b>数据管道</b>　<code>generate_data.py</code> 按业务规则生成含 10 类脏数据的原始 CSV → <code>clean_data.py</code> 清洗（别名归一、日期解析、业务键去重、Q3+3×IQR 离群<b>置空</b>、中位数插补、费用重算）→ <code>import_mysql.py</code> 建星型模型并装载 → <code>analysis.sql</code> 出 29 张结果表。
       </div></div>
-      <div class="note"><span class="mark"></span><div>
+      <!-- 这一段依赖清洗台账(clean_*.csv)。CI 只用基线 Q*.csv 渲染, 台账不在场,
+           计数会整体退化成 0 —— 显示出来就是"清除了 0 条"这种错话。
+           fillProse() 在没有台账时把整块隐掉, 见 data-requires-ledgers。 -->
+      <div class="note" data-requires-ledgers><span class="mark"></span><div>
         <b>清洗量级</b>　原始 <b data-fill="clean-raw"></b> 条明细，剔除 <b data-fill="clean-dup"></b> 条（全部是业务键重复；离群值不再删行，改为置空后插补），另修正 <b data-fill="clean-fixed-n"></b> 处缺失与错误（插补 <b data-fill="clean-impute"></b>、单价 <b data-fill="clean-price"></b>、费用重算 <b data-fill="clean-recalc"></b> 等），装载 <b data-fill="clean-energy"></b> 条能耗明细、<b data-fill="clean-prod"></b> 条产量记录、<b data-fill="clean-days"></b> 天日历。
       </div></div>
       <div class="note warn"><span class="mark"></span><div>
@@ -2569,8 +2572,20 @@ function fillProse(){
       if (dv.outlier_mult_lo === null || dv.outlier_mult_hi === null) return "—";
       return dv.outlier_mult_lo + "~" + dv.outlier_mult_hi;
     },
-    "outlier-impute-pct": function(){ return num(dv.outlier_impute_pct, 0); },
+    "outlier-impute-pct": function(){
+      // 与 outlier-mult 同样处理 null: 没有台账时它是"读不着", 不是 0%。
+      // num(null) 会渲染成 "0", 那是在断言一个假事实。
+      if (dv.outlier_impute_pct === null || dv.outlier_impute_pct === undefined) return "—";
+      return num(dv.outlier_impute_pct, 0);
+    },
   };
+
+  // 依赖清洗台账的段落: 台账不在场时(CI 只用基线 Q*.csv 渲染)整块隐掉。
+  // 逐个数退化成 0 再拼出来是"清除了 0 条"这种错话 —— 宁可不显示。
+  var hasLedgers = !!dv.clean_ledgers_present;
+  document.querySelectorAll("[data-requires-ledgers]").forEach(function(el){
+    el.hidden = !hasLedgers;
+  });
 
   // 带符号的三位小数: +0.174 / −0.956。用真正的减号 U+2212 而不是连字符,
   // 与正文其余数字的记法一致(负号在中文排版里比 hyphen 清晰)。
