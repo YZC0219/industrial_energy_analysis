@@ -2521,7 +2521,11 @@ function resetFilter(){
    失效并重建已展开的表格视图 -> 刷新 KPI/日型 -> 标记"不随筛选变化"的卡片。 */
 function applyFilter(){
   if (!D || !D.totals) return;
-  rebuildView(aggAll());
+  // 必须**赋回** VIEW: 不带筛选时 rebuildView 原样返回 D, 筛选时返回聚合替身。
+  // 早先这里丢掉了返回值, 于是 VIEW 一旦变成筛选替身就再也回不去 —— 重置后
+  // 口径提示条写着"未筛选", hero 却还停在筛选值上(且会是**上一次**筛选的值)。
+  // 只在筛选↔筛选之间切换时看不出来, 必须"筛选 → 重置"才暴露。
+  VIEW = rebuildView(aggAll());
 
   document.querySelectorAll("[data-chart]").forEach(function(h){ h.dataset.done = ""; });
   renderAll(true);
