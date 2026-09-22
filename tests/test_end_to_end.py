@@ -568,6 +568,110 @@ class TestProseNumbersAreDerived:
             f"原始与日均有一个算错了"
         )
 
+    # ---- 2026-09-22 补: 图表脚注 / 检测卡片里漏掉的 B 类手写数字 ----
+    #
+    # 上一轮插值改造按"卡片"划范围, 漏掉了**图表脚注**这一类位置, 于是 §4 气温关系
+    # 的相关系数、§5 检测卡片的车间明细、§6 清洗量级都是手写死的, 且已经发到线上。
+    # 这一组守住它们的来源。注意 `cmp_*` 一律**按车间名取**, 不按下标 ——
+    # Q26 的行序由 SQL 的 ORDER BY 决定, 按下标会在加/减车间时静默错位。
+
+    def test_corr_matches_q12_by_name(self, pipeline_run):
+        """§4 脚注的三个相关系数必须等于 Q12 同能源的值。
+
+        符号也要对: 天然气/蒸汽是负相关, 电力是正相关。若插值时丢了负号,
+        数值容差比对不一定抓得住(0.956 vs 0.956), 所以顺带断言符号。
+        """
+        # Q12 是**单行宽表**: 列名形如 `电力_r` / `天然气_r` / `蒸汽_r`, 没有"能源"列。
+        rows = _read_csv("Q12_气温与各能源相关系数.csv")[0]
+        dv = _report_payload()["derived"]
+        for key, name in (("elec", "电力"), ("gas", "天然气"), ("steam", "蒸汽")):
+            got = _f(dv[f"corr_{key}"])
+            want = _f(rows[f"{name}_r"])
+            assert abs(got - want) <= 0.0005, f"corr_{key} {got} != Q12 {name}_r {want}"
+        assert _f(dv["corr_elec"]) > 0, "电力应为正相关"
+        assert _f(dv["corr_gas"]) < 0, "天然气应为负相关"
+        assert _f(dv["corr_steam"]) < 0, "蒸汽应为负相关"
+
+    def test_cmp_workshop_values_match_q26_by_name(self, pipeline_run):
+        """§5 各车间的固定阈值 / 产量基线检出数, 必须按**车间名**对上 Q26。
+
+        按下标取会在车间增减时静默错位 —— 这正是这一组存在的理由。
+        """
+        byname = {r["车间"]: r for r in _read_csv("Q26_三种检测方法对比.csv")}
+        assert set(byname) >= {"熔炼车间", "轧制车间", "装配车间", "表面处理车间",
+                               "机加工车间"}, f"Q26 缺车间: {sorted(byname)}"
+        dv = _report_payload()["derived"]
+        for name, short in (("熔炼车间", "熔炼"), ("轧制车间", "轧制"),
+                            ("装配车间", "装配"), ("表面处理车间", "表面处理"),
+                            ("机加工车间", "机加工")):
+            src = byname[name]
+            assert _f(dv[f"cmp_{short}_fixed"]) == _f(src["固定阈值检出"]), (
+                f"{name} 固定阈值检出 {dv[f'cmp_{short}_fixed']} != Q26 {src['固定阈值检出']}"
+            )
+            assert _f(dv[f"cmp_{short}_base"]) == _f(src["产量基线检出"]), (
+                f"{name} 产量基线检出 与 Q26 不符"
+            )
+            assert _f(dv[f"cmp_{short}_both"]) == _f(src["两法一致"]), (
+                f"{name} 两法一致 与 Q26 不符"
+            )
+
+    def test_cmp_noise_range_matches_q26(self, pipeline_run):
+        """正文"噪声压低比 0.25~0.74"必须等于 Q26 该列的最小/最大值。
+
+        这两个数被正文**反算**成"解释掉 26%~75% 的波动", 所以 min/max 一旦
+        互换, 正文会写出一句方向相反的话(压低比越小 = 解释得越多)。
+        """
+        vals = [_f(r["噪声压低比"]) for r in _read_csv("Q26_三种检测方法对比.csv")
+                if r["噪声压低比"]]
+        dv = _report_payload()["derived"]
+        assert abs(_f(dv["cmp_noise_min"]) - min(vals)) <= 0.005
+        assert abs(_f(dv["cmp_noise_max"]) - max(vals)) <= 0.005
+        assert _f(dv["cmp_noise_min"]) < _f(dv["cmp_noise_max"])
+
+    def test_white_cut_names_match_q26_worst_two(self, pipeline_run):
+        """脚注点名的两个"白化后 S 掉得最多"的车间, 必须真是 Q26 里的前两名。
+
+        名字一起插值(而不是只插数字), 否则改天换了名次, 正文会把 A 车间的
+        数字安到 B 车间头上 —— 数字对、主语错, 这种错最难看出来。
+        """
+        rows = [r for r in _read_csv("Q26_三种检测方法对比.csv") if r["未白化最大S"]]
+        rows.sort(key=lambda r: _f(r["白化最大S"]) / _f(r["未白化最大S"]))
+        dv = _report_payload()["derived"]
+        for i in (0, 1):
+            src = rows[i]
+            # 正文写"热处理车间", 但"车间"二字在句子模板里, 所以派生值只留前缀。
+            assert dv[f"white_cut{i}_name"] == src["车间"].replace("车间", ""), (
+                f"第 {i} 名应为 {src['车间']}, 实际 {dv[f'white_cut{i}_name']}"
+            )
+            assert abs(_f(dv[f"white_cut{i}_raw"]) - _f(src["未白化最大S"])) <= 0.05
+            assert abs(_f(dv[f"white_cut{i}_white"]) - _f(src["白化最大S"])) <= 0.05
+
+    def test_clean_volumes_match_ledgers(self, pipeline_run):
+        """§6 的清洗量级必须能由原始数据与两本台账**数行数**数出来。
+
+        这几个数是"流水账"性质的(处理了 19234 行、修了 708 行……), 最容易在
+        台账增删后过期, 而正文只是平铺陈述, 没有任何交叉验算能暴露它。
+        分类计数用 `==` 而不是 `in` —— "消耗量离群置空后插补"里含"插补"二字,
+        用子串匹配会把它同时算进"消耗量插补", 两个数一起虚高。
+        """
+        dv = _report_payload()["derived"]
+        n_raw = sum(1 for _ in open(os.path.join(BASE_DIR, "data", "raw_energy_data.csv"),
+                                    encoding="utf-8")) - 1
+        assert _f(dv["clean_raw"]) == n_raw, f"raw {dv['clean_raw']} != 行数 {n_raw}"
+
+        rej = _read_csv("clean_rejects.csv")
+        assert _f(dv["clean_dup"]) == sum(1 for r in rej if "重复" in r["reject_reason"]), (
+            "业务键重复计数与 clean_rejects.csv 不符"
+        )
+        fixed = _read_csv("clean_fixed.csv")
+        assert _f(dv["clean_fixed_n"]) == len(fixed)
+        for key, reason in (("clean_impute", "消耗量插补"), ("clean_price", "单价插补"),
+                            ("clean_recalc", "费用重算")):
+            assert _f(dv[key]) == sum(1 for r in fixed if r["fix_reason"] == reason), (
+                f"{key} 与 clean_fixed.csv 里 '{reason}' 的行数不符"
+            )
+        assert _f(dv["clean_days"]) == 731, "统计天数应为 731(见 Q14 计数)"
+
     def test_prose_has_no_stale_literals(self, pipeline_run):
         """模板里这些数字**不该**再以字面量出现 —— 防止有人改回手写。
 
@@ -577,10 +681,17 @@ class TestProseNumbersAreDerived:
         path = os.path.join(BASE_DIR, "src", "report_template.html")
         with open(path, encoding="utf-8") as f:
             tpl = f.read()
+        # 剥掉 JS 注释再查: 注释里**点名**旧字面量是好事(如 `// 原来写死 "14 / 8 / 7"`),
+        # 那是在解释这行为什么长这样, 不是在渲染。不剥的话注释会被当成正文误伤。
+        body = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", tpl, flags=re.S))
         # 这些是改造前的手写值, 现在都该由 data-fill 生成
         stale = ["64.09%", "49.24%", "24.18%", "39.61%", "88.8%",
-                 "3,489.12", "2,159.25", "173.27 tce", "+17.10%", "+17.49%"]
-        hit = [s for s in stale if s in tpl]
+                 "3,489.12", "2,159.25", "173.27 tce", "+17.10%", "+17.49%",
+                 # 2026-09-22 第二轮的 B 类(图表脚注/检测卡片)
+                 "+0.167", "−0.951", "−0.905", "14 / 8 / 7", "15 / 8 / 7",
+                 "21 vs 6", "22 vs 6", "24 个", "329", "267", "243",
+                 "44.6", "37.2", "39.0", "11.0", "11.7"]
+        hit = [s for s in stale if s in body]
         assert not hit, (
             f"这些数字又在模板里手写出现了, 应改用 data-fill 插值: {hit}"
         )

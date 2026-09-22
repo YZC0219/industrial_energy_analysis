@@ -517,6 +517,19 @@ def build() -> dict:
         # 也一并算出来 —— 光有原始环比, 读者无法判断那 3.9pp 有多大。
         # 口径与 tools/decompose_mom.py 一致(日均环比), 两处算法必须同步修改。
         "mom_nov_daily": _mom_daily_nov(out["monthly"]),
+        # ---- 2026-09-22 补: 三处"图表脚注/检测卡片"里漏掉的手写数字 ----
+        # 这批本来该在 A 类改造里一起插值, 但当时是按"卡片"扫的, 漏了图表脚的
+        # 脚注(§4 气温关系)。事后核对发现它们早已与查询对不上(相关系数三个
+        # 全偏、Q26 的两法对比整句都错), 正是 A 类改造要防的那类漂移。
+        #
+        # 按名字取车间, 而不是按下标 —— Q26 的行序由 SQL 的 ORDER BY 决定,
+        # 拿 out["cmp"][i] 会在加/减车间时静默错位到别的车间身上。
+        **{
+            f"corr_{k}": out["temp_corr"][k]
+            for k in ("elec", "gas", "steam")
+        },
+        **_cmp_named(out["cmp"]),
+        **_clean_volumes(),
     }
     return out
 
@@ -547,6 +560,84 @@ def _mom_daily_nov(monthly: list) -> dict:
         prev_daily = bym[prev] / pdays
         out[ym] = (bym[ym] / days - prev_daily) / prev_daily * 100
     return out
+
+
+def _cmp_named(cmp: list) -> dict:
+    """把 Q26 的逐车间对比拆成正文要用的具名键。
+
+    **按名字取, 不按下标**。Q26 的行序由 SQL 的 ORDER BY 决定, 正文里每一处
+    点名的都是具体车间("熔炼 21 vs 6")—— 用下标会在加/减车间时静默指到别人
+    身上, 而且数字仍然"看起来合理"。
+    """
+    by = {c["name"]: c for c in cmp}
+    out = {}
+    for name in ("熔炼车间", "轧制车间", "装配车间", "表面处理车间", "机加工车间"):
+        if name not in by:
+            continue
+        c = by[name]
+        # 正文用短名(不带"车间"), 与图例和点位一致
+        short = name.replace("车间", "")
+        out[f"cmp_{short}_fixed"] = c["n_fixed"]
+        out[f"cmp_{short}_base"] = c["n_base"]
+        out[f"cmp_{short}_both"] = c["n_both"]
+        out[f"cmp_{short}_holiday"] = c["fixed_holiday"]
+    out["cmp_noise_min"] = min(c["noise_ratio"] for c in cmp) if cmp else 0
+    out["cmp_noise_max"] = max(c["noise_ratio"] for c in cmp) if cmp else 0
+    # 白化降幅最大的两个车间(连续型) —— 正文要指名道姓地举例
+    cut = sorted(
+        (c for c in cmp if c["s_raw"] > 0),
+        key=lambda c: c["s_white"] / c["s_raw"],
+    )[:2]
+    for i, c in enumerate(cut):
+        out[f"white_cut{i}_name"] = c["name"].replace("车间", "")
+        out[f"white_cut{i}_raw"] = round(c["s_raw"], 1)
+        out[f"white_cut{i}_white"] = round(c["s_white"], 1)
+        out[f"white_cut{i}_pct"] = round((1 - c["s_white"] / c["s_raw"]) * 100, 1)
+    return out
+
+
+def _read_soft(name: str) -> list:
+    """同 read(), 但文件不存在时返回空表而不是退出。
+
+    只用于留痕类文件(clean_rejects / clean_fixed): 它们在增量批模式下不写,
+    而报告在批模式下也要能生成。
+    """
+    try:
+        return read(name)
+    except SystemExit:
+        return []
+
+
+def _clean_volumes() -> dict:
+    """清洗量级 —— 从留痕文件现数, 而不是手写。
+
+    正文那句"剔除 228 条（全部是业务键重复）、另修正 708 处（插补 329、
+    单价 267、费用重算 243）"曾经全是手写值, 而三个分项早已和 clean_fixed.csv
+    对不上(实际 295/261/73)。这类数字每次调清洗参数都会变, 必须自动取。
+
+    clean_rejects 里同时含"业务键重复"与"消耗量离群"两类 —— 后者**不再删行**
+    (只把该格置空后插补), 只是留痕, 所以剔除数要按原因过滤, 不能数总行数。
+    """
+    raw = read(os.path.join(BASE_DIR, "data", "raw_energy_data.csv"))
+    # 两份留痕文件只在**全量**清洗时写出(--batch-all 不写)。缺了就退化成 0,
+    # 让报告仍能生成 —— 清洗量级是叙述性信息, 不该阻断整份报告。
+    rejects = _read_soft("clean_rejects.csv")
+    fixed = _read_soft("clean_fixed.csv")
+    # 分项按 fix_reason 前缀归类。注意"消耗量离群置空后插补"里也含"插补"二字,
+    # 但它属于离群处理而非普通插补, 单列出来, 否则两项会重复计数。
+    reason = lambda r: r.get("fix_reason", "")
+    return {
+        "clean_raw": len(raw),
+        "clean_energy": len(read("clean_energy.csv")),
+        "clean_prod": len(read("clean_production.csv")),
+        "clean_days": len(read("dim_calendar.csv")),
+        "clean_dup": sum(1 for r in rejects if "重复" in r.get("reject_reason", "")),
+        "clean_outlier": sum(1 for r in rejects if "离群" in r.get("reject_reason", "")),
+        "clean_fixed_n": len(fixed),
+        "clean_impute": sum(1 for r in fixed if reason(r) == "消耗量插补"),
+        "clean_price": sum(1 for r in fixed if reason(r) == "单价插补"),
+        "clean_recalc": sum(1 for r in fixed if reason(r) == "费用重算"),
+    }
 
 
 def main() -> None:

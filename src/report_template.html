@@ -582,7 +582,7 @@ td:first-child{color:var(--ink)}
       </figcaption>
       <div class="chart" data-chart="temp"></div>
       <div class="card-foot">
-        <span class="card-sub">Pearson r：电力 <b>+0.167</b> · 天然气 <b>−0.951</b> · 蒸汽 <b>−0.905</b>（n = 731 天）</span>
+        <span class="card-sub">Pearson r：电力 <b data-fill="corr-elec"></b> · 天然气 <b data-fill="corr-gas"></b> · 蒸汽 <b data-fill="corr-steam"></b>（n = <span data-fill="clean-days"></span> 天）</span>
         <button class="toggle" data-toggle="temp" aria-expanded="false">表格视图</button>
       </div>
       <div class="table-view" data-table="temp" hidden></div>
@@ -741,16 +741,17 @@ td:first-child{color:var(--ink)}
 
     <div class="stack" style="margin-top:14px">
       <div class="note warn"><span class="mark"></span><div>
-        <b>固定阈值法的"异常"里，大半是日历</b>　把检出按日型拆开看：<b>装配车间</b>的 58 个固定阈值超限日<b>全部</b>落在节假日，<b>表面处理车间</b> 56 个里 55 个是节假日，<b>机加工车间</b> 60 个里 57 个是节假日。这些不是跑冒滴漏，是间歇型车间在假期只留基础负荷、产量趋近于零而固定能耗仍在，单耗自然抬高。<b>基线法检出量降到 14 / 8 / 7</b>，正是因为期望值模型按当天产量把这件事解释了。
+        <b>固定阈值法的"异常"里，大半是日历</b>　把检出按日型拆开看：<b>装配车间</b>的 <b data-fill="cmp-asm-fixed"></b> 个固定阈值超限日<b>全部</b>落在节假日，<b>表面处理车间</b> <b data-fill="cmp-sfc-fixed"></b> 个里 <b data-fill="cmp-sfc-holiday"></b> 个是节假日，<b>机加工车间</b> <b data-fill="cmp-mc-fixed"></b> 个里 <b data-fill="cmp-mc-holiday"></b> 个是节假日。这些不是跑冒滴漏，是间歇型车间在假期只留基础负荷、产量趋近于零而固定能耗仍在，单耗自然抬高。<b>基线法检出量降到 <b data-fill="cmp-base-trio"></b></b>，正是因为期望值模型按当天产量把这件事解释了。
       </div></div>
       <div class="note"><span class="mark"></span><div>
-        <b>两法在连续型车间几乎不重叠</b>　在全年不停产的<b>熔炼</b>与<b>轧制</b>车间，固定阈值法与基线法各自找到了一组基本不相交的日子（熔炼：21 vs 6，仅 5 天重合；轧制：22 vs 6，仅 5 天重合）。同意的 5 天多半是真异常；<b>基线法独有的那几天</b>是固定阈值看不到的——它们恰好发生在产量偏低时，绝对单耗没顶破 μ+2σ，但相对<b>当天的产量</b>而言烧得明显偏多。这正是"考虑产量的能耗基线"要解决的问题。
+        <b>两法在连续型车间几乎不重叠</b>　在全年不停产的<b>熔炼</b>与<b>轧制</b>车间，固定阈值法与基线法各自找到了一组基本不相交的日子（熔炼：<b data-fill="cmp-melt-fixed"></b> vs <b data-fill="cmp-melt-base"></b>，仅 <b data-fill="cmp-melt-both"></b> 天重合；轧制：<b data-fill="cmp-roll-fixed"></b> vs <b data-fill="cmp-roll-base"></b>，仅 <b data-fill="cmp-roll-both"></b> 天重合）。同意的这几天多半是真异常；<b>基线法独有的那几天</b>是固定阈值看不到的——它们恰好发生在产量偏低时，绝对单耗没顶破 μ+2σ，但相对<b>当天的产量</b>而言烧得明显偏多。这正是"考虑产量的能耗基线"要解决的问题。
       </div></div>
       <div class="note"><span class="mark"></span><div>
-        <b>残差标准差只剩原来的四分之一到四分之三</b>　7 个车间的噪声压低比在 <b>0.25 ~ 0.74</b> 之间，即模型把原始单耗的波动解释掉了 26% ~ 75%。解释力最弱的是包装车间（0.74）——它产量小、基数低，模型可用的信息本来就少，这也提醒：<b>基线法不是万能的，产量单薄的车间它同样吃力</b>。
+        <b>残差标准差只剩原来的四分之一到四分之三</b>　7 个车间的噪声压低比在 <b data-fill="cmp-noise-lo"></b> ~ <b data-fill="cmp-noise-hi"></b> 之间，即模型把原始单耗的波动解释掉了 <span data-fill="cmp-noise-explain-lo"></span>% ~ <span data-fill="cmp-noise-explain-hi"></span>%。解释力最弱的是包装车间（<b data-fill="cmp-noise-hi"></b>）——它产量小、基数低，模型可用的信息本来就少，这也提醒：<b>基线法不是万能的，产量单薄的车间它同样吃力</b>。
       </div></div>
       <div class="note warn"><span class="mark"></span><div>
-        <b>CUSUM 的判定线不能照抄教科书</b>　经典教材给 <b>h = 5σ</b>，对应平均 300 天才误报一次，那是为<b>在线连续监控、每天判一次</b>标定的。本项目是对 731 天历史做<b>一次性回顾</b>检验，同一个门槛的含义完全不同——5000 次纯噪声模拟给出：n=365 时 h=5 的误报率已 <b>52%</b>，n=731 时高达 <b>77%</b>，也就是说七个车间里会有五个以上凭空报警。按 99 分位重新标定后取 <b>h = 9.9σ</b>。<b>换样本量就得换门槛</b>，这一步不做，后面所有结论都是噪声。
+        <b>CUSUM 的判定线不能照抄教科书</b>　经典教材给 <b>h = 5σ</b>，对应平均 300 天才误报一次，那是为<b>在线连续监控、每天判一次</b>标定的。本项目是对 731 天历史做<b>一次性回顾</b>检验，同一个门槛的含义完全不同——5000 次纯噪声模拟给出：n=365 时 h=5 的误报率已<b>约 54%</b>，n=731 时高达<b>约 79%</b>，也就是说七个车间里会有五个以上凭空报警。按 99 分位重新标定后取 <b>h = 9.9σ</b>。<b>换样本量就得换门槛</b>，这一步不做，后面所有结论都是噪声。
+        <br><span class="card-sub">这两个误报率来自蒙特卡洛仿真，每次重跑种子不同、结果有 ±2pp 左右的抖动，所以不插值、只给量级 —— 复算用 <code>python tools/calibrate_cusum_h.py</code>。</span>
       </div></div>
       <div class="note"><span class="mark"></span><div>
         <b>CUSUM 报出的 12 段，逐段都能追溯到成因</b>　把每一段的触发日拿去对照日历，结果是<b>全部 12 段、没有一段是工艺漂移或设备劣化</b>：
@@ -768,7 +769,7 @@ td:first-child{color:var(--ink)}
         <b>这张数据里没有"缓变漂移"可抓</b>　CUSUM 最擅长的场景是设备劣化那种每年几个百分点的缓慢下移：逐日判据看不出来，累积起来才现形。本项目的数据里<b>确实埋了一条 −3%/年 的单耗趋势</b>（七个车间前后半程实测都是 −2.3% ~ −3.9%），但它<b>检不出来</b>——趋势摊到 731 天上，前后半程的累计漂移只有 <b>0.04 ~ 0.36 个 σ</b>，而判定门槛是 9.9 个 σ，差了一个半数量级。这不是实现问题，是功率问题：<b>当日噪声 σ 比日漂移量大 600 多倍时，任何累积判据都抓不到它</b>。把这个算清楚，比硬报一个假警更有用。
       </div></div>
       <div class="note"><span class="mark"></span><div>
-        <b>累积之前必须先做季节白化</b>　第 3 点提到"没有漂移"，前提是先做了一步处理：把残差里剩下的<b>月度季节轮廓</b>扣掉再累积。不做这一步，CUSUM 会把"每年 2 月都偏高"这种规律性偏移当成持续偏移一路攒起来——连续型车间的累积和峰值会虚高 <b>70% 以上</b>（轧制 <b>44.6 → 11.7</b>，降 73.7%；熔炼 <b>37.2 → 11.0</b>，降 70.4%）。图中灰线就是未白化的轨迹，可以直接看到它爬得更高更早。<b>反过来，间歇型车间白化后峰值几乎不变</b>（表面处理 18.1 → 18.4），因为它们的持续性本来就来自节假日簇而不是季节，白化去掉的是方差、不是信号——同一个处理在不同车间身上效果相反，这件事本身也得说清楚。
+        <b>累积之前必须先做季节白化</b>　第 3 点提到"没有漂移"，前提是先做了一步处理：把残差里剩下的<b>月度季节轮廓</b>扣掉再累积。不做这一步，CUSUM 会把"每年 2 月都偏高"这种规律性偏移当成持续偏移一路攒起来——连续型车间的累积和峰值会虚高 <b data-fill="white-cut0-pct"></b> 以上（<b data-fill="white-cut0-name"></b> <b data-fill="white-cut0-raw"></b> → <b data-fill="white-cut0-white"></b>，降 <b data-fill="white-cut0-pct"></b>；<b data-fill="white-cut1-name"></b> <b data-fill="white-cut1-raw"></b> → <b data-fill="white-cut1-white"></b>，降 <b data-fill="white-cut1-pct"></b>）。图中灰线就是未白化的轨迹，可以直接看到它爬得更高更早。<b>反过来，间歇型车间白化后峰值几乎不变</b>（表面处理 18.1 → 18.4），因为它们的持续性本来就来自节假日簇而不是季节，白化去掉的是方差、不是信号——同一个处理在不同车间身上效果相反，这件事本身也得说清楚。
       </div></div>
     </div>
   </section>
@@ -784,7 +785,7 @@ td:first-child{color:var(--ink)}
         <b>数据管道</b>　<code>generate_data.py</code> 按业务规则生成含 10 类脏数据的原始 CSV → <code>clean_data.py</code> 清洗（别名归一、日期解析、业务键去重、Q3+3×IQR 离群<b>置空</b>、中位数插补、费用重算）→ <code>import_mysql.py</code> 建星型模型并装载 → <code>analysis.sql</code> 出 29 张结果表。
       </div></div>
       <div class="note"><span class="mark"></span><div>
-        <b>清洗量级</b>　原始 19,234 条明细，剔除 <b>228</b> 条（全部是业务键重复；离群值不再删行，改为置空后插补），另修正 708 处缺失与错误（插补 329、单价 267、费用重算 243 等），装载 <b>19,006</b> 条能耗明细、<b>5,848</b> 条产量记录、<b>731</b> 天日历。
+        <b>清洗量级</b>　原始 <b data-fill="clean-raw"></b> 条明细，剔除 <b data-fill="clean-dup"></b> 条（全部是业务键重复；离群值不再删行，改为置空后插补），另修正 <b data-fill="clean-fixed-n"></b> 处缺失与错误（插补 <b data-fill="clean-impute"></b>、单价 <b data-fill="clean-price"></b>、费用重算 <b data-fill="clean-recalc"></b> 等），装载 <b data-fill="clean-energy"></b> 条能耗明细、<b data-fill="clean-prod"></b> 条产量记录、<b data-fill="clean-days"></b> 天日历。
       </div></div>
       <div class="note warn"><span class="mark"></span><div>
         <b>口径边界</b>　"综合能耗"用折标煤当量值加总，不做等价值换算；碳排放中压缩空气属二次能源不计入，避免与电力重复；单耗类指标（本报告第 5 节）一律剔除公用工程车间。
@@ -2371,7 +2372,64 @@ function fillProse(){
     "nov-len-gap": function(){
       return Math.abs(novMom(0) - novDaily(0)).toFixed(2) + "pp";
     },
+
+    // ---- 2026-09-22 补: 图表脚注与检测卡片里漏掉的三处手写数字 ----
+    // 与上面那批同源(都走 D.derived), 只是当初按"卡片"扫 A 类时漏了脚注。
+    // 相关系数带符号, 用 toFixed(3) 与 Q12 的原始精度一致; 正数补 "+"。
+    "corr-elec":  function(){ return signed(dv.corr_elec, 3); },
+    "corr-gas":   function(){ return signed(dv.corr_gas, 3); },
+    "corr-steam": function(){ return signed(dv.corr_steam, 3); },
+    "cmp-asm-fixed":   function(){ return String(dv.cmp_装配_fixed); },
+    "cmp-asm-holiday": function(){ return String(dv.cmp_装配_holiday); },
+    "cmp-sfc-fixed":   function(){ return String(dv.cmp_表面处理_fixed); },
+    "cmp-sfc-holiday": function(){ return String(dv.cmp_表面处理_holiday); },
+    "cmp-mc-fixed":    function(){ return String(dv.cmp_机加工_fixed); },
+    "cmp-mc-holiday":  function(){ return String(dv.cmp_机加工_holiday); },
+    // 基线法在这三个间歇型车间的检出量, 正文写成 "14 / 8 / 7" 的顺序
+    "cmp-base-trio": function(){
+      return [dv.cmp_装配_base, dv.cmp_表面处理_base, dv.cmp_机加工_base].join(" / ");
+    },
+    // 熔炼 / 轧制两法对比。顺序固定为 固定阈值检出 / 产量基线检出 / 两法一致,
+    // 正文两句话各自引用自己那一组, 所以拆成独立的键而不是拼一个字符串。
+    "cmp-melt-fixed":  function(){ return String(dv.cmp_熔炼_fixed); },
+    "cmp-melt-base":   function(){ return String(dv.cmp_熔炼_base); },
+    "cmp-melt-both":   function(){ return String(dv.cmp_熔炼_both); },
+    "cmp-roll-fixed":  function(){ return String(dv.cmp_轧制_fixed); },
+    "cmp-roll-base":   function(){ return String(dv.cmp_轧制_base); },
+    "cmp-roll-both":   function(){ return String(dv.cmp_轧制_both); },
+    // 噪声压低比区间: 两位小数, 与 Q26 的原始精度一致
+    "cmp-noise-lo": function(){ return dv.cmp_noise_min.toFixed(2); },
+    "cmp-noise-hi": function(){ return dv.cmp_noise_max.toFixed(2); },
+    // "解释掉了 26% ~ 75%" —— 就是 1 − 压低比。范围两端各自算, 别写死。
+    "cmp-noise-explain-lo": function(){ return Math.round((1 - dv.cmp_noise_max) * 100); },
+    "cmp-noise-explain-hi": function(){ return Math.round((1 - dv.cmp_noise_min) * 100); },
+    // 白化降幅最大的两个车间, 连名字一起插值 —— 名字若写死, 换数据后会
+    // 出现"轧制降了 73.7%"而实际是别的车间降得最多的情况。
+    "white-cut0-name":  function(){ return dv.white_cut0_name; },
+    "white-cut0-raw":   function(){ return dv.white_cut0_raw.toFixed(1); },
+    "white-cut0-white": function(){ return dv.white_cut0_white.toFixed(1); },
+    "white-cut0-pct":   function(){ return dv.white_cut0_pct.toFixed(1) + "%"; },
+    "white-cut1-name":  function(){ return dv.white_cut1_name; },
+    "white-cut1-raw":   function(){ return dv.white_cut1_raw.toFixed(1); },
+    "white-cut1-white": function(){ return dv.white_cut1_white.toFixed(1); },
+    "white-cut1-pct":   function(){ return dv.white_cut1_pct.toFixed(1) + "%"; },
+    // 清洗量级
+    "clean-raw":     function(){ return num(dv.clean_raw, 0); },
+    "clean-dup":     function(){ return num(dv.clean_dup, 0); },
+    "clean-energy":  function(){ return num(dv.clean_energy, 0); },
+    "clean-prod":    function(){ return num(dv.clean_prod, 0); },
+    "clean-days":    function(){ return num(dv.clean_days, 0); },
+    "clean-fixed-n": function(){ return num(dv.clean_fixed_n, 0); },
+    "clean-impute":  function(){ return num(dv.clean_impute, 0); },
+    "clean-price":   function(){ return num(dv.clean_price, 0); },
+    "clean-recalc":  function(){ return num(dv.clean_recalc, 0); },
   };
+
+  // 带符号的三位小数: +0.174 / −0.956。用真正的减号 U+2212 而不是连字符,
+  // 与正文其余数字的记法一致(负号在中文排版里比 hyphen 清晰)。
+  function signed(v, d){
+    return (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+  }
 
   // 不设"已填过就跳过"的守卫: initStatic 在筛选后也会重跑, 而同一个 [data-fill]
   // 集合里既有 hero 那种**必须**随筛选变的, 也有本函数这些全期口径的散文数字。
