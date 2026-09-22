@@ -5,8 +5,13 @@
   2. 筛选后 KPI 与 结构卡合计 闭合(离线已验, 这里验 DOM 里真的写进去了)。
   3. 表格视图不会显示上一个筛选留下的旧行(renderAll 完全不碰 [data-table])。
 """
+import os
 import sys
 from playwright.sync_api import sync_playwright
+
+# 本机没装 playwright 自带的 chromium_headless_shell, 退回系统 Chrome。
+_EXE = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+EXE = _EXE if os.path.exists(_EXE) else None
 
 FAIL = []
 
@@ -34,7 +39,7 @@ def hero(page):
 
 
 with sync_playwright() as p:
-    b = p.chromium.launch()
+    b = p.chromium.launch(executable_path=EXE)
     pg = b.new_page(viewport={"width": 1280, "height": 1000})
     errs = []
     pg.on("pageerror", lambda e: errs.append(str(e)))

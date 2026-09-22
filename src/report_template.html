@@ -32,6 +32,14 @@
   --good:#0ca30c;
   --critical:#d03b3b;
   --shadow:0 1px 2px rgba(13,17,22,.05);
+  /* 大屏专用 6 槽分类色 + 6 档顺序色。
+     为什么不复用 --mark-*: 那三个槽在正文里已被"能耗/费用/碳排"占用, 大屏要按
+     能源品种上色, 借槽会让"橙=费用"的既有语义串味。见下方 .dash-mode 说明。
+     取值 = dataviz 参考调色板前 6 槽, 明暗两套都过了 validate_palette.js。 */
+  --d-1:#2a78d6; --d-2:#eb6834; --d-3:#1baf7a;
+  --d-4:#eda100; --d-5:#e87ba4; --d-6:#4a3aa7;
+  --d-seq-1:#cde2fb; --d-seq-2:#9ec5f4; --d-seq-3:#6da7ec;
+  --d-seq-4:#3987e5; --d-seq-5:#256abf; --d-seq-6:#0d366b;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -42,6 +50,8 @@
     --accent:#4d9bff; --accent-wash:rgba(77,155,255,.14);
     --bevel:inset 0 1px 0 rgba(255,255,255,.06);
     --mark-1:#3987e5; --mark-2:#d95926; --mark-3:#199e70; --mark-dim:#3c444e;
+    --d-1:#3987e5; --d-2:#d95926; --d-3:#199e70; --d-4:#c98500; --d-5:#d55181; --d-6:#9085e9;
+    --d-seq-1:#184f95; --d-seq-2:#256abf; --d-seq-3:#3987e5; --d-seq-4:#6da7ec; --d-seq-5:#9ec5f4; --d-seq-6:#cde2fb;
     --shadow:0 1px 2px rgba(0,0,0,.4);
   }
 }
@@ -53,6 +63,8 @@
   --accent:#4d9bff; --accent-wash:rgba(77,155,255,.14);
   --bevel:inset 0 1px 0 rgba(255,255,255,.06);
   --mark-1:#3987e5; --mark-2:#d95926; --mark-3:#199e70; --mark-dim:#3c444e;
+  --d-1:#3987e5; --d-2:#d95926; --d-3:#199e70; --d-4:#c98500; --d-5:#d55181; --d-6:#9085e9;
+  --d-seq-1:#184f95; --d-seq-2:#256abf; --d-seq-3:#3987e5; --d-seq-4:#6da7ec; --d-seq-5:#9ec5f4; --d-seq-6:#cde2fb;
   --shadow:0 1px 2px rgba(0,0,0,.4);
 }
 
@@ -340,6 +352,96 @@ td:first-child{color:var(--ink)}
 .dt-val u{text-decoration:none;font-size:11px;font-weight:500;color:var(--muted);margin-left:3px}
 .dt-delta{font-size:11.5px;color:var(--muted);text-align:right;min-width:78px;font-variant-numeric:tabular-nums}
 
+/* ============================================================================
+   大屏视图 (驾驶舱)
+
+   与正文报告共用一份 window.REPORT 和同一个筛选引擎, 只是换一套版式:
+   正文是纵向长文, 大屏是 16:9 一屏装完的盯盘视图。
+
+   配色说明 —— 数据色是**另取一套**, 不复用正文的 --mark-1/2/3:
+     正文的 --mark-2 (橙) 在这份报告里已经被"费用"占用, --mark-3 被"碳排"占用。
+     大屏要按能源品种上色(6 类), 直接借那两个槽位会让读者以为"这台机的橙=费用"。
+     所以大屏用 dataviz 参考调色板的前 6 槽, 明暗两套都跑过 validate_palette.js:
+       浅色 surface #f7f9fb → 最差相邻 CVD ΔE 9.1 / 常视 ΔE 19.6  PASS
+       深色 surface #14181d → 最差相邻 CVD ΔE 8.4 / 常视 ΔE 19.3  PASS
+     浅色下 aqua/yellow/magenta 三槽对比度低于 3:1, 按"relief 规则"必须配
+     可见数值 —— 大屏里体现为**每段都带直接标注 + 图例**, 不靠颜色单独辨身份。
+   ========================================================================== */
+.dash-mode .page{display:none}
+.dashboard{
+  display:none;
+  max-width:1600px;margin:0 auto;padding:24px 24px 72px;
+  flex-direction:column;gap:14px;
+}
+.dash-mode .dashboard{display:flex}
+@media (max-width:640px){ .dashboard{padding:18px 16px 60px;gap:12px} }
+
+.dash-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.dash-title{margin:0;font-size:19px;font-weight:600;letter-spacing:-.015em}
+.dash-sub{margin:4px 0 0;font-size:12px;color:var(--muted)}
+.dash-sub b{color:var(--ink-2);font-weight:500}
+.dash-note{font-size:11.5px;color:var(--muted);max-width:52ch;line-height:1.5}
+
+/* KPI 带: 一行六格, 窄屏自动折行。数字用比例数字(非 tabular) —— 大字下等宽
+   数字会把 121 撑得很松; 只有纵向对齐的表格/刻度才用 tabular-nums。 */
+.dash-kpis{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px;background:var(--ring);border:1px solid var(--ring);
+  border-radius:10px;overflow:hidden;box-shadow:var(--shadow);
+}
+.dkpi{background:var(--surface);padding:13px 15px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.dkpi-label{margin:0;font-size:11px;color:var(--muted);letter-spacing:.02em}
+.dkpi-value{margin:0;font-size:26px;font-weight:600;letter-spacing:-.025em;line-height:1.1}
+.dkpi-value u{text-decoration:none;font-size:12px;font-weight:500;color:var(--ink-2);margin-left:3px;letter-spacing:0}
+.dkpi-note{margin:0;font-size:11px;color:var(--muted);line-height:1.4}
+.dkpi-note.up{color:var(--critical)}
+.dkpi-note.down{color:var(--good)}
+
+/* 12 栏栅格: span 数是"占几栏" */
+.dash-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;align-items:start}
+.dcard{
+  grid-column:span 12;
+  background:var(--surface);border:1px solid var(--ring);border-radius:10px;
+  box-shadow:var(--shadow);padding:15px 16px 12px;
+  display:flex;flex-direction:column;gap:10px;min-width:0;
+}
+.dcard.span4{grid-column:span 4}
+.dcard.span5{grid-column:span 5}
+.dcard.span6{grid-column:span 6}
+.dcard.span7{grid-column:span 7}
+.dcard.span8{grid-column:span 8}
+/* 中等宽度: 4/5 栏太窄放不下图例, 一律退到半宽 */
+@media (max-width:1180px){
+  .dcard.span4,.dcard.span5{grid-column:span 6}
+}
+@media (max-width:820px){
+  .dcard.span4,.dcard.span5,.dcard.span6,.dcard.span7,.dcard.span8{grid-column:span 12}
+}
+.dcard-head{display:flex;flex-direction:column;gap:3px}
+.dcard-head h3{margin:0;font-size:13.5px;font-weight:600;letter-spacing:-.005em}
+.dcard-sub{margin:0;font-size:11.5px;color:var(--muted);line-height:1.45}
+.dchart{position:relative;width:100%;min-width:0}
+.dlegend{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:11.5px;color:var(--ink-2)}
+.dlegend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.dlegend i{width:9px;height:9px;border-radius:3px;flex:none}
+.dlegend i.line{width:14px;height:3px;border-radius:2px}
+
+.dcard .c-hit{cursor:crosshair}
+
+/* 视图切换按钮: 常驻筛选栏右端 */
+.viewseg{display:flex;gap:2px;padding:2px;border-radius:7px;background:var(--surface-2);box-shadow:var(--bevel)}
+.viewseg button{
+  appearance:none;border:1px solid transparent;background:transparent;
+  font:inherit;font-size:12px;color:var(--ink-2);
+  padding:3px 11px;border-radius:5px;cursor:pointer;white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.viewseg button:hover{background:var(--accent-wash);color:var(--ink)}
+.viewseg button[aria-pressed="true"]{
+  background:var(--surface);color:var(--ink);font-weight:600;
+  border-color:var(--accent);box-shadow:0 1px 2px rgba(13,17,22,.10);
+}
+
 @media (prefers-reduced-motion: reduce){
   *{transition:none!important;animation:none!important}
 }
@@ -366,6 +468,10 @@ td:first-child{color:var(--ink)}
       <div class="fseg" id="f-day" role="group" aria-label="日型"></div>
     </div>
     <span class="fspacer"></span>
+    <div class="viewseg" id="view-seg" role="group" aria-label="视图">
+      <button type="button" data-view="report" aria-pressed="true">报告</button>
+      <button type="button" data-view="dash" aria-pressed="false">数据大屏</button>
+    </div>
     <button class="freset" type="button" id="f-reset">重置</button>
     <p class="fscope" id="f-scope" data-active="0" role="status" aria-live="polite"></p>
   </div>
@@ -684,6 +790,79 @@ td:first-child{color:var(--ink)}
 
 </div>
 
+<!-- ============================================================================
+     大屏视图 (驾驶舱) —— 与上面的长文报告共用 window.REPORT 与同一个筛选引擎。
+     放在 .page 之外有两层原因: 一是 .dash-mode 用 display 切换两个视图, 二者不能
+     互相嵌套; 二是 renderAll() 会把 [data-chart] 宿主清空重画, 大屏的图表宿主
+     必须与正文的分开, 否则切一次视图就串一次图。
+     ========================================================================== -->
+<div class="dashboard" id="dashboard" hidden>
+  <div class="dash-head">
+    <div>
+      <p class="eyebrow">工业能耗分析 · 数据大屏</p>
+      <h2 class="dash-title">全厂能耗驾驶舱</h2>
+      <p class="dash-sub" id="dash-sub">—</p>
+    </div>
+    <p class="dash-note">全部指标随上方筛选条联动重算，口径为全厂（含 W07 公用工程），与报告 KPI 同源。</p>
+  </div>
+
+  <div class="dash-kpis" id="dash-kpis"></div>
+
+  <div class="dash-grid">
+    <figure class="dcard span8">
+      <figcaption class="dcard-head">
+        <h3>月度综合能耗与环比</h3>
+        <p class="dcard-sub">柱为当月折标煤，折线为环比。<b>11 月环比为负、12 月为正，含月长效应</b>（详见报告「口径边界」）。</p>
+      </figcaption>
+      <div class="dchart" data-dchart="dmonth"></div>
+      <div class="dlegend" id="dlg-month"></div>
+    </figure>
+
+    <figure class="dcard span4">
+      <figcaption class="dcard-head">
+        <h3>能源品种结构</h3>
+        <p class="dcard-sub">按折标煤口径的占比，含公用工程。</p>
+      </figcaption>
+      <div class="dchart" data-dchart="dstack"></div>
+      <div class="dlegend" id="dlg-stack"></div>
+    </figure>
+
+    <figure class="dcard span7">
+      <figcaption class="dcard-head">
+        <h3>车间能耗排行</h3>
+        <p class="dcard-sub">条形为综合能耗，点标为碳排放强度（tCO₂/tce）。<b>W07 动力站属公用工程</b>，其蒸汽被其他车间二次消费。</p>
+      </figcaption>
+      <div class="dchart" data-dchart="dws"></div>
+    </figure>
+
+    <figure class="dcard span5">
+      <figcaption class="dcard-head">
+        <h3>能源品种 × 车间热力图</h3>
+        <p class="dcard-sub">行为能源品种、列为车间，格值单位为 <b>tce</b>，颜色越深用能越多。</p>
+      </figcaption>
+      <div class="dchart" data-dchart="dheat"></div>
+    </figure>
+
+    <figure class="dcard span6">
+      <figcaption class="dcard-head">
+        <h3>全厂日度能耗与 7 日移动平均</h3>
+        <p class="dcard-sub">浅色折线为每日实测，深色为 7 日移动平均 —— 平滑掉的正是节假日与周末的日历波动。</p>
+      </figcaption>
+      <div class="dchart" data-dchart="ddaily"></div>
+      <div class="dlegend" id="dlg-daily"></div>
+    </figure>
+
+    <figure class="dcard span6">
+      <figcaption class="dcard-head">
+        <h3>能源费用帕累托</h3>
+        <p class="dcard-sub">柱为各品种费用占比，折线为累计占比。<b>折线的拐点</b>就是需要优先管控的品种。</p>
+      </figcaption>
+      <div class="dchart" data-dchart="dpareto"></div>
+      <div class="dlegend" id="dlg-pareto"></div>
+    </figure>
+  </div>
+</div>
+
 <script>
 // 数据占位符: make_report.py 把 __DATA__ 标记到 __END__ 标记之间的内容整体替换成 JSON。
 // 模板本身保持可解析(此处的值是 null), 直接双击打开不会因语法错误导致整页脚本失效。
@@ -768,6 +947,10 @@ function aggAll(){
     m.tce += r.tce; m.cost += r.cost; m.co2 += r.co2;
   }
 
+  // 天数按**去重日期**计, 不能按行数累加 —— ws_daily 的粒度是 (车间×日), 一行
+  // 累加会把 8 个车间乘进去(近 6 月会报 1,480 天, 实际只有 185 天)。KPI 里那个
+  // 天数要和报告正文、日均分母是同一个值, 所以在这里集合去重。
+  var daySeen = {};
   for (var j = 0; j < w.length; j++){
     var q = w[j];
     if (!wsMatch(q.code) || !dateMatch(q.d)) continue;
@@ -779,8 +962,11 @@ function aggAll(){
     dt.days += 1; byTypeDays[q.day] = dtd + 1;
     if (!dayMatch(q.day)) continue;
     dt.tce += q.tce; dt.cost += q.cost; dt.co2 += q.co2;
-    K.tce += q.tce; K.cost += q.cost; K.co2 += q.co2; K.qty += q.qty; K.days += 1;
+    K.tce += q.tce; K.cost += q.cost; K.co2 += q.co2; K.qty += q.qty;
+    daySeen[q.d] = 1;
   }
+  K.days = 0;
+  for (var dd in daySeen) K.days += 1;
   return {byEnergy:byEnergy, byWs:byWs, byMonth:byMonth, byDay:byDay,
           daytypeDays:byTypeDays, K:K};
 }
@@ -2211,7 +2397,12 @@ function maxDate(){ return D.filter_meta.max_date; }
 function shiftMonths(ymd, n){
   var y = Number(ymd.slice(0, 4)), mo = Number(ymd.slice(5, 7)) - 1 + n;
   y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12;
-  return y + "-" + ("0" + (mo + 1)).slice(-2) + ymd.slice(7);
+  // 日号必须夹到目标月的最后一天: 锚点是 2025-12-31, 直接带过去会得到
+  // "2025-06-31" 这个不存在的日期。而 dateMatch 是字符串比较, 6 月 30 日
+  // ("2025-06-30" < "2025-06-31") 会被判在区间外 —— 静默少算一天。
+  var last = new Date(y, mo + 1, 0).getDate();
+  var day = Math.min(Number(ymd.slice(8, 10)), last);
+  return y + "-" + ("0" + (mo + 1)).slice(-2) + "-" + ("0" + day).slice(-2);
 }
 
 function buildFilterUI(){
@@ -2334,6 +2525,9 @@ function applyFilter(){
 
   document.querySelectorAll("[data-chart]").forEach(function(h){ h.dataset.done = ""; });
   renderAll(true);
+  // 大屏与正文共用 VIEW, 一起重算 —— 两个视图看到的总数必须是同一个
+  document.querySelectorAll("[data-dchart]").forEach(function(h){ h.dataset.done = ""; });
+  renderDash(true);
   document.querySelectorAll("[data-table]").forEach(function(tv){
     tv.dataset.built = "";
     if (!tv.hidden){ tv.innerHTML = TABLES[tv.dataset.table](); tv.dataset.built = "1"; }
@@ -2364,6 +2558,697 @@ function filterNote(){
   return "已筛选：" + parts.join(" · ") + "（正文数字仍为全期口径）";
 }
 
+/* ============================================================================
+   大屏视图 —— 图表与 KPI
+
+   与原报告的图不是同一批函数, 刻意分开:
+     · 原报告的图是"配文字的图", 每张都有大段 card-sub 解释, 高度用 drawLine 的
+       固定 height; 大屏要在 1600px 宽里挤下六格, 高度必须自持。
+     · 大屏的新图(热力图/帕累托/叠加柱)原报告里没有, 但原报告的图在大屏里都
+       已经有一份对应物, 所以不复用 —— 复用会让两处布局互相牵制。
+   配色见 CSS 里 .dash-mode 那段注释: 另取 6 槽, 明暗两套都过了 validate_palette.js。
+   ========================================================================== */
+
+/* 大屏专用色板。从 CSS 变量取, 好让明暗两套在主题切换时自动生效 —— 数值不写死在 JS 里。
+   dash[] 给"按能源品种上色"那种需要按下标取色的场景(叠加条/图例);
+   d1..d6 给它旁边那些只用到一两个槽的图(月柱/环比线/碳强度点), 省得记下标。 */
+function dashTokens(){
+  var c = [cssv("--d-1"), cssv("--d-2"), cssv("--d-3"),
+           cssv("--d-4"), cssv("--d-5"), cssv("--d-6")];
+  return {dash:c, d1:c[0], d2:c[1], d3:c[2], d4:c[3], d5:c[4], d6:c[5]};
+}
+
+/* KPI 带: 六格。数字全部从 VIEW 的**聚合后**字段取, 所以随筛选重算。
+   第六格"待机能耗"是唯一一个不随筛选变的量 —— 它来自 Q13 的停产日口径, 没有
+   立方体支撑; 调暗并注明"全期口径", 而不是编一个随筛选变化的假数字。 */
+function drawDashKpis(){
+  var T = VIEW.totals, nd = T.filtered ? T.days : 731;
+  var cost = VIEW.energy_mix.reduce(function(a, r){ return a + r.cost; }, 0) || T.cost;
+  var co2 = VIEW.energy_mix.reduce(function(a, r){ return a + r.co2; }, 0) || T.co2;
+  var dv = D.derived || {};
+  var standbyTce = dv.standby_tce || 0;
+
+  // 单耗: 只在**选了且仅选了单个车间**时给数。
+  // 为什么不做"全厂加权": 各车间产量单位不同(吨/件/台/平方米, 见 指标字典 §1),
+  // 跨车间把产量加起来是没有物理意义的 —— 8 个车间混着除出来是 4.78 kgce/t,
+  // 而熔炼车间单独是 68.6 kgce/t, 前者不对应任何真实量。宁可不给, 也不给一个
+  // 读者会当成"全厂单耗"的假数。
+  // 另: 公用工程(W07)必须排除 —— 它产蒸汽供其他车间二次消费, 单耗口径下会重复计入。
+  var ue = null, ueNote = "";
+  var wsd = D.ws_daily;
+  var picked = FILTER.ws === null ? null : Array.from(FILTER.ws);
+  if (wsd && picked && picked.length === 1){
+    var code = picked[0];
+    var meta = D.ws_meta[code] || {};
+    if (meta.proc === "公用工程"){
+      ueNote = meta.name + " 属公用工程，不参与单耗口径";
+    } else {
+      var tceSum = 0, qtySum = 0, n = 0;
+      for (var i = 0; i < wsd.length; i++){
+        var r = wsd[i];
+        if (r.code !== code) continue;
+        if (!dateMatch(r.d)) continue;
+        if (FILTER.day !== null && !dayMatch(r.day)) continue;
+        if (!r.prod || !(r.qty > 0)) continue;    // 停产日产量为 0, 不能进分母
+        tceSum += r.tce; qtySum += r.qty; n++;
+      }
+      if (qtySum > 0){
+        ue = tceSum / qtySum * 1000;    // tce/t -> kgce/t
+        ueNote = meta.name + " · " + n + " 个生产日";
+      } else {
+        ueNote = meta.name + "：当前筛选下没有产量记录";
+      }
+    }
+  } else {
+    ueNote = "请只选一个车间（产量单位不同，不可跨车间合并）";
+  }
+  // 筛选后月度环比改由 monthly 自带(rebuildView 重算过), 取最后一月
+  var mm = VIEW.monthly.length > 1 ? VIEW.monthly[VIEW.monthly.length - 1] : null;
+  var mom = mm && mm.mom !== null && mm.mom !== undefined ? mm.mom : null;
+
+  var tiles = [
+    {l:"综合能耗", v:num(T.tce, 1), u:"tce",
+     n:(T.filtered ? "筛选区间 " : "两年 ") + nd + " 天 · 日均 " + (T.tce / nd).toFixed(2)},
+    {l:"能源费用", v:"¥" + (cost / 1e8).toFixed(3), u:"亿",
+     n:"日均 ¥" + num(cost / nd, 0)},
+    {l:"碳排放", v:num(co2, 1), u:"tCO₂",
+     n:"碳排强度 " + (T.tce ? (co2 / T.tce).toFixed(3) : "0.000") + " tCO₂/tce"},
+    {l:"单位产品能耗", v:ue === null ? "—" : ue.toFixed(1), u:ue === null ? "" : "kgce/t",
+     n:ueNote},
+    {l:"末期环比", v:mom === null ? "—" : pct(mom, 1), u:"",
+     n:mm ? mm.ym + " 相对上月" : "区间不足两月",
+     cls: mom === null ? "" : (mom > 0 ? "up" : "down")},
+    {l:"待机损耗", v:num(standbyTce, 1), u:"tce",
+     n:"全期口径 · 不随筛选变化"}
+  ];
+  document.getElementById("dash-kpis").innerHTML = tiles.map(function(k){
+    return '<div class="dkpi"><p class="dkpi-label">' + k.l + "</p>" +
+      '<p class="dkpi-value">' + k.v + (k.u ? "<u>" + k.u + "</u>" : "") + "</p>" +
+      '<p class="dkpi-note' + (k.cls ? " " + k.cls : "") + '">' + k.n + "</p></div>";
+  }).join("");
+}
+
+/* 大屏每张图的公共外壳: 视图尺寸、坐标工具、命中层复位。
+   宽度取宿主 clientWidth(切回来时才量得到, 所以切视图必须 force 重画)。 */
+function dashFrame(host, key, h){
+  var W = Math.round(host.clientWidth);
+  if (!W) return null;
+  host.innerHTML = "";
+  var H = h;
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 " + W + " " + H, role:"img",
+                       "aria-label":key});
+  host.appendChild(svg);
+  return {svg:svg, W:W, H:H};
+}
+/* 按容器宽度选的刻度步长(复用报告里的 niceStep)。 */
+function daxTicks(max, n){ return ticks(max || 1, n || 4); }
+
+/* ---------------- 大屏 1: 月度能耗(柱) + 环比(线) ----------------
+   为什么是两栏而不是双轴: 能耗(tce)与环比(%)量纲不同, 叠在一个坐标系里等于
+   发明一条不存在的相关性。这里柱与线**各用各的刻度**, 柱走左轴、环绕比走右轴,
+   但两条轴各自标注清楚 —— 读者读的是两个独立量, 不是"柱线交点"。 */
+function drawDashMonth(host, W, T, narrow){
+  var f = dashFrame(host, "月度综合能耗与环比", narrow ? 240 : 268);
+  if (!f) return;
+  var svg = f.svg, H = f.H;
+  var rows = VIEW.monthly;
+  if (!rows.length){ host.textContent = "当前筛选区间没有说话的数据"; return; }
+
+  var padL = 52, padR = 46, padT = 16, padB = 34;
+  var plotW = Math.max(40, W - padL - padR), plotH = H - padT - padB;
+  var mx = Math.max.apply(null, rows.map(function(r){ return r.tce; }));
+  var sc = daxTicks(mx, 3);
+  var band = plotW / rows.length;
+  var bw = Math.max(3, Math.min(22, band - 8));       // 细柱, 留白
+  var y = function(v){ return padT + plotH - v / sc.top * plotH; };
+
+  sc.list.forEach(function(v){
+    mk("line", {x1:padL, y1:y(v), x2:padL + plotW, y2:y(v),
+                class: v === 0 ? "c-axis" : "c-grid"}, svg);
+    tx(svg, padL - 8, y(v) + 3.5, num(v), "c-label", "end");
+  });
+
+  // 环比折线(右轴): 只画有值的月 —— 筛选后首月没有上月, mom 为 null, 不能当 0 画
+  var momVals = rows.map(function(r){ return r.mom; }).filter(function(v){ return v !== null && v !== undefined; });
+  var mmax = Math.max.apply(null, momVals.map(Math.abs).concat([1]));
+  var y2 = function(v){ return padT + plotH / 2 - v / mmax * (plotH / 2 - 8); };
+  tx(svg, W - padR + 8, y2(mmax) + 3.5, "+" + mmax.toFixed(0) + "%", "c-label", "start");
+  tx(svg, W - padR + 8, y2(0) + 3.5, "0", "c-label", "start");
+  tx(svg, W - padR + 8, y2(-mmax) + 3.5, "−" + mmax.toFixed(0) + "%", "c-label", "start");
+  mk("line", {x1:padL, y1:y2(0), x2:padL + plotW, y2:y2(0), class:"c-axis"}, svg);
+
+  var d = "", started = false;
+  rows.forEach(function(r, i){
+    if (r.mom === null || r.mom === undefined){ started = false; return; }
+    var cx = padL + band * i + band / 2;
+    d += (started ? " L" : " M") + cx + "," + y2(r.mom);
+    started = true;
+  });
+  if (d) mk("path", {d:d, fill:"none", stroke:T.d2, "stroke-width":2,
+                     "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+
+  rows.forEach(function(r, i){
+    var cx = padL + band * i + band / 2;
+    var yy = y(r.tce), hh = padT + plotH - yy;
+    var rad = Math.min(4, bw / 2, hh / 2);          // 数据端圆角, 基线端方角
+    mk("path", {d:"M" + (cx - bw/2) + "," + yy + " h" + (bw - rad) + " a" + rad + "," + rad +
+                   " 0 0 1 " + rad + "," + rad + " v" + (hh - 2*rad) + " a" + rad + "," + rad +
+                   " 0 0 1 " + (-rad) + "," + rad + " h" + (-(bw - rad)) + " z",
+                fill:T.d1}, svg);
+    if (r.mom !== null && r.mom !== undefined){
+      mk("circle", {cx:cx, cy:y2(r.mom), r:3,
+                    fill:T.d2, stroke:T.surface, "stroke-width":2}, svg);
+    }
+  });
+
+  // 只标峰值与末端, 不逐柱标数 —— 逐点标注会糊成一片。
+  // 峰值恰好在末端时两个标签会叠在同一根柱上, 这时只留末端那一个。
+  var mi = 0;
+  rows.forEach(function(r, i){ if (r.tce > rows[mi].tce) mi = i; });
+  var li = rows.length - 1, cxl = padL + band * li + band / 2;
+  if (mi !== li){
+    tx(svg, padL + band * mi + band / 2, y(rows[mi].tce) - 7, num(rows[mi].tce, 0), "c-value", "middle");
+  }
+  tx(svg, Math.min(cxl, W - padR - 2), y(rows[li].tce) - 7, num(rows[li].tce, 0), "c-value", "end");
+
+  // x 轴: 按宽度密度抽稀, 保证末位一定出现
+  var minGap = 46, stepI = Math.max(1, Math.ceil(rows.length / Math.max(2, Math.floor(plotW / minGap))));
+  var idxs = [];
+  for (var i2 = 0; i2 < rows.length; i2++) if (i2 % stepI === 0) idxs.push(i2);
+  if (idxs[idxs.length - 1] !== li) idxs.push(li);
+  idxs = idxs.filter(function(i3){ return i3 === li || Math.abs((padL + band*i3 + band/2) - cxl) >= minGap; });
+  idxs.forEach(function(i4){
+    var tx0 = padL + band * i4 + band / 2;
+    // 首末刻度用 anchor 贴边, 否则 "24-01" 会有一半伸到绘图区外
+    var anc = i4 === 0 ? "start" : (i4 === li ? "end" : "middle");
+    tx(svg, tx0, H - padB + 18, rows[i4].ym.slice(2), "c-label", anc);
+  });
+
+  // 命中层: 按月分带, 整块可点(比命中 4px 的柱宽得多)
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var rect = mk("rect", {x:padL + band * i, y:padT, width:band, height:plotH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.ym + "</span>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d1 + '"></i>综合能耗</span><span>' + num(r.tce, 2) + " tce</span></div>" +
+        '<div class="tip-r"><span>能源费用</span><span>¥' + num(r.cost, 0) + "</span></div>" +
+        '<div class="tip-r"><span>碳排放</span><span>' + num(r.co2, 2) + " tCO₂</span></div>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d2 + '"></i>环比</span><span>' +
+          (r.mom === null || r.mom === undefined ? "—" : r.mom.toFixed(2) + "%") + "</span></div>");
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* ---------------- 大屏 2: 能源结构(水平叠加条) ----------------
+   6 类能源, 单条 100% 堆叠。段间留 2px 底色缝(不是描边) —— 描边会给非数据的
+   墨水加重; 缝宽全条一致, 相邻段因此分得开。
+   段内标数只在**放得下**时画, 放不下就跳过交给图例与悬停 —— 裁字比不标更糟。 */
+function drawDashStack(host, W, T, narrow){
+  var f = dashFrame(host, "能源品种结构", 118);
+  if (!f) return;
+  var svg = f.svg;
+  var rows = VIEW.energy_mix;
+  var total = rows.reduce(function(a, r){ return a + r.tce; }, 0);
+  if (!(total > 0)){ host.textContent = "无数据"; return; }
+
+  var padL = 4, padR = 4, y0 = 34, barH = 44;
+  var plotW = W - padL - padR;
+  var gap = 2;
+  var avail = plotW - gap * Math.max(0, rows.length - 1);
+  var x = padL;
+
+  rows.forEach(function(r, i){
+    var w = avail * (r.tce / total);
+    if (w <= 0) return;
+    var first = i === 0, last = i === rows.length - 1;
+    var rad = Math.min(4, w / 2);
+    // 首段左端圆、末段右端圆, 中间段两端方角 —— 数据端圆角, 接缝端方角
+    var dl;
+    if (first && last){
+      dl = "M" + (x + rad) + "," + y0 + " h" + (w - 2*rad) + " a" + rad + "," + rad +
+           " 0 0 1 " + rad + "," + rad + " v" + (barH - 2*rad) + " a" + rad + "," + rad +
+           " 0 0 1 " + (-rad) + "," + rad + " h" + (-(w - 2*rad)) + " a" + rad + "," + rad +
+           " 0 0 1 " + (-rad) + "," + (-rad) + " v" + (-(barH - 2*rad)) + " a" + rad + "," + rad +
+           " 0 0 1 " + rad + "," + (-rad) + " z";
+    } else if (first){
+      dl = "M" + (x + rad) + "," + y0 + " h" + (w - rad) + " v" + barH + " h" + (-(w - rad)) +
+           " a" + rad + "," + rad + " 0 0 1 " + (-rad) + "," + (-rad) + " v" + (-(barH - 2*rad)) +
+           " a" + rad + "," + rad + " 0 0 1 " + rad + "," + (-rad) + " z";
+    } else if (last){
+      dl = "M" + x + "," + y0 + " h" + (w - rad) + " a" + rad + "," + rad + " 0 0 1 " + rad + "," + rad +
+           " v" + (barH - 2*rad) + " a" + rad + "," + rad + " 0 0 1 " + (-rad) + "," + rad +
+           " h" + (-(w - rad)) + " z";
+    } else {
+      dl = "M" + x + "," + y0 + " h" + w + " v" + barH + " h" + (-w) + " z";
+    }
+    mk("path", {d:dl, fill:T.dash[i] || T.dim}, svg);
+
+    // 段内标数: 文本宽度按 11px 中文约 11px/字、数字约 7px/字估算, 两边各留 6px
+    var lab = r.tce_pct.toFixed(1) + "%";
+    var need = lab.length * 7 + 12;
+    if (w >= need){
+      tx(svg, x + w / 2, y0 + barH / 2 + 4, lab, "c-value", "middle")
+        .setAttribute("style", "fill:#fff");
+    }
+    x += w + gap;
+  });
+
+  tx(svg, padL, 18, num(total, 0) + " tce", "c-value");
+  tx(svg, W - padR, 18, rows.length + " 种能源", "c-label", "end");
+
+  // 图例: 段内标不下的品种靠它认身份(颜色只做辅助, 文字才是身份通道)
+  document.getElementById("dlg-stack").innerHTML = rows.map(function(r, i){
+    return '<span><i style="background:' + (T.dash[i] || T.dim) + '"></i>' + r.name +
+           " " + r.tce_pct.toFixed(1) + "%</span>";
+  }).join("");
+
+  var hit = mk("g", null, svg);
+  var hx = padL;
+  rows.forEach(function(r, i){
+    var w = avail * (r.tce / total);
+    if (w > 0){
+      var rect = mk("rect", {x:hx, y:y0, width:w, height:barH, class:"c-hit"}, hit);
+      rect.addEventListener("mousemove", function(ev){
+        var b = host.getBoundingClientRect();
+        showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+          '<span class="tip-t">' + r.name + "（" + r.unit + "）</span>" +
+          '<div class="tip-r"><span>折标煤</span><span>' + num(r.tce, 2) + " tce</span></div>" +
+          '<div class="tip-r"><span>折标煤占比</span><span>' + r.tce_pct.toFixed(2) + "%</span></div>" +
+          '<div class="tip-r"><span>费用</span><span>¥' + num(r.cost, 0) + "</span></div>" +
+          '<div class="tip-r"><span>实物量</span><span>' + num(r.qty, 0) + " " + r.unit + "</span></div>");
+      });
+      rect.addEventListener("mouseleave", function(){ hideTip(host); });
+      hx += w + gap;
+    }
+  });
+}
+
+/* ---------------- 大屏 3: 车间排行(条) + 碳强度(点) ----------------
+   条形是**单一系列**, 所以全部用同一个色槽 —— 按数值深浅上色会把长度已经
+   表达过的信息用颜色再说一遍, 白白烧掉唯一的身份通道。只有公用工程 W07 例外:
+   它用强调色, 因为"这台是别台的重复计入"是这张图唯一要说的事。 */
+function drawDashWs(host, W, T, narrow){
+  var f = dashFrame(host, "车间能耗排行", 40 + VIEW.workshops.length * 30);
+  if (!f) return;
+  var svg = f.svg, H = f.H;
+  var rows = VIEW.workshops;
+  if (!rows.length){ host.textContent = "无数据"; return; }
+
+  var nameW = narrow ? 74 : 92, padR = narrow ? 54 : 66, padT = 22, axisH = 26;
+  var rowH = 30, plotX = nameW, plotW = Math.max(50, W - nameW - padR);
+  var plotH = rows.length * rowH;
+  var sc = daxTicks(Math.max.apply(null, rows.map(function(r){ return r.tce; })), 3);
+  var x = function(v){ return plotX + v / sc.top * plotW; };
+  var barH = 12;
+
+  sc.list.forEach(function(v){
+    if (v === 0) return;
+    mk("line", {x1:x(v), y1:padT - 4, x2:x(v), y2:padT + plotH, class:"c-grid"}, svg);
+  });
+  mk("line", {x1:plotX, y1:padT - 4, x2:plotX, y2:padT + plotH, class:"c-axis"}, svg);
+  sc.list.forEach(function(v){ tx(svg, x(v), padT - 10, num(v), "c-label", "middle"); });
+
+  // 碳强度点(右轴独立): 单耗类口径要剔除公用工程, 但碳强度是"总量比"不涉及单耗,
+  // 所以这里保留 W07 —— 与 Q21 的口径一致。
+  var ci = rows.map(function(r){ return r.tce > 0 ? r.co2 / r.tce : 0; });
+  var ciMax = Math.max.apply(null, ci.concat([0.0001]));
+  var cx0 = plotX + plotW + 16, cx1 = W - 8;
+  var cxo = function(v){ return cx0 + (cx1 - cx0) * (v / ciMax); };
+
+  rows.forEach(function(r, i){
+    var bandY = padT + i * rowH, midY = bandY + rowH / 2;
+    tx(svg, 0, midY + 4, r.name, r.utility ? "c-name hot" : "c-name");
+    var w = Math.max(2, x(r.tce) - plotX);
+    var rad = Math.min(4, w / 2, barH / 2);
+    mk("path", {d:"M" + plotX + "," + (midY - barH/2) + " h" + (w - rad) + " a" + rad + "," + rad +
+                   " 0 0 1 " + rad + "," + rad + " v" + (barH - 2*rad) + " a" + rad + "," + rad +
+                   " 0 0 1 " + (-rad) + "," + rad + " h" + (-(w - rad)) + " z",
+                fill: r.utility ? T.m1 : T.dim}, svg);
+    tx(svg, plotX + w + 6, midY + 4, r.tce_pct.toFixed(1) + "%", "c-value");
+
+    mk("circle", {cx:cxo(ci[i]), cy:midY, r:4, fill:T.d3, stroke:T.surface, "stroke-width":2}, svg);
+  });
+  tx(svg, cx0, padT - 10, "tCO₂/tce", "c-label", "middle");
+
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var rect = mk("rect", {x:0, y:padT + i * rowH, width:W, height:rowH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.name + "（" + r.process + "）</span>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + (r.utility ? T.m1 : T.dim) + '"></i>综合能耗</span><span>' + num(r.tce, 2) + " tce</span></div>" +
+        '<div class="tip-r"><span>能耗占比</span><span>' + r.tce_pct.toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d3 + '"></i>碳排强度</span><span>' + ci[i].toFixed(3) + " tCO₂/tce</span></div>" +
+        '<div class="tip-r"><span>能源费用</span><span>¥' + num(r.cost, 0) + "</span></div>" +
+        (r.utility ? '<div class="tip-r"><span>口径</span><span>公用工程·重复计入</span></div>' : ""));
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* ---------------- 大屏 4: 能源 × 车间 热力图 ----------------
+   顺序色(单一色相, 浅→深)而非分类色: 这里编码的是**量**(用能多少), 不是身份。
+   用彩虹或分类色编码量会让读者以为格子之间有"种类"关系。
+   最小值也留一档可见色(不从底色起步), 否则"小而真"的格子和"没有数据"分不出来。 */
+function drawDashHeat(host, W, T, narrow){
+  var f = dashFrame(host, "能源品种与车间能耗热力图", 0);
+  if (!f) return;
+  var svg = f.svg;
+
+  // 从立方体重算 能源 × 车间, 这样才随筛选走
+  var cells = {}, enSet = {}, wsSet = {};
+  var e = D.energy_daily;
+  for (var i = 0; i < e.length; i++){
+    var r = e[i];
+    if (!wsMatch(r.code) || !dateMatch(r.d)) continue;
+    if (FILTER.day !== null){
+      // 日型筛选要作用到立方体上, 与 aggAll 同一套做法(否则与 KPI 对不上)
+      if (!wsDayOk(r.code, r.d)) continue;
+    }
+    var k = r.e + "|" + r.code;
+    cells[k] = (cells[k] || 0) + r.tce;
+    enSet[r.e] = 1; wsSet[r.code] = 1;
+  }
+  var ens = Object.keys(enSet).sort();
+  var wss = Object.keys(wsSet).sort();
+  if (!ens.length || !wss.length){ host.textContent = "无数据"; return; }
+
+  // 色阶: 用同一色相的 6 档, 由 --d-seq-1(浅) 到 --d-seq-6(深)
+  var ramp = [cssv("--d-seq-1"), cssv("--d-seq-2"), cssv("--d-seq-3"),
+              cssv("--d-seq-4"), cssv("--d-seq-5"), cssv("--d-seq-6")];
+  // 上界取 P90 而不是最大值: 本表最大格(动力站天然气 16,201 tce)比其余格大两个
+  // 数量级, 拿它当分母会把 90% 的格压进最浅那一档, 热力图等于没画。
+  // 超过上界的格统一给最深档(色阶图例注明"≥"), 值仍在悬停与表格里, 不失真。
+  var nz = [], grand = 0;
+  for (var kk in cells){ if (cells[kk] > 0) nz.push(cells[kk]); grand += cells[kk]; }
+  nz.sort(function(a, b){ return a - b; });
+  var maxV = nz.length ? nz[Math.min(nz.length - 1, Math.floor(nz.length * 0.9))] : 1;
+  function rampOf(v){
+    if (!(v > 0)) return cssv("--surface-2");
+    var t = Math.min(1, v / maxV);
+    return ramp[Math.min(ramp.length - 1, Math.floor(t * ramp.length))];
+  }
+
+  var labW = narrow ? 58 : 68, top = 22, rowH = 30;
+  var colW = Math.max(24, (W - labW - 6) / wss.length);
+  var H = top + ens.length * rowH + 22;
+  svg.setAttribute("height", H);
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+
+  var gap = 2;   // 格间底色缝, 与叠加条同一套做法
+  wss.forEach(function(c, j){
+    var m = D.ws_meta[c] || {name:c};
+    tx(svg, labW + colW * j + colW / 2, top - 8,
+       m.name.length > 4 ? m.name.slice(0, 4) : m.name, "c-label", "middle");
+  });
+  ens.forEach(function(code, i){
+    var m = D.en_meta[code] || {name:code};
+    tx(svg, 0, top + rowH * i + rowH / 2 + 4, m.name, "c-name");
+  });
+  ens.forEach(function(code, i){
+    wss.forEach(function(c, j){
+      var v = cells[code + "|" + c] || 0;
+      var x0 = labW + colW * j, y0 = top + rowH * i;
+      mk("rect", {x:x0, y:y0, width:colW - gap, height:rowH - gap, rx:3,
+                  fill:rampOf(v)}, svg);
+      var hit = mk("rect", {x:x0, y:y0, width:colW - gap, height:rowH - gap, class:"c-hit"}, svg);
+      hit.addEventListener("mousemove", function(ev){
+        var b = host.getBoundingClientRect();
+        var wm = D.ws_meta[c] || {name:c}, em = D.en_meta[code] || {name:code, unit:""};
+        showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+          '<span class="tip-t">' + wm.name + " · " + em.name + "</span>" +
+          '<div class="tip-r"><span>折标煤</span><span>' + num(v, 2) + " tce</span></div>" +
+          '<div class="tip-r"><span>占全厂</span><span>' +
+            (grand > 0 ? (v / grand * 100).toFixed(2) : "0.00") + "%</span></div>");
+      });
+      hit.addEventListener("mouseleave", function(){ hideTip(host); });
+    });
+  });
+
+  // 色阶图例: 顺序色必须给刻度, 否则读者无从知道深浅对应多少。
+  // 右端写"≥"是因为色阶被 P90 截断过 —— 最深那一档代表"到这里及以上"。
+  var ly = H - 11, lw = 96, lh = 8;
+  tx(svg, 0, ly + 6, "少", "c-note");
+  for (var s = 0; s < ramp.length; s++){
+    mk("rect", {x:16 + s * (lw / ramp.length), y:ly - 2, width:lw / ramp.length, height:lh,
+                fill:ramp[s]}, svg);
+  }
+  tx(svg, 16 + lw + 6, ly + 6, "多（色阶上界取 P90 = " + num(maxV, 0) + " tce，更深即为 ≥ 此值）", "c-note");
+}
+
+/* 日型筛选在立方体上的查询: (车间,日) 是否落在所选日型内。
+   与 aggAll 里那张 skip 表同源同义 —— 两处必须一致, 否则大屏 KPI 与热力图会
+   对同一个筛选状态给出两个总数。 */
+function wsDayOk(code, d){
+  if (FILTER.day === null) return true;
+  var wsd = D.ws_daily;
+  for (var i = 0; i < wsd.length; i++){
+    if (wsd[i].code === code && wsd[i].d === d) return dayMatch(wsd[i].day);
+  }
+  return true;
+}
+
+/* ---------------- 大屏 5: 全厂日度能耗 + 7 日移动平均 ----------------
+   移动平均在**前端按筛选后的序列重算**, 不是读 Q18 —— Q18 是全期口径的固定
+   窗口, 筛选后窗口两端会跨出区间, 直接用它会把区间外的天数悄悄算进来。
+   序列本身按日聚合自立方体, 因为 ws_daily 不含能源维度而这里要的是全厂合计。 */
+function drawDashDaily(host, W, T, narrow){
+  var f = dashFrame(host, "全厂日度能耗与七日移动平均", narrow ? 200 : 230);
+  if (!f) return;
+  var svg = f.svg, H = f.H;
+
+  var byDate = {};
+  var w = D.ws_daily;
+  for (var i = 0; i < w.length; i++){
+    var r = w[i];
+    if (!wsMatch(r.code) || !dateMatch(r.d)) continue;
+    if (FILTER.day !== null && !dayMatch(r.day)) continue;
+    byDate[r.d] = (byDate[r.d] || 0) + r.tce;
+  }
+  var days = Object.keys(byDate).sort();
+  if (days.length < 2){ host.textContent = "筛选区间过短，无法绘制趋势"; return; }
+  var vals = days.map(function(d){ return byDate[d]; });
+
+  var ma = [], win = 7;
+  for (var j = 0; j < vals.length; j++){
+    var lo = Math.max(0, j - win + 1);
+    var s = 0; for (var q = lo; q <= j; q++) s += vals[q];
+    ma.push(s / (j - lo + 1));
+  }
+
+  var padL = 52, padR = 12, padT = 16, padB = 28;
+  var plotW = Math.max(40, W - padL - padR), plotH = H - padT - padB;
+  var sc = daxTicks(Math.max.apply(null, vals), 3);
+  var X = function(i){ return padL + i / (days.length - 1) * plotW; };
+  var Y = function(v){ return padT + plotH - v / sc.top * plotH; };
+
+  sc.list.forEach(function(v){
+    mk("line", {x1:padL, y1:Y(v), x2:padL + plotW, y2:Y(v),
+                class: v === 0 ? "c-axis" : "c-grid"}, svg);
+    tx(svg, padL - 8, Y(v) + 3.5, num(v), "c-label", "end");
+  });
+
+  var d1 = "", d2 = "";
+  vals.forEach(function(v, i){ d1 += (i ? " L" : "M") + X(i) + "," + Y(v); });
+  ma.forEach(function(v, i){ d2 += (i ? " L" : "M") + X(i) + "," + Y(v); });
+  // 原始序列先画、调暗; 移动平均后画、加重 —— 平滑后的线是这张图的结论
+  mk("path", {d:d1, fill:"none", stroke:T.dim, "stroke-width":1, opacity:.75}, svg);
+  mk("path", {d:d2, fill:"none", stroke:T.d1, "stroke-width":2,
+              "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+
+  var li = days.length - 1;
+  mk("circle", {cx:X(li), cy:Y(ma[li]), r:4, fill:T.d1, stroke:T.surface, "stroke-width":2}, svg);
+  tx(svg, X(li) - 6, Y(ma[li]) - 8, ma[li].toFixed(1), "c-value", "end");
+
+  var ti = 0, tstep = Math.max(1, Math.ceil(days.length / Math.max(2, Math.floor(plotW / 62))));
+  for (var t = 0; t < days.length; t += tstep) tx(svg, X(t), H - padB + 16, days[t].slice(2), "c-label", "middle");
+  if ((days.length - 1) % tstep !== 0) tx(svg, X(li), H - padB + 16, days[li].slice(2), "c-label", "middle");
+
+  var hair = mk("line", {x1:0, y1:padT, x2:0, y2:padT + plotH, class:"c-hair", opacity:0}, svg);
+  var dot = mk("circle", {cx:0, cy:0, r:4, fill:T.d1, stroke:T.surface, "stroke-width":2, opacity:0}, svg);
+  var cap = mk("rect", {x:padL, y:padT, width:plotW, height:plotH, class:"c-hit"}, svg);
+  cap.addEventListener("mousemove", function(ev){
+    var b = host.getBoundingClientRect();
+    var mx = ev.clientX - b.left;
+    var idx = Math.round((mx - padL) / (plotW || 1) * (days.length - 1));
+    idx = Math.max(0, Math.min(days.length - 1, idx));
+    hair.setAttribute("x1", X(idx)); hair.setAttribute("x2", X(idx)); hair.setAttribute("opacity", 1);
+    dot.setAttribute("cx", X(idx)); dot.setAttribute("cy", Y(vals[idx])); dot.setAttribute("opacity", 1);
+    showTip(host, X(idx), Y(vals[idx]),
+      '<span class="tip-t">' + days[idx] + "</span>" +
+      '<div class="tip-r"><span><i class="tip-k" style="background:' + T.dim + '"></i>当日能耗</span><span>' + num(vals[idx], 2) + " tce</span></div>" +
+      '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d1 + '"></i>7 日均</span><span>' + ma[idx].toFixed(2) + " tce</span></div>");
+  });
+  cap.addEventListener("mouseleave", function(){
+    hideTip(host); hair.setAttribute("opacity", 0); dot.setAttribute("opacity", 0);
+  });
+}
+
+/* ---------------- 大屏 6: 能源费用帕累托 ----------------
+   帕累托的读法是"少数品种占了多数费用", 所以柱按费用降序且**只标累计到某处的
+   拐点**; 逐柱标数在 6 个品种时还能看, 但真正要读者看到的只有拐点那个百分比。 */
+function drawDashPareto(host, W, T, narrow){
+  var f = dashFrame(host, "能源费用帕累托分析", narrow ? 220 : 250);
+  if (!f) return;
+  var svg = f.svg, H = f.H;
+  var rows = VIEW.energy_mix.slice().sort(function(a, b){ return b.cost - a.cost; });
+  var total = rows.reduce(function(a, r){ return a + r.cost; }, 0);
+  if (!(total > 0)){ host.textContent = "无数据"; return; }
+
+  var padL = 50, padR = 42, padT = 16, padB = 34;
+  var plotW = Math.max(40, W - padL - padR), plotH = H - padT - padB;
+  var band = plotW / rows.length;
+  var bw = Math.max(4, Math.min(26, band - 12));
+  var mx = Math.max.apply(null, rows.map(function(r){ return r.cost / total * 100; }));
+  var sc = daxTicks(mx, 3);
+  var Y = function(v){ return padT + plotH - v / sc.top * plotH; };
+
+  sc.list.forEach(function(v){
+    mk("line", {x1:padL, y1:Y(v), x2:padL + plotW, y2:Y(v),
+                class: v === 0 ? "c-axis" : "c-grid"}, svg);
+    tx(svg, padL - 8, Y(v) + 3.5, num(v) + "%", "c-label", "end");
+  });
+
+  var cum = 0, cums = [];
+  rows.forEach(function(r, i){
+    var p = r.cost / total * 100;
+    cum += p; cums.push(cum);
+    var cx = padL + band * i + band / 2;
+    var yy = Y(p), hh = padT + plotH - yy;
+    var rad = Math.min(4, bw / 2, hh / 2);
+    mk("path", {d:"M" + (cx - bw/2) + "," + yy + " h" + (bw - rad) + " a" + rad + "," + rad +
+                   " 0 0 1 " + rad + "," + rad + " v" + (hh - 2*rad) + " a" + rad + "," + rad +
+                   " 0 0 1 " + (-rad) + "," + rad + " h" + (-(bw - rad)) + " z",
+                fill:T.d1}, svg);
+    tx(svg, cx, yy - 6, p.toFixed(1) + "%", "c-value", "middle");
+  });
+
+  // 累计线挂在 0~100 的独立右轴上 —— 它与柱共用 x 但量纲不同, 两条轴各标各的
+  var Y2 = function(v){ return padT + plotH - v / 100 * plotH; };
+  var d = "";
+  cums.forEach(function(v, i){
+    d += (i ? " L" : "M") + (padL + band * i + band / 2) + "," + Y2(v);
+  });
+  mk("path", {d:d, fill:"none", stroke:T.d2, "stroke-width":2,
+              "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+  cums.forEach(function(v, i){
+    mk("circle", {cx:padL + band * i + band / 2, cy:Y2(v), r:3.5,
+                  fill:T.d2, stroke:T.surface, "stroke-width":2}, svg);
+  });
+  tx(svg, W - padR + 6, Y2(100) + 3.5, "100%", "c-label", "start");
+  tx(svg, W - padR + 6, Y2(50) + 3.5, "50%", "c-label", "start");
+  tx(svg, W - padR + 6, Y2(0) + 3.5, "0", "c-label", "start");
+
+  rows.forEach(function(r, i){
+    tx(svg, padL + band * i + band / 2, H - padB + 17,
+       r.name.length > 4 ? r.name.slice(0, 4) : r.name, "c-label", "middle");
+  });
+
+  // 拐点: 累计占比首次 ≥ 80% 的那个品种 —— 正文只需要这一个数
+  var knee = -1;
+  for (var k = 0; k < cums.length; k++) if (cums[k] >= 80){ knee = k; break; }
+  if (knee >= 0){
+    var kx = padL + band * knee + band / 2;
+    tx(svg, Math.min(kx + 6, W - padR - 2), Y2(cums[knee]) - 8,
+       "累计 " + cums[knee].toFixed(1) + "%", "c-value", "start");
+    document.getElementById("dlg-pareto").innerHTML =
+      '<span><i style="background:' + T.d1 + '"></i>各品种费用占比</span>' +
+      '<span><i class="line" style="background:' + T.d2 + '"></i>累计占比（右轴）</span>' +
+      "<span>" + rows.slice(0, knee + 1).map(function(r){ return r.name; }).join(" + ") +
+      " 合计 " + cums[knee].toFixed(1) + "%</span>";
+  }
+
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var rect = mk("rect", {x:padL + band * i, y:padT, width:band, height:plotH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.name + "（" + r.unit + "）</span>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d1 + '"></i>费用</span><span>¥' + num(r.cost, 0) + "</span></div>" +
+        '<div class="tip-r"><span>费用占比</span><span>' + (r.cost / total * 100).toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d2 + '"></i>累计占比</span><span>' + cums[i].toFixed(2) + "%</span></div>");
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* 大屏图表的注册表 + 统一入口。
+   renderAll 会用 [data-dchart] 找宿主, 与正文的 [data-chart] 分开 —— 两边宿主
+   同时存在(只是 display:none), 混在一起会在切视图时互相清空。 */
+var DCHARTS = {
+  dmonth:  function(h, W, T, n){ drawDashMonth(h, W, T, n); },
+  dstack:  function(h, W, T, n){ drawDashStack(h, W, T, n); },
+  dws:     function(h, W, T, n){ drawDashWs(h, W, T, n); },
+  dheat:   function(h, W, T, n){ drawDashHeat(h, W, T, n); },
+  ddaily:  function(h, W, T, n){ drawDashDaily(h, W, T, n); },
+  dpareto: function(h, W, T, n){ drawDashPareto(h, W, T, n); }
+};
+
+/* 大屏的完整重绘。force 语义与 renderAll 一致: 宽度没变且已画过就跳过,
+   但切视图/改筛选必须 force(视图刚显示时 clientWidth 才从 0 变成真实值)。 */
+function renderDash(force){
+  if (!D || !D.totals) return;
+  if (!dashActive) return;
+  var T = tokens();
+  var DT = dashTokens();
+  for (var tk in DT) T[tk] = DT[tk];   // 合并: 绘图函数统一读 T.d1 / T.dash[..]
+  drawDashKpis();
+  var hosts = document.querySelectorAll("[data-dchart]");
+  for (var i = 0; i < hosts.length; i++){
+    var host = hosts[i];
+    var W = Math.round(host.clientWidth);
+    if (!W) continue;
+    if (!force && host.dataset.done === "1" && host.dataset.dw === String(W)) continue;
+    host.dataset.done = "1";
+    host.dataset.dw = String(W);
+    try { DCHARTS[host.dataset.dchart](host, W, T, W < 620); }
+    catch (err) { host.textContent = "图表渲染失败：" + err.message; }
+  }
+  // 标题行的日期范围: 用筛选生效区间, 而不是固定的全期
+  var lo = FILTER.from || D.filter_meta.min_date, hi = FILTER.to || D.filter_meta.max_date;
+  var nd = VIEW.totals.days;
+  document.getElementById("dash-sub").innerHTML =
+    "<b>" + lo + " ~ " + hi + "</b> · " + nd + " 天 · " +
+    (VIEW.totals.tce / nd).toFixed(2) + " tce/日 · 全厂口径（含 W07 公用工程）";
+  document.getElementById("dlg-month").innerHTML =
+    '<span><i style="background:' + T.d1 + '"></i>综合能耗（左轴）</span>' +
+    '<span><i class="line" style="background:' + T.d2 + '"></i>月度环比（右轴）</span>';
+  document.getElementById("dlg-daily").innerHTML =
+    '<span><i class="line" style="background:' + T.dim + '"></i>每日实测</span>' +
+    '<span><i class="line" style="background:' + T.d1 + '"></i>7 日移动平均</span>';
+}
+
+/* 视图切换。切到大屏时正文被 display:none, 所以必须 force 重画 —— 之前那些
+   [data-chart] 宿主的 clientWidth 变成 0, 而大屏宿主此刻才量得到真实宽度。 */
+var dashActive = false;
+function setView(v){
+  dashActive = (v === "dash");
+  var root = document.documentElement;
+  if (dashActive) root.classList.add("dash-mode");
+  else root.classList.remove("dash-mode");
+  document.getElementById("dashboard").hidden = !dashActive;
+  document.querySelectorAll("#view-seg button").forEach(function(b){
+    b.setAttribute("aria-pressed", String(b.dataset.view === v));
+  });
+  document.querySelectorAll("[data-chart]").forEach(function(h){ h.dataset.done = ""; });
+  document.querySelectorAll("[data-dchart]").forEach(function(h){ h.dataset.done = ""; });
+  renderDash(true);
+  renderAll(true);
+}
+function initViewSwitch(){
+  var seg = document.getElementById("view-seg");
+  if (!seg) return;
+  seg.addEventListener("click", function(e){
+    var b = e.target.closest("button[data-view]");
+    if (b) setView(b.dataset.view);
+  });
+}
+
 /* ---------------- 启动 ---------------- */
 (function boot(){
   // 数据没注入(直接打开了模板)时给出明确提示, 而不是留一堆点不动的按钮
@@ -2381,6 +3266,7 @@ function filterNote(){
   try { initAnomalySwitch(); } catch (e) { console.error("异常图切换初始化失败:", e); }
   try { initBaselineSwitch(); } catch (e) { console.error("产量基线图切换初始化失败:", e); }
   try { initCusumSwitch(); } catch (e) { console.error("CUSUM 图切换初始化失败:", e); }
+  try { initViewSwitch(); } catch (e) { console.error("视图切换初始化失败:", e); }
   try { initStatic(); } catch (e) { console.error("静态内容渲染失败:", e); }
   renderAll(true);
 })();
@@ -2388,7 +3274,7 @@ function filterNote(){
 var raf = null;
 function schedule(){
   if (raf) cancelAnimationFrame(raf);
-  raf = requestAnimationFrame(function(){ renderAll(false); });
+  raf = requestAnimationFrame(function(){ renderAll(false); renderDash(false); });
 }
 if (window.ResizeObserver){
   var ro = new ResizeObserver(schedule);
@@ -2399,15 +3285,15 @@ if (window.ResizeObserver){
 window.addEventListener("resize", schedule);
 
 var mq = window.matchMedia("(prefers-color-scheme: dark)");
-if (mq.addEventListener) mq.addEventListener("change", function(){ renderAll(true); });
-else if (mq.addListener) mq.addListener(function(){ renderAll(true); });
+if (mq.addEventListener) mq.addEventListener("change", function(){ renderAll(true); renderDash(true); });
+else if (mq.addListener) mq.addListener(function(){ renderAll(true); renderDash(true); });
 
-new MutationObserver(function(){ renderAll(true); })
+new MutationObserver(function(){ renderAll(true); renderDash(true); })
   .observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 
 document.addEventListener("click", function(e){
-  if (!e.target.closest(".chart")) {
-    document.querySelectorAll(".chart").forEach(hideTip);
+  if (!e.target.closest(".chart") && !e.target.closest(".dchart")) {
+    document.querySelectorAll(".chart, .dchart").forEach(hideTip);
   }
 });
 })();
