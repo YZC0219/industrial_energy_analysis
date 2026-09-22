@@ -252,6 +252,61 @@ with sync_playwright() as p:
     pg.wait_for_timeout(400)
     pg.screenshot(path="tools/_shot_wide.png", full_page=False)
 
+    # --- 7b. 热力图 X 轴标签不许互相重叠 ---
+    #
+    # 2026-09-22 线上发现的 bug: 手机上前 8 个车间名挤成一团(相邻标签中心距 24px,
+    # 每个宽 44px, 每对重叠 20px)。**当时 §7 的横向溢出检查是绿的** —— 标签重叠
+    # 不会让页面比视口宽, 它只是自己叠自己, scrollWidth 完全正常。这条专门盯它。
+    #
+    # 每个宽度都测, 不只测 390: 标签策略在"放得下全名/放不下"之间切换(列宽由
+    # 容器宽除以车间数得到), 切换点附近最容易出错 —— 1280px 那次就是误判成
+    # "放得下"而实际叠了 3 对。
+    print("\n== 7b. 热力图标签重叠(多个宽度) ==")
+    # **必须先切回大屏**: §6 结尾切到了 report 视图, 而 renderDash 开头是
+    # `if (!dashActive) return;` —— 大屏隐藏时它整段不跑, 改视口宽度也不会重绘,
+    # 于是这里量到的是**上一次大屏显示的陈旧 SVG**。
+    # 我第一版就把这步漏了: 拿旧实现回退验证时守卫依然是绿的, 因为量的是修改前
+    # 的图 —— 又一次"没验过的守卫不是守卫"。切视图本身就是重绘时机。
+    pg.click('#view-seg button[data-view="dash"]')
+    pg.wait_for_timeout(600)
+    for vw in (390, 430, 768, 1024, 1280, 1600):
+        pg.set_viewport_size({"width": vw, "height": 900})
+        pg.wait_for_timeout(300)
+        r = pg.evaluate("""() => {
+          const h = document.querySelector('[data-dchart="dheat"]');
+          if (!h) return {err: '没有热力图宿主'};
+          const svg = h.querySelector('svg');
+          if (!svg) return {err: '热力图没有画出 svg'};
+          const sb = svg.getBoundingClientRect();
+          const labs = [...svg.querySelectorAll('text.c-label')]
+            .filter(t => +t.getAttribute('y') < 20);      // X 轴那一行
+          const bx = labs.map(t => t.getBoundingClientRect());
+          let overlap = 0, worst = 0;
+          for (let i = 1; i < bx.length; i++){
+            const d = bx[i-1].right - bx[i].left;
+            if (d > 0.5){ overlap++; if (d > worst) worst = d; }
+          }
+          // 对照行(或图例)超出 svg 右/下边界 = 被裁掉
+          let offR = 0, offB = 0;
+          svg.querySelectorAll('text.c-note').forEach(t => {
+            const b = t.getBoundingClientRect();
+            if (b.right  > sb.right  + 1) offR++;
+            if (b.bottom > sb.bottom + 1) offB++;
+          });
+          return {n: labs.length, overlap, worst: +worst.toFixed(1), offR, offB};
+        }""")
+        if r.get("err"):
+            FAIL.append(f"热力图@{vw}px: {r['err']}")
+            print(f"FAIL  {vw}px  {r['err']}")
+            continue
+        ok = r["overlap"] == 0 and r["offR"] == 0 and r["offB"] == 0 and r["n"] > 0
+        if not ok:
+            FAIL.append(f"热力图标签@{vw}px 重叠{r['overlap']}/右溢{r['offR']}/下溢{r['offB']}")
+        print(f"{'PASS' if ok else 'FAIL'}  {vw}px  标签数={r['n']}  "
+              f"重叠={r['overlap']}(最宽 {r['worst']}px)  右溢={r['offR']}  下溢={r['offB']}")
+    pg.set_viewport_size({"width": 1280, "height": 1000})
+    pg.wait_for_timeout(300)
+
     print("\n== 8. 控制台错误汇总 ==")
     print(errs if errs else "clean")
 
