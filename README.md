@@ -1,5 +1,9 @@
 # 工业能耗分析（Industrial Energy Analysis）
 
+[![Build GitHub Pages report](https://github.com/YZC0219/industrial_energy_analysis/actions/workflows/build-pages-report.yml/badge.svg)](https://github.com/YZC0219/industrial_energy_analysis/actions/workflows/build-pages-report.yml)
+
+**在线演示：** [打开工业能耗可视化报告](https://yzc0219.github.io/industrial_energy_analysis/)
+
 这是我的毕业设计项目。我围绕工业企业的能源管理场景，独立搭建了一条从模拟数据、数据清洗、MySQL 数据仓库、业务分析、异常检测，到 Airflow 调度和可视化报告的完整数据管道。
 
 我没有把它做成只展示几张图的分析作业，而是把重点放在数据质量、统计口径、可重复运行和回归验证上。项目覆盖 8 个车间、6 种能源、2024-01-01 至 2025-12-31 共 731 天的数据，最终形成 29 组分析结果和一份可离线打开的 HTML 报告。
@@ -14,6 +18,8 @@
 - 我用原生 HTML、CSS、JavaScript 和 SVG 生成自包含报告，支持日期、车间和日型筛选，不依赖外部图表库。
 - 我用 Airflow 和 Docker Compose 编排整条管道，并验证失败重跑、幂等装载和历史数据修正。
 - 我建立了离线测试、数据库测试、29 份查询快照和端到端测试，防止口径或数据在改动后静默漂移。
+- 我通过 GitHub Actions 自动生成并发布 Pages 报告；桌面端和移动端使用同一份数据与页面。
+- 我把报告正文中的关键数字改为从分析结果自动插值，避免代码更新后文字仍停留在旧结论。
 
 ## 项目架构
 
@@ -62,10 +68,18 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 industrial_energy_analysis/
 ├─ dags/
 │  └─ energy_pipeline_dag.py       # Airflow 五任务 DAG
+├─ .github/workflows/
+│  └─ build-pages-report.yml       # 自动生成并发布 GitHub Pages 报告
 ├─ data/                            # 本地生成的原始数据
 ├─ docker/
 │  └─ airflow/Dockerfile
-├─ docs/                            # 指标字典、质量说明与工程复盘
+├─ docs/
+│  ├─ index.html                    # GitHub Pages 在线报告
+│  ├─ 指标字典.md
+│  ├─ 数据清洗质量说明.md
+│  ├─ 系统设计文档.md
+│  ├─ 测试文档.md
+│  └─ 问题发现与工程复盘.md
 ├─ output/                          # 本地生成的清洗、分析和报告产物
 ├─ sql/
 │  ├─ create_table.sql              # 建库、维表、事实表和视图
@@ -75,11 +89,17 @@ industrial_energy_analysis/
 │  ├─ clean_data.py                 # 清洗和质量留痕
 │  ├─ import_mysql.py               # 建表、装载和执行分析
 │  ├─ make_report.py                # 生成可视化报告
+│  ├─ mobile.css                    # 移动端响应式样式
 │  └─ report_template.html          # 报告模板
 ├─ tests/
 │  ├─ baseline/                     # 29 份查询回归基线
 │  └─ test_*.py                     # 离线、数据库和端到端测试
-├─ tools/                            # 校准与验收工具
+├─ tools/
+│  ├─ calibrate_cusum_h.py          # CUSUM 判定限仿真校准
+│  ├─ check_filter_ui.py            # 浏览器筛选与移动端验收
+│  ├─ decompose_mom.py              # 月度环比的月长效应拆解
+│  ├─ verify_dag_run.py             # Airflow DAG 验收
+│  └─ verify_filter.mjs             # 前端聚合恒等式验证
 ├─ docker-compose.yml
 ├─ pytest.ini
 └─ requirements.txt
@@ -275,7 +295,9 @@ docker compose up -d --build
 - 日期、车间和日型动态筛选；
 - 深色/浅色主题；
 - 悬停提示和等价表格视图；
-- 经过 OKLab ΔE 与对比度检查的配色。
+- 经过 OKLab ΔE 与对比度检查的配色；
+- 手机、平板和桌面端响应式布局；
+- GitHub Actions 自动重建并发布到 GitHub Pages。
 
 生成报告：
 
@@ -283,7 +305,14 @@ docker compose up -d --build
 python src/make_report.py
 ```
 
-`src/report_template.html` 只是模板，实际成品是 `output/report.html`。
+`src/report_template.html` 只是模板，本地成品是 `output/report.html`。推送报告模板、生成脚本、移动端样式或查询基线后，GitHub Actions 会从已验证的基线重新构建报告并更新 `docs/index.html`。
+
+在线版本：<https://yzc0219.github.io/industrial_energy_analysis/>
+
+### 报告中的两项口径说明
+
+- Q22 的“月度能耗环比超过 25%”与 Q24 的“日单耗 2σ 异常”不是同一指标。当前 5 条月度告警在对应月份内均没有 2σ 超限日，因此我没有制造一个大多为空的“告警跳转异常日”功能，而是在两个区域分别解释各自口径。
+- Q05/Q22 使用合法的“月度总量环比”口径，但相邻月份有 28～31 天，结果包含月长效应。报告保留原始口径，同时展示按日均能耗拆解后的结果；复核脚本为 `tools/decompose_mom.py`。
 
 ## 自动化测试
 
@@ -299,6 +328,12 @@ MYSQL_PORT=3307 pytest -m "db and slow"
 
 # 经 Airflow 触发 DAG 并检查五个任务状态
 python tools/verify_dag_run.py
+
+# 验证前端筛选后的立方体、KPI 和日汇总恒等
+node tools/verify_filter.mjs
+
+# 使用 Playwright 验证筛选交互、控制台错误和横向溢出
+python tools/check_filter_ui.py
 ```
 
 | 测试文件 | 我验证的内容 | 是否需要 MySQL |
@@ -395,13 +430,28 @@ python tests/update_baseline.py
 
 这些数值由脚本生成，并由查询快照和文档一致性测试共同保护。
 
-## 后续计划
+## 当前进度
 
-接下来我会继续完成：
+### 已完成
 
-- 更完整的安装与故障排查说明；
-- 系统设计和测试文档；
-- 异常告警与异常详情之间的页面联动；
-- 毕业论文、答辩材料和演示流程。
+- 从模拟数据生成、清洗留痕、MySQL 星型模型到 29 组 SQL 分析的完整链路；
+- 2σ、产量基线和 CUSUM 三种异常检测方法及对比分析；
+- 基于 `updated_at` 的水位线增量装载、幂等 upsert、历史修正和失败重跑保护；
+- 日期、车间、日型动态筛选，以及桌面端/移动端响应式可视化；
+- GitHub Pages 在线演示和 GitHub Actions 自动构建；
+- 指标字典、系统设计、测试说明、清洗质量说明和工程复盘；
+- 离线测试、数据库测试、端到端测试、29 份查询快照与前端验收脚本。
 
-我会继续通过独立提交记录每项能力的演进，保证每次修改都能说明动机、实现和验证结果。
+### 正在完善
+
+- Windows 本机与 Docker 两种运行方式的故障排查说明；
+- 毕业论文中的系统实现、实验结果与异常检测对比章节；
+- 答辩演示脚本、关键页面讲解顺序和可复现实验步骤。
+
+### 计划功能
+
+- 让日期维表按数据范围滚动扩展，替代当前 2024～2025 固定范围；
+- 为增量链路补充删除捕获机制，解决水位线只能发现新增和更新、不能发现源端删除的限制；
+- 在真实企业数据可用后，重新校准异常阈值并验证模拟数据结论的外推性。
+
+产品维度和班组维度暂不进入必做范围；当前模型先保持“车间 × 日期 × 能源”的核心粒度。我会继续通过独立提交记录每项能力的演进，保证每次修改都能说明动机、实现和验证结果。
