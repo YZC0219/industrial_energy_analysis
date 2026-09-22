@@ -694,6 +694,56 @@ class TestProseNumbersAreDerived:
         assert _f(dv["clean_impute_all"]) == _f(dv["clean_impute"]) + _f(dv["clean_outlier"])
         assert _f(dv["clean_days"]) == 731, "统计天数应为 731(见 Q14 计数)"
 
+    def test_outlier_magnitude_matches_ledgers(self, pipeline_run):
+        """离群单元"离谱到什么程度"必须能由两本台账 + 事实表重算出来。
+
+        正文原来手写"8~15 倍"与"6%", 实测是 3~18 倍与 9% —— 量级看着都对,
+        所以三轮扫描都没盯上它, 直到人工核对才捞出来。这类"像是对的"数字
+        只能靠交叉验算暴露, 故这里把口径整套钉死:
+
+        - 基准 = 该(车间, 品种)在**事实表**里的中位数, 不是全厂中位数。
+          品种之间量纲差几个数量级, 混着算出来的倍数没有意义。
+        - 原值只残留在 clean_rejects, 插补值只在 clean_fixed, 两边按
+          (日期, 车间, 品种) 配对取 —— 少一边都算不出。
+        """
+        import collections
+        import statistics
+
+        dv = _report_payload()["derived"]
+        normal = collections.defaultdict(list)
+        for r in _read_csv("clean_energy.csv"):
+            normal[(r["workshop_code"], r["energy_code"])].append(_f(r["consumption"]))
+        orig = {}
+        for r in _read_csv("clean_rejects.csv"):
+            if "离群" not in r.get("reject_reason", ""):
+                continue
+            orig[(r["record_date"], r["workshop_code"], r["energy_code"])] = _f(r["consumption"])
+        mults, ratios = [], []
+        for r in _read_csv("clean_fixed.csv"):
+            if r["fix_reason"] != "消耗量离群置空后插补":
+                continue
+            key = (r["record_date"], r["workshop_code"], r["energy_code"])
+            base = normal.get((r["workshop_code"], r["energy_code"]))
+            if not base or key not in orig:
+                continue
+            med = statistics.median(base)
+            if med:
+                mults.append(orig[key] / med)
+                if orig[key]:
+                    ratios.append(_f(r["consumption"]) / orig[key])
+
+        assert mults, "没有任何离群格子配得上对(台账/事实表变了?)"
+        assert _f(dv["outlier_mult_lo"]) == round(min(mults)), (
+            f"离群下限倍数 {dv['outlier_mult_lo']} != 重算 {round(min(mults))}"
+        )
+        assert _f(dv["outlier_mult_hi"]) == round(max(mults)), (
+            f"离群上限倍数 {dv['outlier_mult_hi']} != 重算 {round(max(mults))}"
+        )
+        assert _f(dv["outlier_impute_pct"]) == round(statistics.median(ratios) * 100), (
+            f"插补占比 {dv['outlier_impute_pct']} != 重算 "
+            f"{round(statistics.median(ratios) * 100)}"
+        )
+
     def test_utility_ratio_matches_q02_over_q01(self, pipeline_run):
         """口径提示的"相当于全厂口径的 X%"必须等于 Q02/Q01 之比, 且**进位**。
 
@@ -778,8 +828,16 @@ class TestProseNumbersAreDerived:
                  "21 vs 6", "22 vs 6", "24 个", "329", "267", "243",
                  "44.6", "37.2", "39.0", "11.0", "11.7",
                  # 2026-09-22 第三轮: 人工核对捞出的三个错值
-                 "72.7%", "0.86 ~ 2.35"]
-        hit = [s for s in stale if s in body]
+                 "72.7%", "0.86 ~ 2.35",
+                 # 2026-09-22 第三轮续: 离群幅度。量级"看着对"(实测 3~18 与 9%,
+                 # 手写的 8~15 与 6% 同量级), 所以三轮扫描都漏了它 ——
+                 # 这类只有交叉验算能抓, 见 test_outlier_magnitude_matches_ledgers。
+                 "8~15", "6%"]
+        # 按**数字边界**匹配, 不用裸子串: "6%" 是 "61.6%" 的子串, 裸查会误伤
+        # (实测把"峰谷差 61.6%"抓了出来)。前后不允许再跟数字或小数点即可 ——
+        # 这既挡住 "61.6%"/"16%" 这类包含, 又不影响 "8~15" 里 "~" 这种边界。
+        hit = [s for s in stale
+               if re.search(r"(?<![\d.])" + re.escape(s) + r"(?![\d])", body)]
         assert not hit, (
             f"这些数字又在模板里手写出现了, 应改用 data-fill 插值: {hit}"
         )

@@ -12,9 +12,11 @@ make_report.py — 把 analysis.sql 导出的查询结果渲染成一份可视�
 """
 
 import calendar
+import collections
 import csv
 import json
 import os
+import statistics
 import sys
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -707,6 +709,44 @@ def _clean_volumes() -> dict:
     reason = lambda r: r.get("fix_reason", "")
     impute_narrow = sum(1 for r in fixed if reason(r) == "消耗量插补")
     impute_outlier = sum(1 for r in fixed if reason(r) == "消耗量离群置空后插补")
+    # 离群幅度的两个倍数 —— 正文用它说明"这些格子离谱到什么程度"。
+    # 原值只存在 clean_rejects 里(置空后 clean_fixed 只剩插补值), 所以两边配对取。
+    # 基准用该(车间,品种)在**事实表里**的中位数(即"正常水平"), 不是全厂中位数 ——
+    # 不同品种量纲差几个数量级, 混在一起算出来的倍数没有意义。
+    mult_lo = mult_hi = None
+    imp_ratio = None
+    normal = collections.defaultdict(list)
+    for r in energy:
+        try:
+            normal[(r["workshop_code"], r["energy_code"])].append(float(r["consumption"]))
+        except (KeyError, ValueError):
+            pass
+    orig = {}
+    for r in rejects:
+        if "离群" not in r.get("reject_reason", ""):
+            continue
+        try:
+            orig[(r["record_date"], r["workshop_code"], r["energy_code"])] = float(r["consumption"])
+        except (KeyError, ValueError):
+            pass
+    mults, ratios = [], []
+    for r in fixed:
+        if reason(r) != "消耗量离群置空后插补":
+            continue
+        key = (r["record_date"], r["workshop_code"], r["energy_code"])
+        base = normal.get((r["workshop_code"], r["energy_code"]))
+        if not base:
+            continue
+        med = statistics.median(base)
+        if med:
+            if key in orig:
+                mults.append(orig[key] / med)
+                if orig[key]:
+                    ratios.append(float(r["consumption"]) / orig[key])
+    if mults:
+        mult_lo, mult_hi = round(min(mults)), round(max(mults))
+    if ratios:
+        imp_ratio = round(statistics.median(ratios) * 100)
     return {
         "clean_raw": len(raw),
         "clean_energy": len(energy),
@@ -719,6 +759,9 @@ def _clean_volumes() -> dict:
         "clean_impute_all": impute_narrow + impute_outlier,
         "clean_price": sum(1 for r in fixed if reason(r) == "单价插补"),
         "clean_recalc": sum(1 for r in fixed if reason(r) == "费用重算"),
+        "outlier_mult_lo": mult_lo,
+        "outlier_mult_hi": mult_hi,
+        "outlier_impute_pct": imp_ratio,
     }
 
 

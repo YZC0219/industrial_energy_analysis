@@ -810,7 +810,7 @@ td:first-child{color:var(--ink)}
       <div class="note warn"><span class="mark"></span><div>
         <b>✅ 已修复：一处清洗缺陷曾让 CUSUM 自造异常</b>　上一版报告里，偏低（S⁻）的 3 段触发日当天都<b>少了一个能源品种</b>，追下去是这样一条链：<code>clean_data.py</code> 第 8 步按 Q3+3×IQR 判离群，命中的行用 <code>df.loc[~out_mask]</code> <b>整行删除</b>；而第 10 步插补只填 <code>consumption</code> 本来就为 NaN 的行——<b>被删掉的行，插补根本看不见</b>。于是天然气这种高权重品种一删，当天折标煤直接掉约 70%，分析层就把它读成了一次真实的能耗骤降（残差 <b>−11σ</b>）。
         <br>证据当时是能对上号的：熔炼车间正常每天 4 个能源品种，全期恰有 <b>5 天</b>是 3 个；热处理正常 3 个，恰有 <b>6 天</b>是 2 个——与这两个车间被剔除的离群行数（5 行、6 行）<b>精确相等</b>。全部 <b>34</b> 条被判离群的记录，<b>34 条都没有被插补补回</b>。
-        <br>修法只有一行：<code>df.loc[out_mask, "consumption"] = np.nan</code>，把"这个值不可信"交给第 10 步按（车间×能源×月）中位数插补，而不是让整条记录消失。修复后 34 个格子全部回到事实表且被插补（原值是正常水平的 8~15 倍，插补值中位数只有它的 <b>6%</b>），装载行数 18,972 → <b>19,006</b>。
+        <br>修法只有一行：<code>df.loc[out_mask, "consumption"] = np.nan</code>，把"这个值不可信"交给第 10 步按（车间×能源×月）中位数插补，而不是让整条记录消失。修复后 34 个格子全部回到事实表且被插补（原值是正常水平的 <span data-fill="outlier-mult">—</span> 倍，插补值中位数只有它的 <b data-fill="outlier-impute-pct">—</b>%），装载行数 18,972 → <b>19,006</b>。
         <br><b>下游影响</b>：那 3 段 −11σ 的"能耗骤降"<b>消失了</b>——触发日的 Z 值回到 −0.48 ~ +0.20，不再报警。全表最小 Z 从 −11.6 收敛到 <b>−3.27</b>，而最大 Z（+19.62，包装车间春节）纹丝不动，因为它是真实效应。这正说明：<b>脚本自造的异常只出现在低端，真实的日历效应一个都没被误伤</b>。回归测试里新增了两条断言（<code>test_no_workshop_day_loses_an_energy_type</code>、<code>test_outlier_cells_are_imputed_not_dropped</code>）守住这个行为，若有人再改回整行删除会立刻变红。
       </div></div>
       <div class="note"><span class="mark"></span><div>
@@ -2562,6 +2562,14 @@ function fillProse(){
     "cusum-lo-z-hi": function(){ return dv.cusum_lo_z_hi.toFixed(2); },
     "clean-price":   function(){ return num(dv.clean_price, 0); },
     "clean-recalc":  function(){ return num(dv.clean_recalc, 0); },
+    // 离群格子的离谱幅度: 原值是"该车间该品种正常日中位数"的多少倍(区间),
+    // 以及插补值只有原值的百分之几。原来正文手写"8~15 倍"与"6%",
+    // 实测是 3~18 倍与 9% —— 量级对得上, 所以三轮扫描都没盯上它。
+    "outlier-mult": function(){
+      if (dv.outlier_mult_lo === null || dv.outlier_mult_hi === null) return "—";
+      return dv.outlier_mult_lo + "~" + dv.outlier_mult_hi;
+    },
+    "outlier-impute-pct": function(){ return num(dv.outlier_impute_pct, 0); },
   };
 
   // 带符号的三位小数: +0.174 / −0.956。用真正的减号 U+2212 而不是连字符,
