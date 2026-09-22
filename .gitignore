@@ -46,3 +46,7 @@ tools/_shot_*.png
 # 输入文件, 仍然应该提交进来 —— 不要图省事写成 `data/`。
 data/raw_energy_data.csv
 output/
+
+# 临时调试产物(非项目文件)
+_runs.json
+_sweep.txt
