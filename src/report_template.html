@@ -508,7 +508,7 @@ td:first-child{color:var(--ink)}
     <div class="kpis" id="kpis"></div>
     <div class="note" id="tce-ex-wrap">
       <span class="mark"></span>
-      <div><b>口径提示：</b>动力站（W07）产出蒸汽供其他车间二次消费，计入全厂会重复计算一次。剔除公用工程后的真实用能口径为 <b data-fill="tce_ex">—</b> tce，相当于全厂口径的 72.7%——下面凡涉及单耗的分析一律用剔除口径。</div>
+      <div><b>口径提示：</b>动力站（W07）产出蒸汽供其他车间二次消费，计入全厂会重复计算一次。剔除公用工程后的真实用能口径为 <b data-fill="tce_ex">—</b> tce，相当于全厂口径的 <b data-fill="tce_ex-pct"></b>——下面凡涉及单耗的分析一律用剔除口径。</div>
     </div>
   </section>
 
@@ -756,7 +756,7 @@ td:first-child{color:var(--ink)}
       <div class="note"><span class="mark"></span><div>
         <b>CUSUM 报出的 12 段，逐段都能追溯到成因</b>　把每一段的触发日拿去对照日历，结果是<b>全部 12 段、没有一段是工艺漂移或设备劣化</b>：
         <br>· <b>9 段是偏高（S⁺），触发日全部落在法定节假日或节前赶产</b>——元旦、春节、劳动节、端午。节假日里产量趋近于零而保温、待机、照明的基础能耗仍在，单耗被抬上去，累积和贴着上界走。
-        <br>· <b>3 段是偏低（S⁻），也全部由节假日解释</b>——熔炼 2024-05-05~09（劳动节）、轧制 2024-02-17~19（春节）、轧制 2024-05-06~07（劳动节）。注意这三段的单日 |Z| 只有 <b>0.86 ~ 2.35</b>，是"连续偏低若干天"把累积和推过了线，而不是某一天出现了极端值。
+        <br>· <b>3 段是偏低（S⁻），也全部由节假日解释</b>——熔炼 2024-05-05~09（劳动节）、轧制 2024-02-17~19（春节）、轧制 2024-05-06~07（劳动节）。注意这三段的单日 |Z| 只有 <b data-fill="cusum-lo-z-lo"></b> ~ <b data-fill="cusum-lo-z-hi"></b>，是"连续偏低若干天"把累积和推过了线，而不是某一天出现了极端值。
         <br>报警方向与车间类型<b>不再一一对应</b>：偏低只出现在<b>熔炼、轧制</b>两个连续型车间，偏高则横跨连续型（热处理）与间歇型（机加工、表面处理、装配、包装）——但成因仍然是同一个，<b>都是日历</b>。这个结论比"按车间类型分裂"更干净：<b>CUSUM 在这张数据上没有发现任何未知的持续性异常</b>。
       </div></div>
       <div class="note warn"><span class="mark"></span><div>
@@ -2262,6 +2262,10 @@ function initStatic(){
   if (exWrap) exWrap.hidden = T.tce_ex === null;
   if (T.tce_ex !== null){
     document.querySelector('[data-fill="tce_ex"]').textContent = num(T.tce_ex, 2);
+    // 占比也一并插值: 早先手写 72.7%, 实算 72.774% 应进位到 72.8% —— 手写的是
+    // 截断值。这个数随数据变, 手写必然漂。
+    document.querySelector('[data-fill="tce_ex-pct"]').textContent =
+      D.derived.utility_ratio.toFixed(1) + "%";
   }
 
   var kpis = [
@@ -2420,7 +2424,10 @@ function fillProse(){
     "clean-prod":    function(){ return num(dv.clean_prod, 0); },
     "clean-days":    function(){ return num(dv.clean_days, 0); },
     "clean-fixed-n": function(){ return num(dv.clean_fixed_n, 0); },
-    "clean-impute":  function(){ return num(dv.clean_impute, 0); },
+    "clean-impute":  function(){ return num(dv.clean_impute_all, 0); },
+    // 偏低那几段的单日 |Z| 范围(两位小数, 与手写时的精度一致)
+    "cusum-lo-z-lo": function(){ return dv.cusum_lo_z_lo.toFixed(2); },
+    "cusum-lo-z-hi": function(){ return dv.cusum_lo_z_hi.toFixed(2); },
     "clean-price":   function(){ return num(dv.clean_price, 0); },
     "clean-recalc":  function(){ return num(dv.clean_recalc, 0); },
   };

@@ -484,6 +484,10 @@ def build() -> dict:
         "cs_hi_names": "、".join(c["name"] for c in out["cmp"] if c["cusum_hi"] > c["cusum_lo"]),
         "cs_n_lo": len([c for c in out["cmp"] if c["cusum_lo"] > c["cusum_hi"]]),
         "cs_n_hi": len([c for c in out["cmp"] if c["cusum_hi"] > c["cusum_lo"]]),
+        # 偏低那几段的单日 |Z| 范围 —— 正文用它论证"不是某天极端值, 是连续多天
+        # 累积推过线"。只取偏低侧的日子, 全部取绝对值: 早先手写 "0.86 ~ 2.35",
+        # 下界错了(实为 0.11), 而 0.86 恰好是集合里的一员, 所以看着像对的。
+        **_cusum_lo_z(out["cusum"]),
         # 白化把连续型车间的累积和峰值砍掉的比例(取三个降幅最大的平均)
         "cs_white_cut_pct": round(
             100.0 * sum(1 - c["s_white"] / c["s_raw"] for c in out["cmp"]
@@ -562,6 +566,20 @@ def _mom_daily_nov(monthly: list) -> dict:
     return out
 
 
+def _cusum_lo_z(cusum: list) -> dict:
+    """偏低(S⁻)那些报警日的单日 |Z| 范围。
+
+    正文用它论证"偏低不是某天出现了极端值, 而是连续多天的小幅偏低把累积和
+    推过了线"。所以取的是**偏低侧报警日**的 |Z|, 不是全表 Z 的极值 ——
+    混用会让结论反过来(全表有 +19.62 的春节效应, 那是偏高侧)。
+    """
+    zs = [abs(p["z"]) for g in cusum for p in g["points"] if p["side"] == "偏低"]
+    return {
+        "cusum_lo_z_lo": round(min(zs), 2) if zs else 0,
+        "cusum_lo_z_hi": round(max(zs), 2) if zs else 0,
+    }
+
+
 def _cmp_named(cmp: list) -> dict:
     """把 Q26 的逐车间对比拆成正文要用的具名键。
 
@@ -612,8 +630,15 @@ def _clean_volumes() -> dict:
     """清洗量级 —— 从留痕文件现数, 而不是手写。
 
     正文那句"剔除 228 条（全部是业务键重复）、另修正 708 处（插补 329、
-    单价 267、费用重算 243）"曾经全是手写值, 而三个分项早已和 clean_fixed.csv
-    对不上(实际 295/261/73)。这类数字每次调清洗参数都会变, 必须自动取。
+    单价 267、费用重算 243）"曾经全是手写值。这类数字每次调清洗参数都会变,
+    必须自动取。
+
+    **"插补"要按 clean_report.txt 的口径取, 不是窄口径**: 清洗报告把
+    "消耗量离群置空后插补" 计入"消耗量缺失插补 (其中离群置空 34)", 即
+    `329 = 295 + 34`。正文列举的是**修了多少处**, 两种都算"修", 所以用
+    `clean_impute_all`(329)。窄口径 295 只是 genuinely-missing 那部分,
+    两个数都对, 但混用会让读者以为是同一个量 —— 早先我按 295 改并断言
+    329 是重复计数, 是错的: 329 才是与清洗报告一致的口径。
 
     clean_rejects 里同时含"业务键重复"与"消耗量离群"两类 —— 后者**不再删行**
     (只把该格置空后插补), 只是留痕, 所以剔除数要按原因过滤, 不能数总行数。
@@ -623,9 +648,13 @@ def _clean_volumes() -> dict:
     # 让报告仍能生成 —— 清洗量级是叙述性信息, 不该阻断整份报告。
     rejects = _read_soft("clean_rejects.csv")
     fixed = _read_soft("clean_fixed.csv")
-    # 分项按 fix_reason 前缀归类。注意"消耗量离群置空后插补"里也含"插补"二字,
-    # 但它属于离群处理而非普通插补, 单列出来, 否则两项会重复计数。
+    # 分项按 fix_reason 归类。"消耗量离群置空后插补"里也含"插补"二字, 但它与
+    # "消耗量插补"在清洗报告里被合并成一项(329 = 295 + 34), 所以两个都给:
+    # clean_impute 是窄口径(真·缺失), clean_impute_all 是清洗报告口径(含离群置空)。
+    # 正文用后者 —— 它说的是"修了多少处"。
     reason = lambda r: r.get("fix_reason", "")
+    impute_narrow = sum(1 for r in fixed if reason(r) == "消耗量插补")
+    impute_outlier = sum(1 for r in fixed if reason(r) == "消耗量离群置空后插补")
     return {
         "clean_raw": len(raw),
         "clean_energy": len(read("clean_energy.csv")),
@@ -634,7 +663,8 @@ def _clean_volumes() -> dict:
         "clean_dup": sum(1 for r in rejects if "重复" in r.get("reject_reason", "")),
         "clean_outlier": sum(1 for r in rejects if "离群" in r.get("reject_reason", "")),
         "clean_fixed_n": len(fixed),
-        "clean_impute": sum(1 for r in fixed if reason(r) == "消耗量插补"),
+        "clean_impute": impute_narrow,
+        "clean_impute_all": impute_narrow + impute_outlier,
         "clean_price": sum(1 for r in fixed if reason(r) == "单价插补"),
         "clean_recalc": sum(1 for r in fixed if reason(r) == "费用重算"),
     }

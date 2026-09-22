@@ -165,6 +165,12 @@ def _f(v, default=0.0) -> float:
         return default
 
 
+def _days_between(a: str, b: str) -> int:
+    """两个 `YYYY-MM-DD` 相差几天 —— 用来判断两个报警日是否相邻(同段)。"""
+    import datetime
+    return (datetime.date.fromisoformat(b) - datetime.date.fromisoformat(a)).days
+
+
 def _report_payload() -> dict:
     """把 make_report.py 内联进 report.html 的那段 JSON 读回来。
 
@@ -665,12 +671,82 @@ class TestProseNumbersAreDerived:
         )
         fixed = _read_csv("clean_fixed.csv")
         assert _f(dv["clean_fixed_n"]) == len(fixed)
-        for key, reason in (("clean_impute", "消耗量插补"), ("clean_price", "单价插补"),
-                            ("clean_recalc", "费用重算")):
-            assert _f(dv[key]) == sum(1 for r in fixed if r["fix_reason"] == reason), (
-                f"{key} 与 clean_fixed.csv 里 '{reason}' 的行数不符"
-            )
+        assert _f(dv["clean_price"]) == sum(1 for r in fixed if r["fix_reason"] == "单价插补")
+        assert _f(dv["clean_recalc"]) == sum(1 for r in fixed if r["fix_reason"] == "费用重算")
+        # "插补"有两个口径, 断言两者都对且差值恰是离群置空那批 —— 别只锁窄口径,
+        # 否则正文改用宽口径时会静默漂移(我第一版正是这么写错的)。
+        narrow = sum(1 for r in fixed if r["fix_reason"] == "消耗量插补")
+        outlier = sum(1 for r in fixed if r["fix_reason"] == "消耗量离群置空后插补")
+        assert _f(dv["clean_impute"]) == narrow, "窄口径(真·缺失)与台账不符"
+        assert _f(dv["clean_impute_all"]) == narrow + outlier, (
+            "宽口径应为 真·缺失 + 离群置空 (清洗报告里被合并成一项)"
+        )
+        assert _f(dv["clean_impute_all"]) == _f(dv["clean_impute"]) + _f(dv["clean_outlier"])
         assert _f(dv["clean_days"]) == 731, "统计天数应为 731(见 Q14 计数)"
+
+    def test_utility_ratio_matches_q02_over_q01(self, pipeline_run):
+        """口径提示的"相当于全厂口径的 X%"必须等于 Q02/Q01 之比, 且**进位**。
+
+        旧正文手写 72.7%, 而 46400.52/63759.63 = 72.774% 应进位到 72.8% ——
+        那个 72.7 是截断值。这类"看着只差 0.1"的错最难被发现, 所以锁死。
+        """
+        q1 = _f(_read_csv("Q01_能源消费总览.csv")[0]["综合能耗_tce"])
+        q2 = _f(_read_csv("Q02_剔除公用工程后的能耗总览.csv")[0]["综合能耗_tce"])
+        want = round(q2 / q1 * 100, 1)
+        got = _f(_report_payload()["derived"]["utility_ratio"])
+        assert abs(got - want) <= 0.05, f"utility_ratio {got} != Q02/Q01 {want}"
+        assert want == 72.8, f"该比值应为 72.8(进位), 实为 {want} —— 别用截断"
+
+    def test_cusum_lo_z_range_covers_low_side_only(self, pipeline_run):
+        """偏低段的单日 |Z| 范围必须取自**偏低侧**报警日, 不是全表极值。
+
+        正文用它论证"不是某天极端值"; 若误取全表 Z(含 +19.62 的春节偏高),
+        范围会变成 0.11~19.62, 论证直接失效。下界 0.11 也顺手守住 ——
+        旧正文手写 0.86, 而 0.86 恰是集合里的一员, 所以看着像对的。
+        """
+        rows = _read_csv("Q27_单耗CUSUM累积和序列.csv")
+        zs = [abs(_f(r["白化残差Z值"])) for r in rows
+              if r["是否报警"] in ("1", "True", "true") and r["报警方向"] == "偏低"]
+        assert zs, "没有偏低侧报警日 —— Q27 的口径可能变了"
+        dv = _report_payload()["derived"]
+        assert abs(_f(dv["cusum_lo_z_lo"]) - min(zs)) <= 0.005
+        assert abs(_f(dv["cusum_lo_z_hi"]) - max(zs)) <= 0.005
+        assert _f(dv["cusum_lo_z_hi"]) < 5, (
+            "上界 <5 —— 若拿到全表极值会是 +19.62, 说明取错了侧"
+        )
+
+    def test_cusum_segment_split_is_nine_up_three_down(self, pipeline_run):
+        """正文"12 段 / 9 段偏高 / 3 段偏低"必须能从 Q27 按侧聚段数出来。
+
+        这三个数曾被当成"论断型"排除在验证之外。**Q26 只有一个总数**
+        (`累计和报警段数`), 没有分侧 —— 所以 Q26 证不了 9/3。9/3 只能在 Q27 上
+        按(车间, 侧)把连续报警日聚成段再数。既然算得出, 就该有测试。
+
+        **注意别把"天数非零"当"段数"**: 轧制偏低 5 天但其实是 **2 段**
+        (春节 2/17~19、劳动节 5/6~7, 中间隔了两个月), 按"非零即一段"数会
+        得到 5/2 这种错答案。段数必须按日期连续性聚。
+        """
+        rows = _read_csv("Q27_单耗CUSUM累积和序列.csv")
+        up = dn = 0
+        for ws in {r["车间"] for r in rows}:
+            for side in ("偏高", "偏低"):
+                on = [r for r in rows
+                      if r["车间"] == ws
+                      and r["是否报警"] in ("1", "True", "true")
+                      and r["报警方向"] == side]
+                on.sort(key=lambda r: r["日期"])
+                segs = 0
+                prev = None
+                for r in on:
+                    if prev is None or _days_between(prev, r["日期"]) > 1:
+                        segs += 1
+                    prev = r["日期"]
+                if side == "偏高":
+                    up += segs
+                else:
+                    dn += segs
+        assert (up, dn) == (9, 3), f"偏高/偏低段数应为 (9, 3), 实为 ({up}, {dn})"
+        assert up + dn == 12, f"总段数应为 12, 实为 {up + dn}"
 
     def test_prose_has_no_stale_literals(self, pipeline_run):
         """模板里这些数字**不该**再以字面量出现 —— 防止有人改回手写。
@@ -690,7 +766,9 @@ class TestProseNumbersAreDerived:
                  # 2026-09-22 第二轮的 B 类(图表脚注/检测卡片)
                  "+0.167", "−0.951", "−0.905", "14 / 8 / 7", "15 / 8 / 7",
                  "21 vs 6", "22 vs 6", "24 个", "329", "267", "243",
-                 "44.6", "37.2", "39.0", "11.0", "11.7"]
+                 "44.6", "37.2", "39.0", "11.0", "11.7",
+                 # 2026-09-22 第三轮: 人工核对捞出的三个错值
+                 "72.7%", "0.86 ~ 2.35"]
         hit = [s for s in stale if s in body]
         assert not hit, (
             f"这些数字又在模板里手写出现了, 应改用 data-fill 插值: {hit}"
