@@ -171,6 +171,46 @@ def build() -> dict:
         if u["name"] in growth
     ]
 
+    # ---- 节能量: 把"单耗下降"翻译成 tce / tCO2 / 元 ----
+    # 口径: 以 2024 单耗为基线, 乘 2025 实际产量 = "效率不提升本该消耗多少",
+    # 再减 2025 实际能耗。差额才是**可归因于能效提升**的部分 ——
+    # 产量增长带来的能耗不算功劳, 只有效率提升省下的才算。
+    #
+    # 单位换算: Q08 的单耗是 kgce/产量单位, 产量单位随车间变(吨/件/台/平方米),
+    # 所以 qty * kgce / 1000 = tce, **只在同一车间内成立**(跨车间相加无意义)。
+    # 但这里加总的是"节能量", 它和产量不同 —— tce 是可加的, 七个车间的节能量
+    # 相加有物理意义(都是标煤吨数)。
+    save_rows = []
+    for u in out["unit_yoy"]:
+        q25 = prod.get((u["name"], "2025"), 0.0)
+        if q25 <= 0:
+            continue
+        should = q25 * u["y2024"] / 1000.0     # kgce -> tce
+        actual = q25 * u["y2025"] / 1000.0
+        save_rows.append({
+            "name": u["name"],
+            "save": round(should - actual, 1),
+            "pct": u["pct"],
+        })
+    total_save = sum(r["save"] for r in save_rows)
+
+    # 折算系数从**全期实测**取, 不写死: 碳强度 = 总碳排/总能耗,
+    # 单位能耗成本 = 总费用/总能耗。换一批数据这两个数会变, 正文跟着变。
+    ci_all = out["totals"]["co2"] / out["totals"]["tce"] if out["totals"]["tce"] else 0.0
+    cost_per_tce = out["totals"]["cost"] / out["totals"]["tce"] if out["totals"]["tce"] else 0.0
+    # 年度基准: 2025 全厂能耗, 用来算节能量占全厂能耗的比例
+    tce_2025 = sum(r["tce"] for r in out["monthly"] if r["ym"].startswith("2025"))
+
+    save_rows.sort(key=lambda r: -r["save"])
+    out["savings"] = save_rows
+    out["save_total"] = round(total_save, 1)
+    out["save_co2"] = round(total_save * ci_all, 1)
+    out["save_cost"] = round(total_save * cost_per_tce, 0)
+    out["save_pct"] = round(total_save / tce_2025 * 100.0, 2) if tce_2025 else 0.0
+    # 排名前两位的车间合计占比 —— 正文用它说明"高单耗车间杠杆最大"
+    top2 = sum(r["save"] for r in save_rows[:2])
+    out["save_top2_pct"] = round(top2 / total_save * 100.0, 1) if total_save else 0.0
+
     # ---- Q11/Q12 气温 ----
     out["temp_bins"] = [
         {
@@ -617,8 +657,17 @@ def _cmp_named(cmp: list) -> dict:
 def _read_soft(name: str) -> list:
     """同 read(), 但文件不存在时返回空表而不是退出。
 
-    只用于留痕类文件(clean_rejects / clean_fixed): 它们在增量批模式下不写,
-    而报告在批模式下也要能生成。
+    用于**非查询**产物: 清洗留痕(clean_rejects / clean_fixed)与清洗结果
+    (clean_energy / clean_production / dim_calendar)。它们不是 analysis.sql
+    的输出, 只是给正文"清洗量级"那几句提供计数。
+
+    为什么必须软读: CI 生成报告时 output/ 里**只有** tests/baseline/*.csv
+    (29 份 Q*.csv), 清洗产物一份都没有 —— 报告是照基线离线渲染的。硬读会
+    让报告根本生成不出来, 而这几行只是叙述性计数, 不该有这种权力。
+
+    **代价要认清**: 缺失时退化成 0, 报告仍会生成, 于是"清除了 0 条"这种
+    明显不对的句子可能悄悄出现在页面上。CI 里那条 `test_prose_numbers_*`
+    (对着真实 output/ 跑)才是真正守住这些数字的东西, 这里只保证不崩。
     """
     try:
         return read(name)
@@ -644,8 +693,11 @@ def _clean_volumes() -> dict:
     (只把该格置空后插补), 只是留痕, 所以剔除数要按原因过滤, 不能数总行数。
     """
     raw = read(os.path.join(BASE_DIR, "data", "raw_energy_data.csv"))
-    # 两份留痕文件只在**全量**清洗时写出(--batch-all 不写)。缺了就退化成 0,
-    # 让报告仍能生成 —— 清洗量级是叙述性信息, 不该阻断整份报告。
+    # 清洗产物与留痕全部软读 —— 理由见 _read_soft 的 docstring: CI 渲染报告时
+    # output/ 里只有基线 Q*.csv, 没有这些文件。
+    energy = _read_soft("clean_energy.csv")
+    prod = _read_soft("clean_production.csv")
+    days = _read_soft("dim_calendar.csv")
     rejects = _read_soft("clean_rejects.csv")
     fixed = _read_soft("clean_fixed.csv")
     # 分项按 fix_reason 归类。"消耗量离群置空后插补"里也含"插补"二字, 但它与
@@ -657,9 +709,9 @@ def _clean_volumes() -> dict:
     impute_outlier = sum(1 for r in fixed if reason(r) == "消耗量离群置空后插补")
     return {
         "clean_raw": len(raw),
-        "clean_energy": len(read("clean_energy.csv")),
-        "clean_prod": len(read("clean_production.csv")),
-        "clean_days": len(read("dim_calendar.csv")),
+        "clean_energy": len(energy),
+        "clean_prod": len(prod),
+        "clean_days": len(days),
         "clean_dup": sum(1 for r in rejects if "重复" in r.get("reject_reason", "")),
         "clean_outlier": sum(1 for r in rejects if "离群" in r.get("reject_reason", "")),
         "clean_fixed_n": len(fixed),

@@ -231,6 +231,8 @@ h2{margin:0;font-size:21px;font-weight:600;letter-spacing:-.015em;line-height:1.
 .sec-sub{margin:0;font-size:13.5px;line-height:1.65;color:var(--ink-2)}
 
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+/* 三栏: 门槛比 grid2 低, 三张窄卡在中等屏也排得下 */
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 .stack{display:flex;flex-direction:column;gap:16px}
 
 /* ---------- cards ---------- */
@@ -614,6 +616,52 @@ td:first-child{color:var(--ink)}
         <div class="chart" data-chart="deco"></div>
         <div class="card-foot"><button class="toggle" data-toggle="deco" aria-expanded="false">表格视图</button></div>
         <div class="table-view" data-table="deco" hidden></div>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head">
+      <p class="eyebrow">环保绩效</p>
+      <h2>节能量换算成碳与经济账</h2>
+      <p class="sec-sub">上一节说"单耗降了 2%~4%"，但降幅本身不是环保语言。这一节把它换算成三件能被考核的东西：<b>省了多少标煤、少了多少碳、值多少钱</b>。</p>
+    </div>
+
+    <div class="note">
+      <span class="mark"></span>
+      <div>
+        <b>怎么算的</b>　以 2024 年各车间单耗为基线，乘以 2025 年实际产量，得到"若效率不提升本该消耗多少"，
+        再减去 2025 年实际能耗，差额即为<b>可归因于能效提升</b>的节能量。
+        这条口径把"产量增长带来的能耗"和"效率提升省下的能耗"分开了 —— 前者不算功劳，后者才算。
+        碳排按全期碳强度 <b data-fill="ci-all">—</b> 折算；费用按全期单位能耗成本 ¥3,378/tce 折算。
+      </div>
+    </div>
+
+    <figure class="card" style="margin:0">
+      <figcaption class="card-head">
+        <h3>各车间节能量与折算收益</h3>
+        <p class="card-sub">条形为节能量（tce）。熔炼与热处理两个车间贡献了 <b data-fill="save-top2-pct">—</b> 的节能量——高单耗车间的效率改进，杠杆最大。</p>
+      </figcaption>
+      <div class="chart" data-chart="savechain"></div>
+      <div class="card-foot"><button class="toggle" data-toggle="savechain" aria-expanded="false">表格视图</button></div>
+      <div class="table-view" data-table="savechain" hidden></div>
+    </figure>
+
+    <div class="grid3">
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head"><h3>省下的标煤</h3></figcaption>
+        <p class="hero-num"><b data-fill="save-tce">—</b><u>tce</u></p>
+        <p class="card-sub">两年间可归因于能效提升的节能量，相当于 2025 年全厂能耗的 <b data-fill="save-pct">—</b>。</p>
+      </figure>
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head"><h3>少排的碳</h3></figcaption>
+        <p class="hero-num"><b data-fill="save-co2">—</b><u>tCO₂</u></p>
+        <p class="card-sub">按全期碳强度折算。相当于约 <b data-fill="save-plane">—</b> 趟北京—上海航班经济舱的单程排放量 —— <b>量级大不代表结论强</b>，这个换算只为让抽象的吨数有个可感的参照。</p>
+      </figure>
+      <figure class="card" style="margin:0">
+        <figcaption class="card-head"><h3>省下的能源费用</h3></figcaption>
+        <p class="hero-num"><b data-fill="save-cost">—</b><u>万元</u></p>
+        <p class="card-sub">按全期单位能耗成本折算，未扣除节能改造的投入 —— 这是毛收益，不是投资回报。</p>
       </figure>
     </div>
   </section>
@@ -1833,6 +1881,66 @@ function drawUnit(host, W, T, narrow){
   });
 }
 
+/* ================= chart: 节能链(节能量 -> 碳 -> 钱) ================= */
+// 横向条形按节能量排。条形用 --mark-3(碳排色)不合适 —— 那条色在正文里已经
+// 绑定"碳排放"这个语义, 这里画的是节能量(tce), 借用会让人以为在比碳。
+// 用中性单色 + 语义只由标题和数值承担。
+function drawSaveChain(host, W, T, narrow){
+  var rows = D.savings || [];
+  if (!rows.length){ host.textContent = "没有可归因的节能量"; return; }
+  var nameW = narrow ? 84 : 104;
+  var padR = narrow ? 58 : 72;
+  var padT = 24, axisH = 26, rowH = narrow ? 29 : 32;
+  var H = padT + rows.length * rowH + axisH;
+  var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
+  var maxV = Math.max.apply(null, rows.map(function(r){ return r.save; }));
+  var sc = ticks(maxV, 3);
+  var x = function(v){ return plotX + v / sc.top * plotW; };
+
+  var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
+                       "aria-label":"各车间可归因节能量"});
+  host.appendChild(svg);
+
+  sc.list.forEach(function(v){
+    if (v === 0) return;
+    mk("line", {x1:x(v), y1:padT-4, x2:x(v), y2:padT + rows.length*rowH, class:"c-grid"}, svg);
+  });
+  mk("line", {x1:plotX, y1:padT-4, x2:plotX, y2:padT + rows.length*rowH, class:"c-axis"}, svg);
+  sc.list.forEach(function(v){ tx(svg, x(v), padT - 10, v === 0 ? "" : num(v), "c-label", "middle"); });
+
+  var barH = 12, tce = D.save_total || 0;
+  rows.forEach(function(r, i){
+    var midY = padT + i * rowH + rowH / 2;
+    var y = midY - barH / 2;
+    var w = Math.max(2, x(r.save) - plotX);
+    var rad = Math.min(4, w / 2);
+    tx(svg, 0, midY + 4, r.name, "c-name");
+    mk("path", {
+      d:"M"+plotX+","+y+" h"+(w-rad)+" a"+rad+","+rad+" 0 0 1 "+rad+","+rad+
+        " v"+(barH-2*rad)+" a"+rad+","+rad+" 0 0 1 "+(-rad)+","+rad+" h"+(-(w-rad))+" z",
+      fill:T.m1
+    }, svg);
+    tx(svg, plotX + w + 7, midY + 4, num(r.save, 1), "c-value");
+  });
+
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var rect = mk("rect", {x:0, y:padT + i*rowH, width:W, height:rowH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      var co2 = r.save * (D.save_co2 / (tce || 1));
+      var yuan = r.save * (D.save_cost / (tce || 1));
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.name + "</span>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.m1 + '"></i>节能量</span><span>' + num(r.save, 1) + " tce</span></div>" +
+        '<div class="tip-r"><span>单耗同比</span><span>' + r.pct.toFixed(2) + "%</span></div>" +
+        '<div class="tip-r"><span>折碳减排</span><span>' + num(co2, 1) + " tCO₂</span></div>" +
+        '<div class="tip-r"><span>折费用</span><span>¥' + num(yuan / 1e4, 1) + " 万</span></div>");
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
 /* ================= chart: 增速差 ================= */
 function drawDeco(host, W, T, narrow){
   var rows = D.deco;
@@ -1979,6 +2087,7 @@ var CHARTS = {
   },
   temp: function(h,W,T,n){ drawTemp(h,W,T,n); },
   unittrend: function(h,W,T,n){ drawUnit(h,W,T,n); },
+  savechain: function(h,W,T,n){ drawSaveChain(h,W,T,n); },
   deco: function(h,W,T,n){ drawDeco(h,W,T,n); },
   standby: function(h,W,T,n){ drawStandby(h,W,T,n); },
   anomaly: function(h,W,T,n){ drawAnomaly(h,W,T,n); },
@@ -2050,6 +2159,15 @@ var TABLES = {
   unittrend: function(){
     return buildTable(["车间","2024 单耗","2025 单耗","同比"],
       D.unit_yoy.map(function(r){ return [r.name, r.y2024.toFixed(4), r.y2025.toFixed(4), r.pct.toFixed(2)+"%"]; }));
+  },
+  savechain: function(){
+    var tce = D.save_total || 1;
+    return buildTable(["车间","节能量 tce","折碳减排 tCO₂","折费用 万元","单耗同比"],
+      D.savings.map(function(r){
+        return [r.name, num(r.save,1), num(r.save * D.save_co2 / tce, 1),
+                num(r.save * D.save_cost / tce / 1e4, 1), r.pct.toFixed(2)+"%"];
+      }).concat([["合计", num(D.save_total,1), num(D.save_co2,1),
+                  num(D.save_cost/1e4,1), "—"]]));
   },
   deco: function(){
     return buildTable(["车间","产量同比","单耗同比","能耗同比（推算）"],
@@ -2357,6 +2475,20 @@ function fillProse(){
     "tce-trough":   function(){ return num(dv.tce_trough, 2) + " tce"; },
     "ci-max":       function(){ return dv.ci_max.toFixed(2); },
     "ci-min":       function(){ return dv.ci_min.toFixed(2); },
+    // 环保绩效: 节能量链。折算系数(碳强度/单位能耗成本)与节能量本身都从
+    // 查询结果算, 模板里一个字都不写死 —— 换数据区间这三行跟着变。
+    "ci-all":       function(){
+      return (D.totals.co2 / D.totals.tce).toFixed(4) + " tCO₂/tce";
+    },
+    "save-tce":     function(){ return num(D.save_total, 1); },
+    "save-co2":     function(){ return num(D.save_co2, 1); },
+    "save-cost":    function(){ return num(D.save_cost / 1e4, 1); },
+    "save-pct":     function(){ return D.save_pct.toFixed(2) + "%"; },
+    "save-top2-pct": function(){ return D.save_top2_pct.toFixed(1) + "%"; },
+    // 直观参照: 京沪单程 ~1,080 客公里 x 0.15 kgCO₂/客公里 = 0.162 tCO₂/趟。
+    // 换成"棵树"会得到 10 万+ 这种量级, 读者第一反应是"这数编的吧" ——
+    // 参照物太大反而伤可信度, 换成航班同样直观但量级正常。
+    "save-plane":   function(){ return num(D.save_co2 / 0.162, 0); },
     "standby-tce":  function(){ return dv.standby_tce.toFixed(2) + " tce"; },
     "standby-cost": function(){ return "¥" + (dv.standby_cost / 1e4).toFixed(1) + " 万"; },
     "dt-weekend-pct": function(){ return dv.dt_weekend_pct + "%"; },
