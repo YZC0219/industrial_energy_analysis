@@ -122,7 +122,7 @@ h1{margin:0;font-size:clamp(28px,4.4vw,40px);font-weight:600;letter-spacing:-.02
   display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;
 }
 @media (max-width:640px){ .fbar-in{padding:8px 16px;gap:6px 10px} }
-.fgroup{display:flex;align-items:center;gap:7px;min-width:0;height:26px}
+.fgroup{display:flex;align-items:center;gap:7px;min-width:0;min-height:26px}
 /* 组内首行要对齐: 日期组换行后是两行, 不给 wrap 的话窄屏会把两个日期框顶出去 */
 .fgroup-body{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
 .fgroup>.flabel{
@@ -177,6 +177,10 @@ h1{margin:0;font-size:clamp(28px,4.4vw,40px);font-weight:600;letter-spacing:-.02
   .fdate{flex:1 1 108px;width:auto}
 }
 .fspacer{flex:1 1 auto;min-width:8px}
+/* 顶栏是 flex-wrap 的多行容器: 一旦换行, .fspacer 会把当前行的剩余空间吃光,
+   把"重置"和视图切换推到右边, 后面的行就短一截、看起来像没对齐。
+   窄屏干脆让 spacer 失效, 让每组自然排布。 */
+@media (max-width:820px){ .fspacer{display:none} }
 .freset{
   appearance:none;font:inherit;font-size:12px;color:var(--ink-2);
   background:transparent;border:1px solid var(--ring);border-radius:7px;
@@ -811,14 +815,23 @@ td:first-child{color:var(--ink)}
   <div class="dash-grid">
     <figure class="dcard span8">
       <figcaption class="dcard-head">
-        <h3>月度综合能耗与环比</h3>
-        <p class="dcard-sub">柱为当月折标煤，折线为环比。<b>11 月环比为负、12 月为正，含月长效应</b>（详见报告「口径边界」）。</p>
+        <h3>月度综合能耗</h3>
+        <p class="dcard-sub">柱为当月折标煤。环比单独一张图 —— 能耗与环比量纲不同，叠在一个坐标系里会读出一个不存在的相关性。</p>
       </figcaption>
       <div class="dchart" data-dchart="dmonth"></div>
       <div class="dlegend" id="dlg-month"></div>
     </figure>
 
     <figure class="dcard span4">
+      <figcaption class="dcard-head">
+        <h3>月度环比</h3>
+        <p class="dcard-sub">相对上月的涨跌，零线在图中。<b>11 月为负、12 月为正，含月长效应</b>（详见报告「口径边界」）。首月无上月，线在此断开。</p>
+      </figcaption>
+      <div class="dchart" data-dchart="dmom"></div>
+      <div class="dlegend" id="dlg-mom"></div>
+    </figure>
+
+    <figure class="dcard span6">
       <figcaption class="dcard-head">
         <h3>能源品种结构</h3>
         <p class="dcard-sub">按折标煤口径的占比，含公用工程。</p>
@@ -2667,18 +2680,18 @@ function dashFrame(host, key, h){
 /* 按容器宽度选的刻度步长(复用报告里的 niceStep)。 */
 function daxTicks(max, n){ return ticks(max || 1, n || 4); }
 
-/* ---------------- 大屏 1: 月度能耗(柱) + 环比(线) ----------------
-   为什么是两栏而不是双轴: 能耗(tce)与环比(%)量纲不同, 叠在一个坐标系里等于
-   发明一条不存在的相关性。这里柱与线**各用各的刻度**, 柱走左轴、环绕比走右轴,
-   但两条轴各自标注清楚 —— 读者读的是两个独立量, 不是"柱线交点"。 */
+/* ---------------- 大屏 1: 月度综合能耗(柱) ----------------
+   这里刻意**不带环比线**。能耗(tce)与环比(%)量纲不同, 叠进一个坐标系就是双轴图 ——
+   它会让读者以为两条曲线的高低差有意义, 而这个"相关性"是坐标缩放造出来的, 不是数据里的。
+   环比单独一张图(drawDashMom), 各自一条轴, 各有自己的零点。 */
 function drawDashMonth(host, W, T, narrow){
-  var f = dashFrame(host, "月度综合能耗与环比", narrow ? 240 : 268);
+  var f = dashFrame(host, "月度综合能耗", narrow ? 240 : 268);
   if (!f) return;
   var svg = f.svg, H = f.H;
   var rows = VIEW.monthly;
-  if (!rows.length){ host.textContent = "当前筛选区间没有说话的数据"; return; }
+  if (!rows.length){ host.textContent = "当前筛选区间没有数据"; return; }
 
-  var padL = 52, padR = 46, padT = 16, padB = 34;
+  var padL = 52, padR = 14, padT = 16, padB = 34;
   var plotW = Math.max(40, W - padL - padR), plotH = H - padT - padB;
   var mx = Math.max.apply(null, rows.map(function(r){ return r.tce; }));
   var sc = daxTicks(mx, 3);
@@ -2692,25 +2705,6 @@ function drawDashMonth(host, W, T, narrow){
     tx(svg, padL - 8, y(v) + 3.5, num(v), "c-label", "end");
   });
 
-  // 环比折线(右轴): 只画有值的月 —— 筛选后首月没有上月, mom 为 null, 不能当 0 画
-  var momVals = rows.map(function(r){ return r.mom; }).filter(function(v){ return v !== null && v !== undefined; });
-  var mmax = Math.max.apply(null, momVals.map(Math.abs).concat([1]));
-  var y2 = function(v){ return padT + plotH / 2 - v / mmax * (plotH / 2 - 8); };
-  tx(svg, W - padR + 8, y2(mmax) + 3.5, "+" + mmax.toFixed(0) + "%", "c-label", "start");
-  tx(svg, W - padR + 8, y2(0) + 3.5, "0", "c-label", "start");
-  tx(svg, W - padR + 8, y2(-mmax) + 3.5, "−" + mmax.toFixed(0) + "%", "c-label", "start");
-  mk("line", {x1:padL, y1:y2(0), x2:padL + plotW, y2:y2(0), class:"c-axis"}, svg);
-
-  var d = "", started = false;
-  rows.forEach(function(r, i){
-    if (r.mom === null || r.mom === undefined){ started = false; return; }
-    var cx = padL + band * i + band / 2;
-    d += (started ? " L" : " M") + cx + "," + y2(r.mom);
-    started = true;
-  });
-  if (d) mk("path", {d:d, fill:"none", stroke:T.d2, "stroke-width":2,
-                     "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
-
   rows.forEach(function(r, i){
     var cx = padL + band * i + band / 2;
     var yy = y(r.tce), hh = padT + plotH - yy;
@@ -2719,10 +2713,6 @@ function drawDashMonth(host, W, T, narrow){
                    " 0 0 1 " + rad + "," + rad + " v" + (hh - 2*rad) + " a" + rad + "," + rad +
                    " 0 0 1 " + (-rad) + "," + rad + " h" + (-(bw - rad)) + " z",
                 fill:T.d1}, svg);
-    if (r.mom !== null && r.mom !== undefined){
-      mk("circle", {cx:cx, cy:y2(r.mom), r:3,
-                    fill:T.d2, stroke:T.surface, "stroke-width":2}, svg);
-    }
   });
 
   // 只标峰值与末端, 不逐柱标数 —— 逐点标注会糊成一片。
@@ -2735,18 +2725,7 @@ function drawDashMonth(host, W, T, narrow){
   }
   tx(svg, Math.min(cxl, W - padR - 2), y(rows[li].tce) - 7, num(rows[li].tce, 0), "c-value", "end");
 
-  // x 轴: 按宽度密度抽稀, 保证末位一定出现
-  var minGap = 46, stepI = Math.max(1, Math.ceil(rows.length / Math.max(2, Math.floor(plotW / minGap))));
-  var idxs = [];
-  for (var i2 = 0; i2 < rows.length; i2++) if (i2 % stepI === 0) idxs.push(i2);
-  if (idxs[idxs.length - 1] !== li) idxs.push(li);
-  idxs = idxs.filter(function(i3){ return i3 === li || Math.abs((padL + band*i3 + band/2) - cxl) >= minGap; });
-  idxs.forEach(function(i4){
-    var tx0 = padL + band * i4 + band / 2;
-    // 首末刻度用 anchor 贴边, 否则 "24-01" 会有一半伸到绘图区外
-    var anc = i4 === 0 ? "start" : (i4 === li ? "end" : "middle");
-    tx(svg, tx0, H - padB + 18, rows[i4].ym.slice(2), "c-label", anc);
-  });
+  daxMonthTicks(svg, rows, padL, band, plotW, W, H, padB, padR, li, cxl);
 
   // 命中层: 按月分带, 整块可点(比命中 4px 的柱宽得多)
   var hit = mk("g", null, svg);
@@ -2759,10 +2738,90 @@ function drawDashMonth(host, W, T, narrow){
         '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d1 + '"></i>综合能耗</span><span>' + num(r.tce, 2) + " tce</span></div>" +
         '<div class="tip-r"><span>能源费用</span><span>¥' + num(r.cost, 0) + "</span></div>" +
         '<div class="tip-r"><span>碳排放</span><span>' + num(r.co2, 2) + " tCO₂</span></div>" +
-        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d2 + '"></i>环比</span><span>' +
+        '<div class="tip-r"><span>环比</span><span>' +
           (r.mom === null || r.mom === undefined ? "—" : r.mom.toFixed(2) + "%") + "</span></div>");
     });
     rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* ---------------- 大屏 1b: 月度环比(线, 独立一张图) ----------------
+   零点必须在图里 —— 环比正负是两个方向相反的结论, 从 0 起画才读得出"这月是涨是跌"。
+   首月没有上月, mom 为 null, 线条在此断开而不是接到 0。 */
+function drawDashMom(host, W, T, narrow){
+  var f = dashFrame(host, "月度环比", narrow ? 240 : 268);
+  if (!f) return;
+  var svg = f.svg, H = f.H;
+  var rows = VIEW.monthly;
+  if (!rows.length){ host.textContent = "当前筛选区间没有数据"; return; }
+
+  var padL = 52, padR = 14, padT = 16, padB = 34;
+  var plotW = Math.max(40, W - padL - padR), plotH = H - padT - padB;
+  var vals = rows.map(function(r){ return r.mom; })
+                 .filter(function(v){ return v !== null && v !== undefined; });
+  if (!vals.length){ host.textContent = "区间不足两月，无法计算环比"; return; }
+
+  var mmax = Math.max.apply(null, vals.map(Math.abs).concat([1]));
+  var band = plotW / rows.length;
+  var y = function(v){ return padT + plotH / 2 - v / mmax * (plotH / 2 - 8); };
+
+  mk("line", {x1:padL, y1:y(0), x2:padL + plotW, y2:y(0), class:"c-axis"}, svg);
+  [mmax, 0, -mmax].forEach(function(v){
+    if (v !== 0) mk("line", {x1:padL, y1:y(v), x2:padL + plotW, y2:y(v), class:"c-grid"}, svg);
+    tx(svg, padL - 8, y(v) + 3.5, (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(0) + "%",
+       "c-label", "end");
+  });
+
+  var d = "", started = false;
+  rows.forEach(function(r, i){
+    if (r.mom === null || r.mom === undefined){ started = false; return; }
+    var cx = padL + band * i + band / 2;
+    d += (started ? " L" : " M") + cx + "," + y(r.mom);
+    started = true;
+  });
+  if (d) mk("path", {d:d, fill:"none", stroke:T.d2, "stroke-width":2,
+                     "stroke-linejoin":"round", "stroke-linecap":"round"}, svg);
+
+  rows.forEach(function(r, i){
+    if (r.mom === null || r.mom === undefined) return;
+    mk("circle", {cx:padL + band * i + band / 2, cy:y(r.mom), r:2.5,
+                  fill:T.d2, stroke:T.surface, "stroke-width":2}, svg);
+  });
+
+  var li = rows.length - 1, cxl = padL + band * li + band / 2;
+  if (rows[li].mom !== null && rows[li].mom !== undefined){
+    tx(svg, Math.min(cxl, W - padR - 2), y(rows[li].mom) - 8,
+       (rows[li].mom > 0 ? "+" : "") + rows[li].mom.toFixed(0) + "%", "c-value", "end");
+  }
+
+  daxMonthTicks(svg, rows, padL, band, plotW, W, H, padB, padR, li, cxl);
+
+  var hit = mk("g", null, svg);
+  rows.forEach(function(r, i){
+    var rect = mk("rect", {x:padL + band * i, y:padT, width:band, height:plotH, class:"c-hit"}, hit);
+    rect.addEventListener("mousemove", function(ev){
+      var b = host.getBoundingClientRect();
+      showTip(host, ev.clientX - b.left, ev.clientY - b.top,
+        '<span class="tip-t">' + r.ym + "</span>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.d2 + '"></i>环比</span><span>' +
+          (r.mom === null || r.mom === undefined ? "—" : r.mom.toFixed(2) + "%") + "</span></div>" +
+        '<div class="tip-r"><span>综合能耗</span><span>' + num(r.tce, 2) + " tce</span></div>");
+    });
+    rect.addEventListener("mouseleave", function(){ hideTip(host); });
+  });
+}
+
+/* 月度两图的 x 轴刻度: 按宽度抽稀, 首末刻度贴边, 保证末位一定出现。 */
+function daxMonthTicks(svg, rows, padL, band, plotW, W, H, padB, padR, li, cxl){
+  var minGap = 46, stepI = Math.max(1, Math.ceil(rows.length / Math.max(2, Math.floor(plotW / minGap))));
+  var idxs = [];
+  for (var i = 0; i < rows.length; i++) if (i % stepI === 0) idxs.push(i);
+  if (idxs[idxs.length - 1] !== li) idxs.push(li);
+  idxs = idxs.filter(function(k){ return k === li || Math.abs((padL + band*k + band/2) - cxl) >= minGap; });
+  idxs.forEach(function(k){
+    // 首末刻度用 anchor 贴边, 否则 "24-01" 会有一半伸到绘图区外
+    var anc = k === 0 ? "start" : (k === li ? "end" : "middle");
+    tx(svg, padL + band * k + band / 2, H - padB + 18, rows[k].ym.slice(2), "c-label", anc);
   });
 }
 
@@ -2995,13 +3054,19 @@ function drawDashHeat(host, W, T, narrow){
 
   // 色阶图例: 顺序色必须给刻度, 否则读者无从知道深浅对应多少。
   // 右端写"≥"是因为色阶被 P90 截断过 —— 最深那一档代表"到这里及以上"。
-  var ly = H - 11, lw = 96, lh = 8;
+  // 窄屏放不下整句, 拆成两行 —— 一句 248px 的注释在 390px 上会直接捅出右边界。
+  var ly = H - 11, lw = Math.min(96, Math.max(48, W * 0.22)), lh = 8;
   tx(svg, 0, ly + 6, "少", "c-note");
   for (var s = 0; s < ramp.length; s++){
     mk("rect", {x:16 + s * (lw / ramp.length), y:ly - 2, width:lw / ramp.length, height:lh,
                 fill:ramp[s]}, svg);
   }
-  tx(svg, 16 + lw + 6, ly + 6, "多（色阶上界取 P90 = " + num(maxV, 0) + " tce，更深即为 ≥ 此值）", "c-note");
+  var lx = 16 + lw + 6, lnote = "多（≥ " + num(maxV, 0) + " tce）";
+  tx(svg, lx, ly + 6, lnote, "c-note");
+  if (lx + lnote.length * 6.2 > W - 4){
+    tx(svg, lx, ly + 6, "多", "c-note");
+    tx(svg, 16, ly + 20, "色阶上界取 P90 = " + num(maxV, 0) + " tce，更深即为 ≥ 此值", "c-note");
+  }
 }
 
 /* 日型筛选在立方体上的查询: (车间,日) 是否落在所选日型内。
@@ -3186,6 +3251,7 @@ function drawDashPareto(host, W, T, narrow){
    同时存在(只是 display:none), 混在一起会在切视图时互相清空。 */
 var DCHARTS = {
   dmonth:  function(h, W, T, n){ drawDashMonth(h, W, T, n); },
+  dmom:    function(h, W, T, n){ drawDashMom(h, W, T, n); },
   dstack:  function(h, W, T, n){ drawDashStack(h, W, T, n); },
   dws:     function(h, W, T, n){ drawDashWs(h, W, T, n); },
   dheat:   function(h, W, T, n){ drawDashHeat(h, W, T, n); },
@@ -3220,8 +3286,9 @@ function renderDash(force){
     "<b>" + lo + " ~ " + hi + "</b> · " + nd + " 天 · " +
     (VIEW.totals.tce / nd).toFixed(2) + " tce/日 · 全厂口径（含 W07 公用工程）";
   document.getElementById("dlg-month").innerHTML =
-    '<span><i style="background:' + T.d1 + '"></i>综合能耗（左轴）</span>' +
-    '<span><i class="line" style="background:' + T.d2 + '"></i>月度环比（右轴）</span>';
+    '<span><i style="background:' + T.d1 + '"></i>综合能耗</span>';
+  document.getElementById("dlg-mom").innerHTML =
+    '<span><i class="line" style="background:' + T.d2 + '"></i>环比</span>';
   document.getElementById("dlg-daily").innerHTML =
     '<span><i class="line" style="background:' + T.dim + '"></i>每日实测</span>' +
     '<span><i class="line" style="background:' + T.d1 + '"></i>7 日移动平均</span>';
