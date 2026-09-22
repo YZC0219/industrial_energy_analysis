@@ -50,3 +50,9 @@ output/
 # 临时调试产物(非项目文件)
 _runs.json
 _sweep.txt
+_ann.json
+_jobs.json
+_log.txt
+_r2.json
+_run.json
+_run_*.json
