@@ -179,14 +179,22 @@ with DAG(
 
     run_analysis = project_task(
         "run_analysis",
-        "src/import_mysql.py --run-analysis",
+        "src/import_mysql.py --incremental --run-analysis",
         """
         **执行分析查询**
 
-        跑 `sql/analysis.sql` 里的 24 条业务查询, 结果逐条导出到 `output/Q*.csv`。
+        跑 `sql/analysis.sql` 里的 29 条业务查询, 结果逐条导出到 `output/Q*.csv`。
 
         单条查询失败不会中断整批(记录失败继续跑), 这样一条写错的 SQL 不至于让
-        另外 23 条的结果都拿不到。
+        另外 28 条的结果都拿不到。
+
+        > 为什么和装载是**两个 task**却各自都带装载 flag: `--run-analysis` 本身
+        > 不装载任何数据, 但 import_mysql.py 是"装载+分析"一条链, 分析那一段在
+        > `main()` 末尾。上面 load_warehouse 已经装过并推进了水位线, 这里若不带
+        > `--incremental`, 默认(增量)会去找 `clean_batch_energy.csv` 再装一遍;
+        > 带 `--incremental` 是把它写**明**。两种都指向增量, 但显式写法不会因为
+        > 上游 clean_data 换成全量模式就静默改语义 —— CI 上正是这么错的。
+        > 拆两个 task 是为了重跑分析时不必重跑装载(装载可能很贵)。
         """,
     )
 

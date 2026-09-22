@@ -73,9 +73,26 @@ jobs:
           MYSQL_PWD: energy_root_pwd
         run: |
           python src/generate_data.py
-          python src/clean_data.py --batch-all
-          python src/import_mysql.py --init --full
-          python src/import_mysql.py --run-analysis
+          python src/clean_data.py
+          python src/import_mysql.py --init --full --run-analysis
+        # 这里的两条命令都必须讲究, 且是**两种不同的错法** ——
+        #
+        # 1. 清洗要用**全量模式**(不带 --batch-all)。装载读的是全量产物
+        #    clean_energy.csv / clean_production.csv; 而 --batch-all 只写
+        #    clean_batch_*.csv(批模式不写 clean_rejects/fixed.csv, 也不写
+        #    clean_report.txt 供人读), 于是装载直接找不到文件退出。
+        #
+        # 2. 装载要写成**一条** `--init --full --run-analysis`, 与
+        #    import_mysql.py 手册里的"首次部署"用法一致。拆成
+        #    `--init --full` + `--run-analysis` 是错的: 第一条会把水位线重置为
+        #    全量最大值, 第二条再跑时水位线**非空** -> 判定为增量装载 ->
+        #    又去找 clean_batch_energy.csv(全量清洗没写它) -> 失败。
+        #    它不是"少了个 flag", 而是这段流程本来就是一次调用。
+        #
+        # 这两种错都发生在 `Verify baselines ...` **之前**, 那一步会被整步跳过 ——
+        # 守卫一次都没跑过, 而 `pages build and deployment` 照常绿, 页面照常发布。
+        # 本地也看不出来: 工作区里留着上一次全量清洗的 output/ 产物, 恰好把缺口
+        # 盖住了; CI 从空 output/ 开始, 藏不住。
 
       - name: Verify baselines against freshly computed results
         env:

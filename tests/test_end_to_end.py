@@ -69,11 +69,18 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 # 但端到端测试要的是**从零可复现**: 它必须能在一个已有水位线的库上重跑并得到
 # 完全相同的结果。所以这里用 `--init --full` —— 显式重建 + 全量装载 + 重置水位线,
 # 这正是"首次部署"的语义, 也是唯一能让测试不依赖历史状态的组合。
+#
+# **装载与分析必须是同一次调用**(`--init --full --run-analysis`)。拆成
+# `--init --full` + 不带 --full 的 `--run-analysis` 会踩水位线: 第一条已把水位线
+# 重置为全量最大值, 第二条读到非空水位线 -> 判定为增量装载 -> 去找
+# clean_batch_energy.csv(而上面的 clean_data 用的是 --batch-all, 这个文件确实存在,
+# 所以**这里跑得通**)。但同一段命令在 CI 里配的是全量清洗(python src/clean_data.py),
+# 全量模式不写批次文件, 于是 CI 上必然失败。两种配法各自自洽, 拼在一起才错 ——
+# 所以别只改一边。
 PIPELINE = [
     ("generate_raw_data", ["src/generate_data.py"]),
     ("clean_data",        ["src/clean_data.py", "--batch-all"]),
-    ("load_warehouse",    ["src/import_mysql.py", "--init", "--full"]),
-    ("run_analysis",      ["src/import_mysql.py", "--run-analysis"]),
+    ("load_warehouse",    ["src/import_mysql.py", "--init", "--full", "--run-analysis"]),
     ("build_report",      ["src/make_report.py"]),
 ]
 
@@ -222,7 +229,10 @@ def _report_payload() -> dict:
 class TestPipelineCompletes:
 
     def test_all_steps_succeeded(self, pipeline_run):
-        """五个步骤全部执行且退出码为 0(失败会在 _run 里直接 fail)。"""
+        """四个步骤全部执行且退出码为 0(失败会在 _run 里直接 fail)。
+
+        装载与分析合并成一步后是 4 步, 不是 5 步 —— 见 PIPELINE 上方的说明。
+        """
         assert set(pipeline_run) == {t for t, _ in PIPELINE}, (
             f"实际跑到的步骤与 DAG 定义不一致: {sorted(pipeline_run)}"
         )
@@ -251,7 +261,7 @@ class TestPipelineCompletes:
         missing = [q for q in EXPECTED_QUERIES if q not in have]
         assert not missing, (
             f"以下查询的结果 CSV 未生成: {missing}\n"
-            f"run_analysis 日志末尾:\n{pipeline_run['run_analysis'][-800:]}"
+            f"load_warehouse 日志末尾:\n{pipeline_run['load_warehouse'][-800:]}"
         )
 
     def test_run_analysis_reports_full_success(self, pipeline_run):
@@ -260,7 +270,7 @@ class TestPipelineCompletes:
         与上一条互补: 上一条查文件系统, 这一条查脚本的自述 —— 两者不一致
         (比如文件在但脚本说 28/29)说明有查询静默失败但留下了旧文件。
         """
-        log = pipeline_run["run_analysis"]
+        log = pipeline_run["load_warehouse"]
         m = re.search(r"完成\s+(\d+)/(\d+)\s+条查询", log)
         assert m, f"run_analysis 输出里找不到完成计数:\n{log[-800:]}"
         done, total = int(m.group(1)), int(m.group(2))
