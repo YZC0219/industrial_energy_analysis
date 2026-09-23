@@ -37,6 +37,14 @@ def test_datax_schema_preserves_timestamp_and_increment_is_half_open():
     job=text("datax/jobs/mysql_to_hive_incremental.json")
     assert "updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'" in job
     assert '"password": "${MYSQL_PASSWORD}"' in job
+    parsed=json.loads(job.replace('${MYSQL_USER}','u').replace('${MYSQL_PASSWORD}','p')
+                      .replace('${SOURCE_COLUMN_SQL}','`id`').replace('${SOURCE_TABLE}','t')
+                      .replace('${WINDOW_START}','s').replace('${WINDOW_END}','e')
+                      .replace('${MYSQL_JDBC_URL}','jdbc:x').replace('${HDFS_DEFAULT_FS}','hdfs://x')
+                      .replace('${HIVE_STAGE_PATH}','/w').replace('${TARGET_TABLE}','t')
+                      .replace('${TARGET_PARTITION}','d').replace('${TARGET_COLUMNS}','[]'))
+    reader=parsed['job']['content'][0]['reader']['parameter']
+    assert 'querySql' not in reader and 'querySql' in reader['connection'][0]
     runner=text("datax/run_sync.py")
     assert runner.index('"-mkdir", "-p", location') < runner.index('os.getenv("DATAX_PYTHON"')
     assert '"-fs", vals["HDFS_DEFAULT_FS"]' in runner

@@ -4,8 +4,10 @@
     "content": [{
       "reader": {"name": "mysqlreader", "parameter": {
         "username": "${MYSQL_USER}", "password": "${MYSQL_PASSWORD}",
-        "querySql": ["SELECT ${SOURCE_COLUMN_SQL} FROM ${SOURCE_TABLE} WHERE updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'"],
-        "connection": [{"jdbcUrl": ["${MYSQL_JDBC_URL}"]}]
+        "connection": [{
+          "querySql": ["SELECT ${SOURCE_COLUMN_SQL} FROM ${SOURCE_TABLE} WHERE updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'"],
+          "jdbcUrl": ["${MYSQL_JDBC_URL}"]
+        }]
       }},
       "writer": {"name": "hdfswriter", "parameter": {
         "defaultFS": "${HDFS_DEFAULT_FS}", "fileType": "orc",
