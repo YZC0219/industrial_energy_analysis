@@ -35,6 +35,12 @@ def build_features(energy: pd.DataFrame, production: pd.DataFrame) -> pd.DataFra
     out=out.sort_values(["workshop_code","record_date"]).reset_index(drop=True)
     gaps=(out.groupby("workshop_code")["record_date"].diff().dropna()!=pd.Timedelta(days=1))
     if gaps.any(): raise ValueError("车间日序列存在缺日，不能把行滞后误当作自然日滞后")
+    # 当前数据只有事后实绩，没有生产计划/天气预报/设备遥测快照。
+    # 为保证 T 日预测只依赖 T 日开始前已知信息，动态外生变量统一使用 T-1 日值；
+    # 日型和年度周期是事先可知的日历特征，可以保留 T 日值。
+    dynamic=["output_qty","avg_temperature","low_load_share","shutdown_share","energy_price_index"]
+    for column in dynamic:
+        out[f"{column}_lag_1"]=out.groupby("workshop_code",sort=False)[column].shift(1)
     groups=out.groupby("workshop_code",sort=False)["tce"]
     for lag in (1,7,14): out[f"tce_lag_{lag}"]=groups.shift(lag)
     for window in (7,28): out[f"tce_rolling_mean_{window}"]=groups.transform(lambda s:s.shift(1).rolling(window,min_periods=window).mean())

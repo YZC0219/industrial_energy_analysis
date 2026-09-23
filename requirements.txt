@@ -1,5 +1,7 @@
 pandas>=2.2.0
 numpy>=1.26.0
+scikit-learn>=1.6.0
+lightgbm>=4.5.0
 PyMySQL>=1.1.0
 cryptography>=42.0.0
 

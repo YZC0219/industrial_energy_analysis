@@ -114,12 +114,12 @@ jobs:
       - name: Build and verify forecasting artifacts
         run: |
           python -m ml.feature_pipeline
-          python -m ml.rolling_validation
+          python -m ml.model_benchmark
           python tools/verify_ml_artifacts.py \
             --energy output/clean_energy.csv \
             --production output/clean_production.csv \
             --features output/ml_features.csv \
-            --predictions output/ml_seasonal_predictions.csv \
+            --predictions output/ml_model_predictions.csv \
             --metrics output/ml_model_metrics.json
           python -m pytest tests/test_ml_pipeline.py -q
 
@@ -129,7 +129,7 @@ jobs:
           name: forecasting-evidence-${{ github.sha }}
           path: |
             output/ml_features.csv
-            output/ml_seasonal_predictions.csv
+            output/ml_model_predictions.csv
             output/ml_model_metrics.json
           if-no-files-found: error
           retention-days: 30

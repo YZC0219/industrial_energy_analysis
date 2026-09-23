@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from ml.feature_pipeline import build_features
 from ml.rolling_validation import evaluate_seasonal_naive
+from ml.model_benchmark import evaluate_lightgbm, evaluate_models
 
 def sample(days=400):
     dates=pd.date_range("2024-01-01",periods=days)
@@ -15,6 +16,9 @@ def test_target_history_features_are_shifted_without_same_day_leakage():
     energy,production=sample(40); f=build_features(energy,production)
     assert pd.isna(f.loc[0,"tce_lag_1"])
     assert f.loc[1,"tce_lag_1"]==f.loc[0,"tce"]
+    assert pd.isna(f.loc[0,"output_qty_lag_1"])
+    assert f.loc[1,"output_qty_lag_1"]==f.loc[0,"output_qty"]
+    assert f.loc[1,"avg_temperature_lag_1"]==f.loc[0,"avg_temperature"]
     assert f.loc[7,"tce_rolling_mean_7"]==pytest.approx(f.loc[:6,"tce"].mean())
 
 def test_rolling_validation_is_chronological_and_reports_metrics():
@@ -52,3 +56,21 @@ def test_lead_time_label_contract_excludes_detector_outputs_as_ground_truth():
     schema=json.loads((Path(__file__).resolve().parents[1]/"ml/schemas/incident_label.schema.json").read_text(encoding="utf-8"))
     allowed=set(schema["properties"]["source_type"]["enum"])
     assert allowed=={"maintenance_log","operator_confirmed","simulation_ground_truth"}
+
+
+def test_lightgbm_uses_same_chronological_folds_as_seasonal_baseline():
+    energy,production=sample(); features=build_features(energy,production)
+    seasonal,_=evaluate_seasonal_naive(features)
+    tree,metrics=evaluate_lightgbm(features)
+    keys=["fold","record_date","workshop_code","train_end"]
+    pd.testing.assert_frame_equal(seasonal[keys].reset_index(drop=True),tree[keys].reset_index(drop=True))
+    assert metrics["model"]=="lightgbm" and metrics["samples"]==len(tree)
+    assert (tree["train_end"]<tree["record_date"]).all()
+
+
+def test_model_benchmark_reports_both_models_without_claiming_lead_time():
+    energy,production=sample(); predictions,report=evaluate_models(build_features(energy,production))
+    assert set(predictions["model"])=={"seasonal_naive_7d","lightgbm"}
+    assert {item["model"] for item in report["models"]}=={"seasonal_naive_7d","lightgbm"}
+    assert all(item["alert_lead_time_days"] is None for item in report["models"])
+    assert report["split_contract"]["calendar_days"] is True

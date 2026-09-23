@@ -248,15 +248,15 @@ with DAG(
     )
     run_validation = project_task(
         "run_validation",
-        "-m ml.rolling_validation --features output/ml_features.csv "
-        "--predictions output/ml_seasonal_predictions.csv --metrics output/ml_model_metrics.json",
-        "使用连续自然日的滚动折运行 7 日季节性基线，并输出可复算预测明细和指标。",
+        "-m ml.model_benchmark --features output/ml_features.csv "
+        "--predictions output/ml_model_predictions.csv --metrics output/ml_model_metrics.json",
+        "使用同一连续自然日滚动折运行季节基线与 LightGBM，并输出可复算预测明细和指标。",
     )
     verify_ml_artifacts = project_task(
         "verify_ml_artifacts",
         "tools/verify_ml_artifacts.py --energy output/clean_batch_energy.csv "
         "--production output/clean_batch_production.csv "
-        "--features output/ml_features.csv --predictions output/ml_seasonal_predictions.csv "
+        "--features output/ml_features.csv --predictions output/ml_model_predictions.csv "
         "--metrics output/ml_model_metrics.json",
         "验证特征键与当前清洗批次一致，且 MAE/RMSE 可由预测明细复算。",
     )
