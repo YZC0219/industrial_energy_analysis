@@ -9,12 +9,14 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("sql_file")
     p.add_argument("--biz-date", required=True)
+    p.add_argument("--load-mode", choices=("incremental", "full"), default="incremental")
     p.add_argument("--metrics", default="output/spark_performance.jsonl")
     args = p.parse_args()
     sql_path = ROOT / args.sql_file
     year_month = args.biz_date[:7]
     cmd = [os.getenv("SPARK_SQL", "spark-sql"), "--hiveconf", f"biz_date={args.biz_date}",
-           "--hiveconf", f"year_month={year_month}", "-f", str(sql_path)]
+           "--hiveconf", f"year_month={year_month}", "--hiveconf", f"load_mode={args.load_mode}",
+           "-f", str(sql_path)]
     started = time.perf_counter()
     proc = subprocess.run(cmd, check=False)
     elapsed = time.perf_counter() - started

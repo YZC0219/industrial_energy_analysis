@@ -78,6 +78,7 @@ jobs:
         run: |
           python src/generate_data.py
           python src/clean_data.py
+          python src/clean_data.py --batch-all
           python src/import_mysql.py --init --full --run-analysis
         # 这里的两条命令都必须讲究, 且是**两种不同的错法** ——
         #

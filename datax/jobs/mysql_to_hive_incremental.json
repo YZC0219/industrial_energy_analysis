@@ -4,7 +4,7 @@
     "content": [{
       "reader": {"name": "mysqlreader", "parameter": {
         "username": "${MYSQL_USER}", "password": "${MYSQL_PASSWORD}",
-        "querySql": ["SELECT * FROM ${SOURCE_TABLE} WHERE updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'"],
+        "querySql": ["SELECT ${SOURCE_COLUMN_SQL} FROM ${SOURCE_TABLE} WHERE updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'"],
         "connection": [{"jdbcUrl": ["${MYSQL_JDBC_URL}"]}]
       }},
       "writer": {"name": "hdfswriter", "parameter": {

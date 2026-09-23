@@ -13,12 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 TABLES = {
     "fact_energy_consumption": ("ods_energy_consumption", "incremental", [
         ("id","bigint"),("record_date","date"),("workshop_code","string"),("energy_code","string"),
-        ("consumption","double"),("unit","string"),("unit_price","double"),("cost","double"),
-        ("record_status","string"),("avg_temperature","double"),("data_source","string"),
+        ("consumption","decimal(16,3)"),("unit","string"),("unit_price","decimal(12,4)"),("cost","decimal(16,2)"),
+        ("record_status","string"),("avg_temperature","decimal(6,2)"),("data_source","string"),
         ("is_production_day","tinyint"),("updated_at","timestamp")]),
-    "fact_production": ("ods_production", "full", [("record_date","date"),("workshop_code","string"),("output_qty","double"),("output_unit","string")]),
-    "dim_workshop": ("ods_workshop", "full", [("workshop_code","string"),("workshop_name","string"),("process_type","string"),("is_continuous","tinyint"),("output_unit","string"),("area_m2","double"),("manager","string")]),
-    "dim_energy_type": ("ods_energy_type", "full", [("energy_code","string"),("energy_name","string"),("unit","string"),("std_coal_factor","double"),("co2_factor","double"),("reference_price","double")]),
+    "fact_production": ("ods_production", "full", [("record_date","date"),("workshop_code","string"),("output_qty","decimal(16,3)"),("output_unit","string")]),
+    "dim_workshop": ("ods_workshop", "full", [("workshop_code","string"),("workshop_name","string"),("process_type","string"),("is_continuous","tinyint"),("output_unit","string"),("area_m2","decimal(10,1)"),("manager","string")]),
+    "dim_energy_type": ("ods_energy_type", "full", [("energy_code","string"),("energy_name","string"),("unit","string"),("std_coal_factor","decimal(10,4)"),("co2_factor","decimal(10,4)"),("reference_price","decimal(10,4)")]),
     "dim_calendar": ("ods_calendar", "full", [("calendar_date","date"),("year","smallint"),("quarter","tinyint"),("month","tinyint"),("year_month","string"),("day_of_week","tinyint"),("weekday_name","string"),("is_weekend","tinyint"),("holiday_name","string"),("is_holiday","tinyint")]),
 }
 
@@ -59,6 +59,8 @@ def main() -> None:
         "WINDOW_START": args.window_start or "1970-01-01 00:00:00",
         "WINDOW_END": args.window_end or "2999-12-31 00:00:00",
         "TARGET_COLUMNS": json.dumps([{"name": n, "type": t} for n, t in columns]),
+        "SOURCE_COLUMNS": json.dumps([n for n, _ in columns]),
+        "SOURCE_COLUMN_SQL": ",".join(n for n, _ in columns),
     }
     template = ROOT / "datax" / "jobs" / f"mysql_to_hive_{mode}.json"
     payload = render(template.read_text(encoding="utf-8"), vals)
@@ -73,8 +75,7 @@ def main() -> None:
         partition = vals["TARGET_PARTITION"]
         location = f"{vals['HIVE_STAGE_PATH']}/{target}/dt={partition}"
         subprocess.run([os.getenv("SPARK_SQL", "spark-sql"), "-e",
-                        f"ALTER TABLE {table} DROP IF EXISTS PARTITION(dt='{partition}'); "
-                        f"ALTER TABLE {table} ADD PARTITION(dt='{partition}') LOCATION '{location}'"], check=True)
+                        f"ALTER TABLE {table} RECOVER PARTITIONS"], check=True)
     finally:
         Path(job_path).unlink(missing_ok=True)
 

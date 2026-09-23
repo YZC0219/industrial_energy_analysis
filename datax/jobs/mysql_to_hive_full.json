@@ -4,7 +4,7 @@
     "content": [{
       "reader": {"name": "mysqlreader", "parameter": {
         "username": "${MYSQL_USER}", "password": "${MYSQL_PASSWORD}",
-        "column": ["*"],
+        "column": ${SOURCE_COLUMNS},
         "connection": [{"table": ["${SOURCE_TABLE}"], "jdbcUrl": ["${MYSQL_JDBC_URL}"]}]
       }},
       "writer": {"name": "hdfswriter", "parameter": {

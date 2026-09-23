@@ -1,4 +1,4 @@
--- ODS 保留 MySQL 源字段，不改业务含义；按同步业务日期分区。
+-- ODS 保留 MySQL 源字段，不改业务含义；事实按同步批次分区，快照维表用 current。
 CREATE EXTERNAL TABLE IF NOT EXISTS energy_ods.ods_energy_consumption (
   id BIGINT, record_date DATE, workshop_code STRING, energy_code STRING,
   consumption DECIMAL(16,3), unit STRING, unit_price DECIMAL(12,4),

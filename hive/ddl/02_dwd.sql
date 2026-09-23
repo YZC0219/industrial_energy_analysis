@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS energy_dwd.dwd_energy_consumption_merge_stage (
   is_holiday TINYINT, year_month STRING, std_coal_kgce DECIMAL(20,3),
   co2_kg DECIMAL(20,3), source_updated_at TIMESTAMP, etl_time TIMESTAMP,
   target_dt STRING
-) PARTITIONED BY (run_dt STRING) STORED AS PARQUET;
+) PARTITIONED BY (run_dt STRING, batch_id STRING) STORED AS PARQUET;
 
 -- 粒度/逻辑主键：record_date × workshop_code。
 CREATE TABLE IF NOT EXISTS energy_dwd.dwd_production_detail (

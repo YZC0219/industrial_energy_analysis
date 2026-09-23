@@ -275,27 +275,27 @@ with DAG(
     )
     build_dwd = lakehouse_task(
         "build_dwd",
-        "python spark/run_sql.py spark/sql/10_dwd_energy.sql --biz-date {{ ds }}",
+        "python spark/run_sql.py spark/sql/10_dwd_energy.sql --biz-date {{ ds }} --load-mode incremental",
         "Spark SQL 去重、校验并关联维度，生成车间×日×能源明细。",
     )
     quality_dwd = lakehouse_task(
         "quality_dwd",
-        "python tools/check_hive_quality.py --stage dwd --biz-date {{ ds }}",
+        "python tools/check_hive_quality.py --stage dwd --biz-date {{ ds }} --load-mode incremental",
         "检查批次键覆盖、业务主键唯一、必填字段和非负值；合法空批次可通过。",
     )
     build_dws = lakehouse_task(
         "build_dws",
-        "python spark/run_sql.py spark/sql/20_dws.sql --biz-date {{ ds }}",
+        "python spark/run_sql.py spark/sql/20_dws.sql --biz-date {{ ds }} --load-mode incremental",
         "生成车间日/月主题汇总；动态覆盖目标分区使补数幂等。",
     )
     quality_dws = lakehouse_task(
         "quality_dws",
-        "python tools/check_hive_quality.py --stage dws --biz-date {{ ds }}",
+        "python tools/check_hive_quality.py --stage dws --biz-date {{ ds }} --load-mode incremental",
         "以 DWD 折标煤汇总与 DWS tce 的守恒关系作为发布门禁。",
     )
     build_ads = lakehouse_task(
         "build_ads",
-        "python spark/run_sql.py spark/sql/30_ads.sql --biz-date {{ ds }}",
+        "python spark/run_sql.py spark/sql/30_ads.sql --biz-date {{ ds }} --load-mode incremental",
         "生成全厂日看板应用表。",
     )
 

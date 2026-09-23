@@ -29,34 +29,60 @@ def test_datax_schema_preserves_timestamp_and_increment_is_half_open():
     _,mode,columns=mod.TABLES["fact_energy_consumption"]
     assert mode=="incremental"
     assert dict(columns)["updated_at"]=="timestamp"
+    assert dict(columns)["consumption"]=="decimal(16,3)"
     job=text("datax/jobs/mysql_to_hive_incremental.json")
     assert "updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'" in job
     assert '"password": "${MYSQL_PASSWORD}"' in job
 
 def test_late_correction_is_merged_into_business_date_partition():
     dwd=text("spark/sql/10_dwd_energy.sql")
-    assert "WHERE f.dt='${biz_date}'" in dwd                 # 读取同步批次
+    assert "OR f.dt='${biz_date}'" in dwd                    # 增量读同步批次，全量读完整 ODS
+    assert "batch_id='${biz_date}'" in dwd
     assert "f.record_date='${biz_date}'" not in dwd         # 不丢历史业务日期
     assert "JOIN impacted i ON d.record_date=i.record_date" in dwd
     assert "UNION ALL" in dwd                               # 旧快照 + 新版本
     assert "ORDER BY source_updated_at DESC,source_priority DESC" in dwd
+    cleanup="DROP IF EXISTS PARTITION (run_dt='${biz_date}',batch_id='${biz_date}')"
+    assert cleanup in dwd
+    assert dwd.index(cleanup) < dwd.index("WITH incoming AS") < dwd.index("INSERT OVERWRITE TABLE")
+    assert "FROM (\nWITH incoming AS" not in dwd             # Hive 不支持子查询块内 WITH
     assert "PARTITION (dt)" in dwd and "target_dt" in dwd  # 动态覆盖业务分区
     for path in ("spark/sql/20_dws.sql","spark/sql/30_ads.sql"):
         sql=text(path)
         assert "dwd_energy_consumption_merge_stage" in sql  # 受影响日期继续向下传播
         assert "PARTITION(dt)" in sql
-        assert "WHERE run_dt='${biz_date}'" in sql
+        assert "WHERE batch_id='${biz_date}'" in sql
 
 def test_each_fact_transform_is_overwrite_and_partition_pruned():
     dwd=text("spark/sql/10_dwd_energy.sql")
     assert dwd.count("INSERT OVERWRITE TABLE") == 3
-    assert "WHERE run_dt='${biz_date}'" in dwd
+    assert "batch_id='${biz_date}'" in dwd
     dws=text("spark/sql/20_dws.sql")
     assert dws.count("INSERT OVERWRITE TABLE") == 2
     assert "PARTITION(year_month)" in dws
+    assert "FROM energy_dws.dws_workshop_energy_day d" in dws
+    assert "GROUP BY d.year_month,d.workshop_code" in dws
+    assert "WHERE '${load_mode}'='full'" in dws
     ads=text("spark/sql/30_ads.sql")
     assert ads.count("INSERT OVERWRITE TABLE") == 1
-    assert "JOIN (SELECT DISTINCT target_dt" in ads
+    impacted=r"d\.dt\s+IN\s*\(\s*SELECT\s+DISTINCT\s+target_dt\s+FROM\s+energy_dwd\.dwd_energy_consumption_merge_stage\s+WHERE\s+batch_id='\$\{biz_date\}'\s*\)"
+    assert re.search(impacted,ads,re.I)
+    assert "GROUP BY d.record_date" in ads
+    assert ads.count("FROM energy_dws.dws_workshop_energy_day d") == 1
+    assert "WHERE '${load_mode}'='full'" in ads
+
+def test_full_load_reads_all_ods_batches_but_tracks_this_run():
+    dwd=text("spark/sql/10_dwd_energy.sql")
+    assert "('${load_mode}'='full' OR f.dt='${biz_date}')" in dwd
+    assert "cast('${biz_date}' AS string) batch_id" in dwd
+    assert "WHERE batch_id='${biz_date}'" in dwd
+    assert "PARTITION (run_dt,batch_id)" in dwd
+    runner=text("spark/run_sql.py")
+    assert "--load-mode" in runner
+    quality=text("tools/check_hive_quality.py")
+    assert "SELECT DISTINCT record_date,workshop_code,energy_code" in quality
+    assert "production_unique" in quality
+    assert "dws_partition_coverage" in quality
 
 def test_datax_templates_render_to_valid_json():
     mod=load_module("datax_render", "datax/run_sync.py")
@@ -64,6 +90,7 @@ def test_datax_templates_render_to_valid_json():
             "HDFS_DEFAULT_FS":"hdfs://x","HIVE_STAGE_PATH":"/w","SOURCE_TABLE":"t",
             "TARGET_TABLE":"t","BIZ_DATE":"2025-01-01","TARGET_PARTITION":"2025-01-01","WINDOW_START":"2025-01-01 00:00:00",
             "WINDOW_END":"2025-01-02 00:00:00","TARGET_COLUMNS":"[]"}
+    common["SOURCE_COLUMNS"]="[]"; common["SOURCE_COLUMN_SQL"]="id"
     for name in ("full","incremental"):
         rendered=mod.render(text(f"datax/jobs/mysql_to_hive_{name}.json"),common)
         assert json.loads(rendered)["job"]["content"]
