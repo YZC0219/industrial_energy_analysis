@@ -45,7 +45,14 @@ tools/_shot_*.png
 # data/ 是原始数据的规范位置, 将来若有手工维护的映射表、字典之类的
 # 输入文件, 仍然应该提交进来 —— 不要图省事写成 `data/`。
 data/raw_energy_data.csv
-output/
+# 大部分 output/ 仍是可重建产物；阶段一真集群验收证据例外，随代码版本留存。
+output/*
+!output/spark_performance.jsonl
+!output/engine_comparison.json
+!output/lakehouse_validation.json
+!output/pandas_daily.csv
+!output/mysql_daily.csv
+!output/spark_daily.csv
 
 # 临时调试产物(非项目文件)
 _runs.json

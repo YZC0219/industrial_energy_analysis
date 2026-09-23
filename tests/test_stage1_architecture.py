@@ -1,5 +1,6 @@
 """阶段一离线契约测试：解析配置并实际执行 DAG 定义，不要求 Hadoop/Airflow。"""
 from __future__ import annotations
+import csv
 from pathlib import Path
 import importlib.util
 import json
@@ -164,3 +165,32 @@ def test_full_snapshots_use_one_stable_partition():
     assert 'args.biz_date if args.table == "fact_energy_consumption" else "current"' in runner
     dwd=text("spark/sql/10_dwd_energy.sql")
     assert dwd.count("dt='current'") == 5
+
+
+def test_checked_in_cluster_evidence_is_internally_consistent():
+    comparison=json.loads(text("output/engine_comparison.json"))
+    assert comparison["rows"] == {"pandas":5848,"mysql":5848,"spark":5848}
+    assert all(item["key_equal"] and item["passed"]
+               for item in comparison["comparisons"].values())
+    assert max(max(item["max_abs_diff"].values())
+               for item in comparison["comparisons"].values()) <= comparison["atol"]
+
+    for name in ("pandas_daily.csv","mysql_daily.csv","spark_daily.csv"):
+        with (ROOT/"output"/name).open(encoding="utf-8",newline="") as handle:
+            rows=list(csv.DictReader(handle))
+        assert len(rows)==5848
+        assert set(rows[0]) == {"record_date","workshop_code","tce","co2_t","cost_yuan","unit_energy_kgce"}
+
+    validation=json.loads(text("output/lakehouse_validation.json"))
+    late=validation["late_correction"]
+    assert late["before"]["dwd_consumption"] != late["corrected"]["dwd_consumption"]
+    assert late["restored"]["dwd_consumption"] == late["before"]["dwd_consumption"]
+    assert late["restored"]["dws_tce"] == late["before"]["dws_tce"]
+    assert late["restored"]["ads_tce"] == late["before"]["ads_tce"]
+    assert late["quality_gates_passed_after_correction"]
+    assert late["quality_gates_passed_after_restore"]
+
+    performance=[json.loads(line) for line in text("output/spark_performance.jsonl").splitlines()]
+    successful_full={row["job"] for row in performance
+                     if row["biz_date"]=="2025-12-31" and row["exit_code"]==0}
+    assert successful_full == {"spark/sql/10_dwd_energy.sql","spark/sql/20_dws.sql","spark/sql/30_ads.sql"}

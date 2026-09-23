@@ -66,7 +66,7 @@ CUSUM 出现不合理的负向信号后，我沿数据链路回查，定位到�
 
 项目已增加可选的大数据旁路：DataX 将 MySQL 同步到 Hive ODS，Spark SQL 依次构建 DWD、DWS、ADS；Airflow 负责分层依赖、两级质量门禁、Webhook 失败告警与按同步窗口补数。原 pandas/MySQL 链路继续保留为结果基线。
 
-阶段一已经完成代码与离线契约验收，真实集群性能验收仍待部署环境执行：
+阶段一已经完成代码、离线契约与真实单节点集群验收：
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
@@ -75,7 +75,7 @@ CUSUM 出现不合理的负向信号后，我沿数据链路回查，定位到�
 | DataX 全量/增量 | 已完成 | 首次全量、日常 `updated_at` 半开窗口、稳定维表快照 |
 | Airflow 编排 | 已完成 | 分层依赖、质量门禁、告警、幂等补数 |
 | 离线回归 | 已完成 | 阶段一契约与原 pandas/MySQL 回归全绿 |
-| 真集群基准 | 待执行 | 不伪造 `spark_performance.jsonl` 和三引擎对比结果 |
+| 真集群基准 | 已完成 | Ubuntu 单节点真实运行；性能、三引擎结果与迟到修正证据均已入库 |
 
 完整表粒度、逻辑主键、血缘、初始化和失败重跑方法见 [阶段一实施说明](docs/阶段一_分层数仓与分布式计算.md)。未配置 Hadoop 环境时旁路默认关闭，设置 `LAKEHOUSE_ENABLED=1` 才会执行。
 
@@ -85,7 +85,7 @@ CUSUM 出现不合理的负向信号后，我沿数据链路回查，定位到�
 
 当前 731 天本地数据的可复现实验结果为：`2,928` 条滚动预测，MAE `0.7513 tce`、RMSE `1.3144 tce`。对应的 `ml_features.csv`、预测明细和 `ml_model_metrics.json` 由 Airflow 每夜重建，CI 会复算指标并上传 30 天留存的 `forecasting-evidence-<commit>` 工件。告警提前量当前明确为 N/A，因为仓库尚无经维护记录或人工确认的真实事件标签。
 
-证据状态必须分开理解：阶段二季节性基线已在本地数据和 CI 路径运行；阶段一 Spark 真集群尚未运行，因此 `spark_performance.jsonl`、`engine_comparison.json` 和三引擎日表仍不存在。README 不以阶段二指标替代阶段一集群证据。
+阶段一证据来自 Ubuntu VM（2 vCPU、8 GB、Spark 3.5.1、Hive 3.1.3、Hadoop 单节点）：19,006 条能耗事实覆盖 731 天，构建出 5,848 条车间日汇总和 731 个全厂日分区。首次全量 DWD/DWS/ADS 墙钟时间分别为 353.690、206.166、160.278 秒；pandas、MySQL、Spark 各导出 5,848 行，四项指标在绝对误差 `0.01` 内全部一致。另以 2024-03-15 的记录执行 2026-09-23 迟到修正，DWD、DWS、ADS 均联动更新，恢复源值后再次回归原结果。原始证据见 `output/spark_performance.jsonl`、`output/engine_comparison.json`、`output/lakehouse_validation.json` 与三份日粒度 CSV。当前结论只代表 1× 单节点基线，不冒充尚未进行的 10×/100×扩容实验。
 
 ### 阶段三：数据质量与实时管道（预研）
 

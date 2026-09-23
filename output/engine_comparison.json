@@ -1,0 +1,31 @@
+{
+  "rows": {
+    "pandas": 5848,
+    "mysql": 5848,
+    "spark": 5848
+  },
+  "comparisons": {
+    "mysql": {
+      "key_equal": true,
+      "max_abs_diff": {
+        "tce": 1.814799999166894e-06,
+        "co2_t": 1.5435999998203442e-06,
+        "cost_yuan": 1.4551915228366852e-11,
+        "unit_energy_kgce": 8.590665822794108e-05
+      },
+      "passed": true
+    },
+    "spark": {
+      "key_equal": true,
+      "max_abs_diff": {
+        "tce": 5.133159999815007e-05,
+        "co2_t": 0.0005010992000009651,
+        "cost_yuan": 1.4551915228366852e-11,
+        "unit_energy_kgce": 6.062410048812694e-05
+      },
+      "passed": true
+    }
+  },
+  "atol": 0.01,
+  "comparison_seconds": 0.0476
+}

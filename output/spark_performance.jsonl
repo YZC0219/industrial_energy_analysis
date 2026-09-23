@@ -1,0 +1,11 @@
+{"engine": "spark_sql", "job": "spark/sql/10_dwd_energy.sql", "biz_date": "2025-12-31", "elapsed_seconds": 353.69, "exit_code": 0}
+{"engine": "spark_sql", "job": "spark/sql/20_dws.sql", "biz_date": "2025-12-31", "elapsed_seconds": 206.166, "exit_code": 0}
+{"engine": "spark_sql", "job": "spark/sql/30_ads.sql", "biz_date": "2025-12-31", "elapsed_seconds": 160.278, "exit_code": 0}
+{"engine": "spark_sql", "job": "spark/sql/10_dwd_energy.sql", "biz_date": "2026-09-23", "elapsed_seconds": 1311.273, "exit_code": 143}
+{"engine": "spark_sql", "job": "spark/sql/10_dwd_energy.sql", "biz_date": "2026-09-23", "elapsed_seconds": 519.711, "exit_code": 143}
+{"engine": "spark_sql", "job": "spark/sql/10_dwd_energy.sql", "biz_date": "2026-09-23", "elapsed_seconds": 85.831, "exit_code": 0}
+{"engine": "spark_sql", "job": "spark/sql/20_dws.sql", "biz_date": "2026-09-23", "elapsed_seconds": 54.348, "exit_code": 0}
+{"engine": "spark_sql", "job": "spark/sql/30_ads.sql", "biz_date": "2026-09-23", "elapsed_seconds": 31.706, "exit_code": 0}
+{"engine": "spark_sql", "job": "spark/sql/10_dwd_energy.sql", "biz_date": "2026-09-23", "elapsed_seconds": 87.432, "exit_code": 0}
+{"engine": "spark_sql", "job": "spark/sql/20_dws.sql", "biz_date": "2026-09-23", "elapsed_seconds": 56.249, "exit_code": 0}
+{"engine": "spark_sql", "job": "spark/sql/30_ads.sql", "biz_date": "2026-09-23", "elapsed_seconds": 31.061, "exit_code": 0}

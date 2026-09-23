@@ -1,0 +1,65 @@
+{
+  "validated_at": "2026-09-23T19:28:00+08:00",
+  "environment": {
+    "platform": "Ubuntu VMware single node",
+    "cpu": "2 vCPU",
+    "memory_gb": 8,
+    "spark": "3.5.1",
+    "hive": "3.1.3",
+    "hdfs": "single-node"
+  },
+  "full_load": {
+    "energy_ods_rows": 19006,
+    "energy_dwd_rows": 19006,
+    "production_dwd_rows": 5848,
+    "workshop_day_rows": 5848,
+    "workshop_month_rows": 192,
+    "factory_day_rows": 731,
+    "quality_gates_passed": [
+      "dwd_batch_covered",
+      "dwd_batch_nonempty",
+      "dwd_unique",
+      "dwd_required",
+      "production_unique",
+      "dws_reconcile",
+      "dws_partition_coverage"
+    ]
+  },
+  "late_correction": {
+    "source_id": 1071,
+    "record_date": "2024-03-15",
+    "sync_date": "2026-09-23",
+    "workshop_code": "W02",
+    "energy_code": "E02",
+    "before": {
+      "dwd_consumption": 7227.234,
+      "dwd_cost": 24683.45,
+      "dws_tce": 18.9287,
+      "dws_cost": 62622.87,
+      "ads_tce": 96.2502,
+      "ads_cost": 318785.12
+    },
+    "corrected": {
+      "dwd_consumption": 7237.234,
+      "dwd_cost": 24717.60,
+      "dwd_source_updated_at": "2026-09-23 12:00:00",
+      "dws_tce": 18.9420,
+      "dws_cost": 62657.02,
+      "ads_tce": 96.2635,
+      "ads_cost": 318819.27
+    },
+    "restored": {
+      "dwd_consumption": 7227.234,
+      "dwd_cost": 24683.45,
+      "dwd_source_updated_at": "2026-09-23 12:05:00",
+      "dws_tce": 18.9287,
+      "dws_cost": 62622.87,
+      "ads_tce": 96.2502,
+      "ads_cost": 318785.12
+    },
+    "quality_gates_passed_after_correction": true,
+    "quality_gates_passed_after_restore": true
+  },
+  "engine_comparison_passed": true,
+  "scope": "1x single-node baseline; 10x/100x scale curves not claimed"
+}
