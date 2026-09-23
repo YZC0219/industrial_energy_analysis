@@ -67,13 +67,16 @@ def main() -> None:
     if args.dry_run:
         print(json.dumps(json.loads(payload), ensure_ascii=False, indent=2).replace(vals["MYSQL_PASSWORD"], "***"))
         return
+    table = f"energy_ods.{target}"
+    partition = vals["TARGET_PARTITION"]
+    location = f"{vals['HIVE_STAGE_PATH']}/{target}/dt={partition}"
     with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as f:
         f.write(payload); job_path = f.name
     try:
+        # DataX HDFS Writer requires the target directory to exist before prepare().
+        subprocess.run([os.getenv("HDFS_BIN", "hdfs"), "dfs", "-fs", vals["HDFS_DEFAULT_FS"],
+                        "-mkdir", "-p", location], check=True, cwd=ROOT)
         subprocess.run([os.getenv("DATAX_PYTHON", "python"), os.getenv("DATAX_ENTRY", "/opt/datax/bin/datax.py"), job_path], check=True)
-        table = f"energy_ods.{target}"
-        partition = vals["TARGET_PARTITION"]
-        location = f"{vals['HIVE_STAGE_PATH']}/{target}/dt={partition}"
         subprocess.run([os.getenv("SPARK_SQL", "spark-sql"), "-e",
                         f"ALTER TABLE {table} RECOVER PARTITIONS"], check=True, cwd=ROOT)
     finally:
