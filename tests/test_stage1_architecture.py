@@ -101,7 +101,9 @@ def test_datax_templates_render_to_valid_json():
         rendered=mod.render(text(f"datax/jobs/mysql_to_hive_{name}.json"),common)
         config=json.loads(rendered)
         assert config["job"]["content"]
-        assert config["job"]["content"][0]["writer"]["parameter"]["fileType"]=="orc"
+        writer=config["job"]["content"][0]["writer"]["parameter"]
+        assert writer["fileType"]=="orc"
+        assert len(writer["fieldDelimiter"])==1
 
 def test_airflow_dependency_graph_is_complete(monkeypatch):
     registry={}

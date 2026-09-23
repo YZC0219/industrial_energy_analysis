@@ -11,7 +11,7 @@
         "defaultFS": "${HDFS_DEFAULT_FS}", "fileType": "orc",
         "path": "${HIVE_STAGE_PATH}/${TARGET_TABLE}/dt=${TARGET_PARTITION}",
         "fileName": "part", "writeMode": "truncate",
-        "fieldDelimiter": "\\u0001", "column": ${TARGET_COLUMNS}
+        "fieldDelimiter": "\u0001", "column": ${TARGET_COLUMNS}
       }}
     }]
   }
