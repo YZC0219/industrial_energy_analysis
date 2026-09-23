@@ -1,6 +1,9 @@
 """Fail-fast DWD/DWS quality gate. Queries are intentionally small and partition-pruned."""
 from __future__ import annotations
-import argparse, subprocess
+import argparse, os, subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
 
 CHECKS = {
  "dwd_batch_covered": "SELECT count(*)=0 FROM (SELECT DISTINCT record_date,workshop_code,energy_code FROM energy_ods.ods_energy_consumption WHERE ('{mode}'='full' OR dt='{d}')) o WHERE NOT EXISTS (SELECT 1 FROM energy_dwd.dwd_energy_consumption_merge_stage s WHERE s.batch_id='{d}' AND s.record_date=o.record_date AND s.workshop_code=o.workshop_code AND s.energy_code=o.energy_code)",
@@ -18,7 +21,7 @@ def main():
  selected={k:v for k,v in CHECKS.items() if (a.stage=='dws') == (k.startswith('dws_')) or (a.stage=='dwd' and k=='production_unique')}
  if a.load_mode=='incremental': selected.pop('dwd_batch_nonempty',None)
  for name,query in selected.items():
-  r=subprocess.run(['spark-sql','--silent','-e',query.format(d=a.biz_date,mode=a.load_mode)],capture_output=True,text=True)
+  r=subprocess.run([os.getenv('SPARK_SQL','spark-sql'),'--silent','-e',query.format(d=a.biz_date,mode=a.load_mode)],capture_output=True,text=True,cwd=ROOT)
   values=[x.strip().lower() for x in r.stdout.splitlines() if x.strip().lower() in {'true','false'}]
   ok=r.returncode==0 and values and values[-1]=='true'
   print(f"QUALITY {name}={'PASS' if ok else 'FAIL'}")

@@ -3,9 +3,12 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
 
 def run(*args: str) -> None:
-    subprocess.run([sys.executable, *args], check=True)
+    subprocess.run([sys.executable, *args], check=True, cwd=ROOT)
 
 def main() -> None:
     p=argparse.ArgumentParser()

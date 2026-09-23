@@ -22,6 +22,7 @@ def test_all_four_layers_have_declared_grain_and_partitions():
         pattern=rf"CREATE\s+(?:EXTERNAL\s+)?TABLE\s+IF\s+NOT\s+EXISTS\s+{re.escape(db)}\."
         assert len(re.findall(pattern,ddl,re.I))==count
     assert ddl.count("PARTITIONED BY") == sum(expected.values())
+    assert ddl.count("LOCATION '/warehouse/") == sum(expected.values())
     assert "source_updated_at TIMESTAMP" in ddl
     ods=text("hive/ddl/01_ods.sql")
     assert ods.count("CREATE EXTERNAL TABLE") == ods.count("LOCATION '/warehouse/energy_ods/") == 5
@@ -81,7 +82,9 @@ def test_full_load_reads_all_ods_batches_but_tracks_this_run():
     assert "PARTITION (run_dt,batch_id)" in dwd
     runner=text("spark/run_sql.py")
     assert "--load-mode" in runner
+    assert "cwd=ROOT" in runner
     quality=text("tools/check_hive_quality.py")
+    assert "cwd=ROOT" in quality
     assert "SELECT DISTINCT record_date,workshop_code,energy_code" in quality
     assert "production_unique" in quality
     assert "dws_partition_coverage" in quality

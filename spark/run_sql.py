@@ -18,7 +18,8 @@ def main() -> None:
            "--hiveconf", f"year_month={year_month}", "--hiveconf", f"load_mode={args.load_mode}",
            "-f", str(sql_path)]
     started = time.perf_counter()
-    proc = subprocess.run(cmd, check=False)
+    # Embedded Hive metastore paths may be relative; keep every invocation on one catalog.
+    proc = subprocess.run(cmd, check=False, cwd=ROOT)
     elapsed = time.perf_counter() - started
     out = ROOT / args.metrics; out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("a", encoding="utf-8") as f:

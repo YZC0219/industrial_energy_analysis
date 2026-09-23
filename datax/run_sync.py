@@ -75,7 +75,7 @@ def main() -> None:
         partition = vals["TARGET_PARTITION"]
         location = f"{vals['HIVE_STAGE_PATH']}/{target}/dt={partition}"
         subprocess.run([os.getenv("SPARK_SQL", "spark-sql"), "-e",
-                        f"ALTER TABLE {table} RECOVER PARTITIONS"], check=True)
+                        f"ALTER TABLE {table} RECOVER PARTITIONS"], check=True, cwd=ROOT)
     finally:
         Path(job_path).unlink(missing_ok=True)
 
