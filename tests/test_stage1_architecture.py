@@ -23,6 +23,8 @@ def test_all_four_layers_have_declared_grain_and_partitions():
         assert len(re.findall(pattern,ddl,re.I))==count
     assert ddl.count("PARTITIONED BY") == sum(expected.values())
     assert "source_updated_at TIMESTAMP" in ddl
+    ods=text("hive/ddl/01_ods.sql")
+    assert ods.count("CREATE EXTERNAL TABLE") == ods.count("LOCATION '/warehouse/energy_ods/") == 5
 
 def test_datax_schema_preserves_timestamp_and_increment_is_half_open():
     mod=load_module("datax_run_sync", "datax/run_sync.py")
