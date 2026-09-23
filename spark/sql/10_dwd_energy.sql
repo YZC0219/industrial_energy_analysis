@@ -10,17 +10,22 @@ DROP IF EXISTS PARTITION (run_dt='${biz_date}',batch_id='${biz_date}');
 WITH incoming AS (
   SELECT sha2(concat_ws('|',cast(f.record_date AS string),f.workshop_code,f.energy_code),256) energy_detail_key,
          f.record_date,f.workshop_code,w.workshop_name,w.process_type,
-         f.energy_code,e.energy_name,f.consumption,f.unit,f.unit_price,f.cost,
-         f.record_status,f.avg_temperature,f.is_production_day,c.is_weekend,c.is_holiday,
-         c.year_month,round(f.consumption*e.std_coal_factor,3) std_coal_kgce,
-         round(f.consumption*e.co2_factor,3) co2_kg,f.updated_at source_updated_at,
+         f.energy_code,e.energy_name,cast(f.consumption AS decimal(16,3)) consumption,
+         f.unit,cast(f.unit_price AS decimal(12,4)) unit_price,
+         cast(f.cost AS decimal(16,2)) cost,f.record_status,
+         cast(f.avg_temperature AS decimal(6,2)) avg_temperature,
+         f.is_production_day,c.is_weekend,c.is_holiday,c.year_month,
+         round(cast(f.consumption AS decimal(16,3))*cast(e.std_coal_factor AS decimal(10,4)),3) std_coal_kgce,
+         round(cast(f.consumption AS decimal(16,3))*cast(e.co2_factor AS decimal(10,4)),3) co2_kg,
+         f.updated_at source_updated_at,
          current_timestamp() etl_time
   FROM energy_ods.ods_energy_consumption f
   JOIN energy_ods.ods_workshop w ON f.workshop_code=w.workshop_code AND w.dt='current'
   JOIN energy_ods.ods_energy_type e ON f.energy_code=e.energy_code AND e.dt='current'
   JOIN energy_ods.ods_calendar c ON f.record_date=c.calendar_date AND c.dt='current'
   WHERE ('${load_mode}'='full' OR f.dt='${biz_date}')
-    AND f.consumption>=0 AND f.unit_price>0
+    AND cast(f.consumption AS decimal(16,3))>=0
+    AND cast(f.unit_price AS decimal(12,4))>0
 ),
 impacted AS (SELECT DISTINCT record_date FROM incoming),
 candidates AS (
@@ -65,9 +70,9 @@ WHERE batch_id='${biz_date}';
 INSERT OVERWRITE TABLE energy_dwd.dwd_production_detail PARTITION (dt)
 SELECT sha2(concat_ws('|',cast(p.record_date AS string),p.workshop_code),256),
        p.record_date,p.workshop_code,w.workshop_name,w.process_type,
-       p.output_qty,p.output_unit,current_timestamp(),cast(p.record_date AS string)
+       cast(p.output_qty AS decimal(16,3)),p.output_unit,current_timestamp(),cast(p.record_date AS string)
 FROM energy_ods.ods_production p JOIN energy_ods.ods_workshop w
   ON p.workshop_code=w.workshop_code AND w.dt='current'
 JOIN (SELECT DISTINCT target_dt FROM energy_dwd.dwd_energy_consumption_merge_stage
       WHERE batch_id='${biz_date}') i ON cast(p.record_date AS string)=i.target_dt
-WHERE p.dt='current' AND p.output_qty>=0;
+WHERE p.dt='current' AND cast(p.output_qty AS decimal(16,3))>=0;

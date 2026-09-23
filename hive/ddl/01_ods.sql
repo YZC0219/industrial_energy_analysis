@@ -1,8 +1,8 @@
 -- ODS 保留 MySQL 源字段，不改业务含义；事实按同步批次分区，快照维表用 current。
 CREATE EXTERNAL TABLE IF NOT EXISTS energy_ods.ods_energy_consumption (
   id BIGINT, record_date DATE, workshop_code STRING, energy_code STRING,
-  consumption DECIMAL(16,3), unit STRING, unit_price DECIMAL(12,4),
-  cost DECIMAL(16,2), record_status STRING, avg_temperature DECIMAL(6,2),
+  consumption STRING, unit STRING, unit_price STRING,
+  cost STRING, record_status STRING, avg_temperature STRING,
   data_source STRING, is_production_day TINYINT, updated_at TIMESTAMP
 ) PARTITIONED BY (dt STRING)
 STORED AS ORC
@@ -10,18 +10,18 @@ LOCATION '/warehouse/energy_ods/ods_energy_consumption'
 TBLPROPERTIES ('orc.compress'='SNAPPY');
 
 CREATE EXTERNAL TABLE IF NOT EXISTS energy_ods.ods_production (
-  record_date DATE, workshop_code STRING, output_qty DECIMAL(16,3), output_unit STRING
+  record_date DATE, workshop_code STRING, output_qty STRING, output_unit STRING
 ) PARTITIONED BY (dt STRING) STORED AS ORC
 LOCATION '/warehouse/energy_ods/ods_production';
 CREATE EXTERNAL TABLE IF NOT EXISTS energy_ods.ods_workshop (
   workshop_code STRING, workshop_name STRING, process_type STRING,
-  is_continuous TINYINT, output_unit STRING, area_m2 DECIMAL(10,1), manager STRING
+  is_continuous TINYINT, output_unit STRING, area_m2 STRING, manager STRING
 ) PARTITIONED BY (dt STRING) STORED AS ORC
 LOCATION '/warehouse/energy_ods/ods_workshop';
 
 CREATE EXTERNAL TABLE IF NOT EXISTS energy_ods.ods_energy_type (
   energy_code STRING, energy_name STRING, unit STRING,
-  std_coal_factor DECIMAL(10,4), co2_factor DECIMAL(10,4), reference_price DECIMAL(10,4)
+  std_coal_factor STRING, co2_factor STRING, reference_price STRING
 ) PARTITIONED BY (dt STRING) STORED AS ORC
 LOCATION '/warehouse/energy_ods/ods_energy_type';
 

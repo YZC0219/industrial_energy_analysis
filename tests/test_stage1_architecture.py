@@ -33,13 +33,16 @@ def test_datax_schema_preserves_timestamp_and_increment_is_half_open():
     _,mode,columns=mod.TABLES["fact_energy_consumption"]
     assert mode=="incremental"
     assert dict(columns)["updated_at"]=="timestamp"
-    assert dict(columns)["consumption"]=="decimal(16,3)"
+    assert dict(columns)["consumption"]=="string"          # DataX ORC writer 无 DECIMAL
     job=text("datax/jobs/mysql_to_hive_incremental.json")
     assert "updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'" in job
     assert '"password": "${MYSQL_PASSWORD}"' in job
     runner=text("datax/run_sync.py")
     assert runner.index('"-mkdir", "-p", location') < runner.index('os.getenv("DATAX_PYTHON"')
     assert '"-fs", vals["HDFS_DEFAULT_FS"]' in runner
+    dwd=text("spark/sql/10_dwd_energy.sql")
+    assert "cast(f.consumption AS decimal(16,3))" in dwd
+    assert "cast(f.unit_price AS decimal(12,4))" in dwd
 
 def test_late_correction_is_merged_into_business_date_partition():
     dwd=text("spark/sql/10_dwd_energy.sql")
