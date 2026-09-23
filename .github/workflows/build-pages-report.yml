@@ -121,6 +121,7 @@ jobs:
             --features output/ml_features.csv \
             --predictions output/ml_model_predictions.csv \
             --metrics output/ml_model_metrics.json
+          python -m ml.evaluate_attribution
           python -m pytest tests/test_ml_pipeline.py -q
 
       - name: Upload forecasting evidence
@@ -131,6 +132,7 @@ jobs:
             output/ml_features.csv
             output/ml_model_predictions.csv
             output/ml_model_metrics.json
+            output/attribution_eval.json
           if-no-files-found: error
           retention-days: 30
 

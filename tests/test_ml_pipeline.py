@@ -5,6 +5,7 @@ import pytest
 from ml.feature_pipeline import build_features
 from ml.rolling_validation import evaluate_seasonal_naive
 from ml.model_benchmark import evaluate_lightgbm, evaluate_models
+from ml.attribution_assistant import Evidence, GroundingError, analyze, retrieve, validate_grounding
 
 def sample(days=400):
     dates=pd.date_range("2024-01-01",periods=days)
@@ -74,3 +75,46 @@ def test_model_benchmark_reports_both_models_without_claiming_lead_time():
     assert {item["model"] for item in report["models"]}=={"seasonal_naive_7d","lightgbm"}
     assert all(item["alert_lead_time_days"] is None for item in report["models"])
     assert report["split_contract"]["calendar_days"] is True
+
+
+def test_attribution_refuses_to_invent_root_cause_from_anomaly_signal():
+    evidence=[Evidence("e1","anomaly_evidence","output/Q16.csv","W02|2025-01-01",
+                       {"Z值":"3.2"},"W02 2025-01-01 单耗异常 Z值=3.2")]
+    result,audit=analyze("W02 这天为什么设备故障？",evidence,analysis_id="case-causal")
+    assert result["insufficient_evidence"] is True and result["claims"]==[]
+    assert audit["provider"]=="offline_guarded"
+
+
+def test_attribution_rejects_citation_not_returned_by_retrieval():
+    evidence=[Evidence("e1","sql_result","output/Q13.csv","车间=W04",{"待机浪费_元":"196015.33"},
+                       "W04 待机浪费_元=196015.33")]
+    fabricated={"analysis_id":"x","summary":"x","insufficient_evidence":False,
+                "claims":[{"statement":"x","citations":[{"source_type":"sql_result",
+                "source_path":"output/Q99.csv","record_key":"x","evidence_value":999}]}]}
+    with pytest.raises(GroundingError,match="不在本次检索证据"):
+        validate_grounding(fabricated,evidence)
+
+
+def test_attribution_offline_answer_keeps_exact_source_citation():
+    item=Evidence("e1","sql_result","output/Q13.csv","车间=W04",{"待机浪费_元":"196015.33"},
+                  "W04 停产 待机浪费_元=196015.33")
+    result,_=analyze("W04 停产待机费用",[item],analysis_id="case-grounded")
+    assert result["insufficient_evidence"] is False
+    assert result["claims"][0]["citations"]==[item.citation()]
+
+
+def test_attribution_retrieval_resolves_workshop_code_and_intent():
+    evidence=[
+        Evidence("map","sql_result","output/Q03.csv","车间编码=W04",
+                 {"车间编码":"W04","车间":"机加工车间"},"Q03 车间编码=W04 车间=机加工车间 能源费用"),
+        Evidence("idle","sql_result","output/Q13.csv","车间=机加工车间",
+                 {"车间":"机加工车间","待机浪费_元":"196015.33"},"Q13 车间=机加工车间 停产 待机浪费_元=196015.33"),
+    ]
+    assert retrieve("W04 停产日待机费用",evidence)[0].evidence_id=="idle"
+
+
+def test_attribution_rejects_unmatched_explicit_entity_even_for_noncausal_question():
+    evidence=[Evidence("e1","sql_result","output/Q03.csv","车间编码=W04",
+                       {"车间编码":"W04","综合能耗_tce":"1"},"W04 综合能耗_tce=1")]
+    result,_=analyze("W99 综合能耗是多少",evidence,analysis_id="missing-entity")
+    assert result["insufficient_evidence"] is True and result["claims"]==[]

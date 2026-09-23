@@ -1,0 +1,24 @@
+[
+  {
+    "case_id": "grounded_standby_cost",
+    "question": "W04 停产日待机费用是多少",
+    "expect_insufficient": false,
+    "expected_source_contains": "Q13_"
+  },
+  {
+    "case_id": "reject_device_root_cause",
+    "question": "W02 的单耗异常为什么是设备故障",
+    "expect_insufficient": true
+  },
+  {
+    "case_id": "reject_unknown_workshop",
+    "question": "W99 为什么能耗突然升高",
+    "expect_insufficient": true
+  },
+  {
+    "case_id": "grounded_cusum_signal",
+    "question": "W03 CUSUM 异常证据",
+    "expect_insufficient": false,
+    "expected_source_contains": "Q27_"
+  }
+]
