@@ -57,7 +57,7 @@ def test_late_correction_is_merged_into_business_date_partition():
     assert "OR f.dt='${biz_date}'" in dwd                    # 增量读同步批次，全量读完整 ODS
     assert "batch_id='${biz_date}'" in dwd
     assert "f.record_date='${biz_date}'" not in dwd         # 不丢历史业务日期
-    assert "JOIN impacted i ON d.record_date=i.record_date" in dwd
+    assert "JOIN impacted i ON d.dt=cast(i.record_date AS string) AND d.record_date=i.record_date" in dwd
     assert "UNION ALL" in dwd                               # 旧快照 + 新版本
     assert "ORDER BY source_updated_at DESC,source_priority DESC" in dwd
     cleanup="DROP IF EXISTS PARTITION (run_dt='${biz_date}',batch_id='${biz_date}')"

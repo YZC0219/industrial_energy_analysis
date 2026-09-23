@@ -34,7 +34,7 @@ candidates AS (
          d.avg_temperature,d.is_production_day,d.is_weekend,d.is_holiday,d.year_month,
          d.std_coal_kgce,d.co2_kg,d.source_updated_at,d.etl_time,0 source_priority
   FROM energy_dwd.dwd_energy_consumption_detail d
-  JOIN impacted i ON d.record_date=i.record_date
+  JOIN impacted i ON d.dt=cast(i.record_date AS string) AND d.record_date=i.record_date
   WHERE '${load_mode}' <> 'full'
   UNION ALL
   SELECT i.*,1 source_priority FROM incoming i
