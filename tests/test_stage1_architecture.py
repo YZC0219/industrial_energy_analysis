@@ -26,6 +26,7 @@ def test_all_four_layers_have_declared_grain_and_partitions():
     assert "source_updated_at TIMESTAMP" in ddl
     ods=text("hive/ddl/01_ods.sql")
     assert ods.count("CREATE EXTERNAL TABLE") == ods.count("LOCATION '/warehouse/energy_ods/") == 5
+    assert ods.count("STORED AS ORC") == 5
 
 def test_datax_schema_preserves_timestamp_and_increment_is_half_open():
     mod=load_module("datax_run_sync", "datax/run_sync.py")
@@ -98,7 +99,9 @@ def test_datax_templates_render_to_valid_json():
     common["SOURCE_COLUMNS"]="[]"; common["SOURCE_COLUMN_SQL"]="id"
     for name in ("full","incremental"):
         rendered=mod.render(text(f"datax/jobs/mysql_to_hive_{name}.json"),common)
-        assert json.loads(rendered)["job"]["content"]
+        config=json.loads(rendered)
+        assert config["job"]["content"]
+        assert config["job"]["content"][0]["writer"]["parameter"]["fileType"]=="orc"
 
 def test_airflow_dependency_graph_is_complete(monkeypatch):
     registry={}
