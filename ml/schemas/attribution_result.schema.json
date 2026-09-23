@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Evidence-grounded energy attribution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["analysis_id", "summary", "claims", "insufficient_evidence"],
+  "properties": {
+    "analysis_id": {"type": "string", "minLength": 1},
+    "summary": {"type": "string"},
+    "insufficient_evidence": {"type": "boolean"},
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["statement", "citations"],
+        "properties": {
+          "statement": {"type": "string", "minLength": 1},
+          "citations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source_type", "source_path", "record_key", "evidence_value"],
+              "properties": {
+                "source_type": {"enum": ["metric_dictionary", "sql_result", "anomaly_evidence"]},
+                "source_path": {"type": "string", "minLength": 1},
+                "record_key": {"type": "string", "minLength": 1},
+                "evidence_value": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

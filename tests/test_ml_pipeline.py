@@ -1,0 +1,42 @@
+import pandas as pd
+import json
+from pathlib import Path
+import pytest
+from ml.feature_pipeline import build_features
+from ml.rolling_validation import evaluate_seasonal_naive
+
+def sample(days=400):
+    dates=pd.date_range("2024-01-01",periods=days)
+    energy=pd.DataFrame({"record_date":dates,"workshop_code":"W01","energy_code":"E01","consumption":range(1,days+1),"cost":range(1,days+1),"avg_temperature":20.0,"record_status":"正常"})
+    production=pd.DataFrame({"record_date":dates,"workshop_code":"W01","output_qty":100.0})
+    return energy,production
+
+def test_target_history_features_are_shifted_without_same_day_leakage():
+    energy,production=sample(40); f=build_features(energy,production)
+    assert pd.isna(f.loc[0,"tce_lag_1"])
+    assert f.loc[1,"tce_lag_1"]==f.loc[0,"tce"]
+    assert f.loc[7,"tce_rolling_mean_7"]==pytest.approx(f.loc[:6,"tce"].mean())
+
+def test_rolling_validation_is_chronological_and_reports_metrics():
+    energy,production=sample(); f=build_features(energy,production)
+    pred,metrics=evaluate_seasonal_naive(f,train_days=365,test_days=30,step_days=30)
+    assert len(pred)>0 and (pred["train_end"]<pred["record_date"]).all()
+    assert metrics["samples"]==len(pred) and metrics["mae"]>=0 and metrics["rmse"]>=metrics["mae"]
+
+def test_attribution_contract_requires_citations_for_every_claim():
+    schema=json.loads((Path(__file__).resolve().parents[1]/"ml/schemas/attribution_result.schema.json").read_text(encoding="utf-8"))
+    claim=schema["properties"]["claims"]["items"]
+    assert {"statement","citations"} <= set(claim["required"])
+    citations=claim["properties"]["citations"]
+    assert citations["minItems"]==1
+    allowed=set(citations["items"]["properties"]["source_type"]["enum"])
+    assert allowed=={"metric_dictionary","sql_result","anomaly_evidence"}
+
+def test_feature_pipeline_rejects_missing_calendar_day():
+    energy,production=sample(10)
+    energy=energy.drop(index=energy.index[4]); production=production.drop(index=production.index[4])
+    with pytest.raises(ValueError,match="缺日"): build_features(energy,production)
+
+def test_feature_pipeline_rejects_unknown_energy_code():
+    energy,production=sample(10); energy.loc[0,"energy_code"]="E99"
+    with pytest.raises(ValueError,match="未知能源编码"): build_features(energy,production)

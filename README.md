@@ -62,6 +62,31 @@ CUSUM 出现不合理的负向信号后，我沿数据链路回查，定位到�
 
 ## 项目架构
 
+### 阶段一扩展：Hive + Spark + DataX
+
+项目已增加可选的大数据旁路：DataX 将 MySQL 同步到 Hive ODS，Spark SQL 依次构建 DWD、DWS、ADS；Airflow 负责分层依赖、两级质量门禁、Webhook 失败告警与按同步窗口补数。原 pandas/MySQL 链路继续保留为结果基线。
+
+阶段一已经完成代码与离线契约验收，真实集群性能验收仍待部署环境执行：
+
+| 能力 | 状态 | 说明 |
+|---|---|---|
+| Hive 四层模型 | 已完成 | ODS 同步分区，DWD/DWS/ADS 业务日期分区 |
+| 历史修正 | 已完成 | 合并旧快照与新版本，动态重算受影响日及月份 |
+| DataX 全量/增量 | 已完成 | 首次全量、日常 `updated_at` 半开窗口、稳定维表快照 |
+| Airflow 编排 | 已完成 | 分层依赖、质量门禁、告警、幂等补数 |
+| 离线回归 | 已完成 | 阶段一契约与原 pandas/MySQL 回归全绿 |
+| 真集群基准 | 待执行 | 不伪造 `spark_performance.jsonl` 和三引擎对比结果 |
+
+完整表粒度、逻辑主键、血缘、初始化和失败重跑方法见 [阶段一实施说明](docs/阶段一_分层数仓与分布式计算.md)。未配置 Hadoop 环境时旁路默认关闭，设置 `LAKEHOUSE_ENABLED=1` 才会执行。
+
+### 阶段二：预测与智能归因（进行中）
+
+阶段二在保留 2σ、产量基线和 CUSUM 的基础上，增加统一特征工程、滚动时序验证、季节性基线、树模型与深度时序模型对照，并建设只依据指标字典、SQL 结果和异常证据回答的可追溯归因助手。当前已落地无泄漏特征管道、滚动验证框架和 7 日季节性朴素基线，树模型、LSTM/Transformer 与 RAG 助手按统一契约继续实现。详见 [阶段二设计说明](docs/阶段二_预测与智能归因.md)。
+
+### 阶段三：数据质量与实时管道（预研）
+
+实时事件契约已作为阶段三预研保留，但不计入阶段二完成度；Kafka/Flink、实时质量与流批对账将在阶段二验收后推进。
+
 ```mermaid
 flowchart LR
     A[模拟原始数据] --> B[数据清洗与质量报告]
@@ -110,6 +135,7 @@ industrial_energy_analysis/
 ├─ .github/workflows/
 │  └─ build-pages-report.yml       # 自动生成并发布 GitHub Pages 报告
 ├─ data/                            # 本地生成的原始数据
+├─ datax/                           # MySQL→Hive 全量/增量同步模板与入口
 ├─ docker/
 │  └─ airflow/Dockerfile
 ├─ docs/
@@ -124,6 +150,10 @@ industrial_energy_analysis/
 ├─ sql/
 │  ├─ create_table.sql              # 建库、维表、事实表和视图
 │  └─ analysis.sql                  # Q01～Q29 分析查询
+├─ hive/ddl/                        # ODS/DWD/DWS/ADS Hive DDL
+├─ ml/                              # 特征工程与滚动预测评估
+├─ spark/sql/                       # 分层清洗、合并与聚合 Spark SQL
+├─ streaming/schemas/               # 阶段三实时事件版本化契约
 ├─ src/
 │  ├─ generate_data.py              # 生成模拟数据
 │  ├─ clean_data.py                 # 清洗和质量留痕

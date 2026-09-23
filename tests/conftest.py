@@ -28,6 +28,8 @@ OUT_DIR = os.path.join(BASE_DIR, "output")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # 让测试能 import src/ 下的脚本(它们不是包, 直接按路径导入)
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 

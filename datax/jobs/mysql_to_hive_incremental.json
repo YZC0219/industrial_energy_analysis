@@ -1,0 +1,18 @@
+{
+  "job": {
+    "setting": {"speed": {"channel": 4}, "errorLimit": {"record": 0, "percentage": 0.0}},
+    "content": [{
+      "reader": {"name": "mysqlreader", "parameter": {
+        "username": "${MYSQL_USER}", "password": "${MYSQL_PASSWORD}",
+        "querySql": ["SELECT * FROM ${SOURCE_TABLE} WHERE updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'"],
+        "connection": [{"jdbcUrl": ["${MYSQL_JDBC_URL}"]}]
+      }},
+      "writer": {"name": "hdfswriter", "parameter": {
+        "defaultFS": "${HDFS_DEFAULT_FS}", "fileType": "parquet",
+        "path": "${HIVE_STAGE_PATH}/${TARGET_TABLE}/dt=${TARGET_PARTITION}",
+        "fileName": "part", "writeMode": "truncate",
+        "fieldDelimiter": "\\u0001", "column": ${TARGET_COLUMNS}
+      }}
+    }]
+  }
+}

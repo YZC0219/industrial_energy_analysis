@@ -36,7 +36,15 @@ x-airflow-common: &airflow-common
     MYSQL_PORT: '3306'
     MYSQL_USER: root
     MYSQL_PWD: ${MYSQL_ROOT_PASSWORD:-energy_root_pwd}
+    MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-energy_root_pwd}
     MYSQL_DB: industrial_energy
+    MYSQL_JDBC_URL: ${MYSQL_JDBC_URL:-jdbc:mysql://mysql:3306/industrial_energy}
+    LAKEHOUSE_ENABLED: ${LAKEHOUSE_ENABLED:-0}
+    HDFS_DEFAULT_FS: ${HDFS_DEFAULT_FS:-hdfs://namenode:8020}
+    HIVE_STAGE_PATH: ${HIVE_STAGE_PATH:-/warehouse/energy_ods}
+    DATAX_ENTRY: ${DATAX_ENTRY:-/opt/datax/bin/datax.py}
+    SPARK_SQL: ${SPARK_SQL:-spark-sql}
+    ENERGY_ALERT_WEBHOOK: ${ENERGY_ALERT_WEBHOOK:-}
     PROJECT_DIR: /opt/airflow/project
   volumes:
     - ./dags:/opt/airflow/dags

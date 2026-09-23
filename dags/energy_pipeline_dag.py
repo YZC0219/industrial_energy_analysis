@@ -50,6 +50,8 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 from __future__ import annotations
 
 import os
+import json
+import urllib.request
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -71,6 +73,19 @@ def on_task_failure(context) -> None:
         f"[ALERT] dag={ti.dag_id} task={ti.task_id} "
         f"run={context.get('ds')} attempt={ti.try_number} log={ti.log_url}"
     )
+    webhook = os.getenv("ENERGY_ALERT_WEBHOOK")
+    if webhook:
+        payload = json.dumps({
+            "text": f"energy_pipeline 失败: {ti.task_id}",
+            "dag_id": ti.dag_id, "task_id": ti.task_id,
+            "logical_date": str(context.get("logical_date")), "log_url": ti.log_url,
+        }).encode("utf-8")
+        try:
+            urllib.request.urlopen(urllib.request.Request(
+                webhook, data=payload, headers={"Content-Type": "application/json"}
+            ), timeout=10)
+        except Exception as exc:  # 告警发送失败不能覆盖原始任务异常
+            print(f"[ALERT_DELIVERY_FAILED] {exc}")
 
 
 DEFAULT_ARGS = {
@@ -99,6 +114,20 @@ def project_task(task_id: str, command: str, doc: str, **kwargs) -> BashOperator
     )
 
 
+def lakehouse_task(task_id: str, command: str, doc: str, **kwargs) -> BashOperator:
+    """按部署开关运行 Hadoop 侧任务；本地开发默认只跑原 MySQL 基线。"""
+    return BashOperator(
+        task_id=task_id,
+        bash_command=(
+            f"cd {PROJECT_DIR} && "
+            "if [ \"${LAKEHOUSE_ENABLED:-0}\" != \"1\" ]; then "
+            "echo '[SKIP] LAKEHOUSE_ENABLED!=1'; exit 0; fi && " + command
+        ),
+        doc_md=doc,
+        **kwargs,
+    )
+
+
 with DAG(
     dag_id="energy_pipeline",
     description="工业能耗数据管道: 模拟数据 → 清洗 → 数仓 → 分析 → 报告",
@@ -108,7 +137,7 @@ with DAG(
     schedule="0 2 * * *",          # 每天凌晨 2 点
     catchup=False,                 # 不回补历史: 回补交给手工重放, 不靠 Airflow 补齐调度区间
     max_active_runs=1,             # 水位线的读-改-写序列不许交错, 并发会让进度互相覆盖
-    tags=["energy", "etl", "mysql"],
+    tags=["energy", "etl", "mysql", "hive", "spark", "datax"],
 ) as dag:
 
     generate_raw_data = project_task(
@@ -209,4 +238,45 @@ with DAG(
         """,
     )
 
+    sync_ods_dimensions = lakehouse_task(
+        "sync_ods_dimensions",
+        "for t in dim_workshop dim_energy_type dim_calendar fact_production; do "
+        "python datax/run_sync.py --table $t --biz-date {{ ds }} || exit $?; done",
+        "DataX 全量覆盖同步小维表与当前产量快照；稳定 current 分区可幂等重跑。",
+    )
+    sync_ods_energy = lakehouse_task(
+        "sync_ods_energy_incremental",
+        "python datax/run_sync.py --table fact_energy_consumption --biz-date {{ ds }} "
+        "--window-start '{{ data_interval_start | ts }}' --window-end '{{ data_interval_end | ts }}'",
+        "DataX 按 updated_at 半开区间增量同步能耗事实；窗口由 Airflow 数据区间决定。",
+    )
+    build_dwd = lakehouse_task(
+        "build_dwd",
+        "python spark/run_sql.py spark/sql/10_dwd_energy.sql --biz-date {{ ds }}",
+        "Spark SQL 去重、校验并关联维度，生成车间×日×能源明细。",
+    )
+    quality_dwd = lakehouse_task(
+        "quality_dwd",
+        "python tools/check_hive_quality.py --stage dwd --biz-date {{ ds }}",
+        "检查批次键覆盖、业务主键唯一、必填字段和非负值；合法空批次可通过。",
+    )
+    build_dws = lakehouse_task(
+        "build_dws",
+        "python spark/run_sql.py spark/sql/20_dws.sql --biz-date {{ ds }}",
+        "生成车间日/月主题汇总；动态覆盖目标分区使补数幂等。",
+    )
+    quality_dws = lakehouse_task(
+        "quality_dws",
+        "python tools/check_hive_quality.py --stage dws --biz-date {{ ds }}",
+        "以 DWD 折标煤汇总与 DWS tce 的守恒关系作为发布门禁。",
+    )
+    build_ads = lakehouse_task(
+        "build_ads",
+        "python spark/run_sql.py spark/sql/30_ads.sql --biz-date {{ ds }}",
+        "生成全厂日看板应用表。",
+    )
+
     generate_raw_data >> clean_data >> load_warehouse >> run_analysis >> build_report
+    clean_data >> [sync_ods_dimensions, sync_ods_energy]
+    [sync_ods_dimensions, sync_ods_energy] >> build_dwd >> quality_dwd
+    quality_dwd >> build_dws >> quality_dws >> build_ads
