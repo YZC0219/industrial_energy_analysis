@@ -1,6 +1,10 @@
 SET spark.sql.sources.partitionOverwriteMode=dynamic;
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
+-- 本地/单节点集群上，迟到分区与事实表的动态分区裁剪可能形成广播交换等待。
+-- 关闭该查询的广播与 AQE，使用确定性的 shuffle join；数据扫描仍由 dt 等值条件裁剪。
+SET spark.sql.adaptive.enabled=false;
+SET spark.sql.autoBroadcastJoinThreshold=-1;
 
 -- ODS.dt 是同步批次日期，record_date 才是业务日期；迟到修正可能影响任意历史日。
 -- 清理本次临时分区，避免重跑或空增量批次读取上次残留数据。
