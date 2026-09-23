@@ -22,7 +22,7 @@ def test_all_four_layers_have_declared_grain_and_partitions():
         pattern=rf"CREATE\s+(?:EXTERNAL\s+)?TABLE\s+IF\s+NOT\s+EXISTS\s+{re.escape(db)}\."
         assert len(re.findall(pattern,ddl,re.I))==count
     assert ddl.count("PARTITIONED BY") == sum(expected.values())
-    assert ddl.count("LOCATION '/warehouse/") == sum(expected.values())
+    assert ddl.count("LOCATION '/warehouse/") == sum(expected.values()) + len(expected)
     assert "source_updated_at TIMESTAMP" in ddl
     ods=text("hive/ddl/01_ods.sql")
     assert ods.count("CREATE EXTERNAL TABLE") == ods.count("LOCATION '/warehouse/energy_ods/") == 5
