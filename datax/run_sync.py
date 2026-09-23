@@ -59,8 +59,9 @@ def main() -> None:
         "WINDOW_START": args.window_start or "1970-01-01 00:00:00",
         "WINDOW_END": args.window_end or "2999-12-31 00:00:00",
         "TARGET_COLUMNS": json.dumps([{"name": n, "type": t} for n, t in columns]),
-        "SOURCE_COLUMNS": json.dumps([n for n, _ in columns]),
-        "SOURCE_COLUMN_SQL": ",".join(n for n, _ in columns),
+        # Quote every MySQL identifier; calendar columns such as year/month are reserved words.
+        "SOURCE_COLUMNS": json.dumps([f"`{n}`" for n, _ in columns]),
+        "SOURCE_COLUMN_SQL": ",".join(f"`{n}`" for n, _ in columns),
     }
     template = ROOT / "datax" / "jobs" / f"mysql_to_hive_{mode}.json"
     payload = render(template.read_text(encoding="utf-8"), vals)

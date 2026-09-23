@@ -111,6 +111,11 @@ def test_datax_templates_render_to_valid_json():
         assert writer["fileType"]=="orc"
         assert len(writer["fieldDelimiter"])==1
 
+def test_datax_quotes_mysql_identifiers_including_reserved_words():
+    runner=text("datax/run_sync.py")
+    assert 'json.dumps([f"`{n}`" for n, _ in columns])' in runner
+    assert '",".join(f"`{n}`" for n, _ in columns)' in runner
+
 def test_airflow_dependency_graph_is_complete(monkeypatch):
     registry={}
     class Node:
