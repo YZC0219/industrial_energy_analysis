@@ -83,6 +83,10 @@ CUSUM 出现不合理的负向信号后，我沿数据链路回查，定位到�
 
 阶段二在保留 2σ、产量基线和 CUSUM 的基础上，增加统一特征工程、滚动时序验证、季节性基线、树模型与深度时序模型对照，并建设只依据指标字典、SQL 结果和异常证据回答的可追溯归因助手。当前已落地无泄漏特征管道、滚动验证框架和 7 日季节性朴素基线，树模型、LSTM/Transformer 与 RAG 助手按统一契约继续实现。详见 [阶段二设计说明](docs/阶段二_预测与智能归因.md)。
 
+当前 731 天本地数据的可复现实验结果为：`2,928` 条滚动预测，MAE `0.7513 tce`、RMSE `1.3144 tce`。对应的 `ml_features.csv`、预测明细和 `ml_model_metrics.json` 由 Airflow 每夜重建，CI 会复算指标并上传 30 天留存的 `forecasting-evidence-<commit>` 工件。告警提前量当前明确为 N/A，因为仓库尚无经维护记录或人工确认的真实事件标签。
+
+证据状态必须分开理解：阶段二季节性基线已在本地数据和 CI 路径运行；阶段一 Spark 真集群尚未运行，因此 `spark_performance.jsonl`、`engine_comparison.json` 和三引擎日表仍不存在。README 不以阶段二指标替代阶段一集群证据。
+
 ### 阶段三：数据质量与实时管道（预研）
 
 实时事件契约已作为阶段三预研保留，但不计入阶段二完成度；Kafka/Flink、实时质量与流批对账将在阶段二验收后推进。
@@ -108,6 +112,7 @@ Airflow 中的执行链为：
 
 ```text
 generate_raw_data → clean_data → load_warehouse → run_analysis → build_report
+                          └→ build_features → run_validation → verify_ml_artifacts
 ```
 
 （上面是 `dags/energy_pipeline_dag.py` 里的 `task_id`；对应的脚本依次是
@@ -550,7 +555,7 @@ python tests/update_baseline.py
 **目标：** 在统计检测之外增加预测能力，并让异常结论能够解释和追溯。
 
 - [ ] 建立季节性基线、树模型与 LSTM / Transformer 的时序预测对照实验，使用滚动验证比较 MAE、RMSE 和告警提前量；
-- [ ] 建设特征工程管道，统一处理产量、气温、日型、能源价格、设备状态等特征；
+- [x] 建设特征工程管道，统一处理产量、气温、日型、能源价格、设备状态等特征；
 - [ ] 构建基于 LLM + RAG 的能耗分析助手，仅根据指标字典、SQL 结果和异常证据生成归因摘要，并保留引用来源；
 - [ ] 保留 2σ、产量基线和 CUSUM 作为可解释基准，不以单一深度学习模型直接替代统计检测。
 

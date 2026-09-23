@@ -1,4 +1,4 @@
-"""阶段二事件契约的无依赖守卫。"""
+"""阶段三实时事件契约的无依赖守卫。"""
 import json
 from pathlib import Path
 

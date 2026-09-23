@@ -22,6 +22,8 @@ def test_rolling_validation_is_chronological_and_reports_metrics():
     pred,metrics=evaluate_seasonal_naive(f,train_days=365,test_days=30,step_days=30)
     assert len(pred)>0 and (pred["train_end"]<pred["record_date"]).all()
     assert metrics["samples"]==len(pred) and metrics["mae"]>=0 and metrics["rmse"]>=metrics["mae"]
+    assert metrics["alert_lead_time_days"] is None
+    assert metrics["lead_time_status"]=="unavailable_no_verified_incident_labels"
 
 def test_attribution_contract_requires_citations_for_every_claim():
     schema=json.loads((Path(__file__).resolve().parents[1]/"ml/schemas/attribution_result.schema.json").read_text(encoding="utf-8"))
@@ -40,3 +42,13 @@ def test_feature_pipeline_rejects_missing_calendar_day():
 def test_feature_pipeline_rejects_unknown_energy_code():
     energy,production=sample(10); energy.loc[0,"energy_code"]="E99"
     with pytest.raises(ValueError,match="未知能源编码"): build_features(energy,production)
+
+def test_rolling_split_rejects_calendar_gap_even_without_feature_builder():
+    energy,production=sample(400); f=build_features(energy,production)
+    f=f[f["record_date"]!=pd.Timestamp("2024-06-01")]
+    with pytest.raises(ValueError,match="连续自然日"): evaluate_seasonal_naive(f)
+
+def test_lead_time_label_contract_excludes_detector_outputs_as_ground_truth():
+    schema=json.loads((Path(__file__).resolve().parents[1]/"ml/schemas/incident_label.schema.json").read_text(encoding="utf-8"))
+    allowed=set(schema["properties"]["source_type"]["enum"])
+    assert allowed=={"maintenance_log","operator_confirmed","simulation_ground_truth"}

@@ -5,6 +5,7 @@
 
 ```
 generate_raw_data → clean_data → load_warehouse → run_analysis → build_report
+                          └→ build_features → run_validation → verify_ml_artifacts
 ```
 
 | 阶段 | 做什么 | 产出 |
@@ -14,6 +15,7 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 | load_warehouse | 增量装载进 MySQL 星型模型(维护水位线) | 3 张维表 + 2 张事实表 + `etl_watermark` |
 | run_analysis | 执行 24 条业务查询 | `output/Q01..Q24_*.csv` |
 | build_report | 结果内联进模板, 生成自包含报告 | `output/report.html` |
+| build_features / run_validation | 重建预测特征并执行滚动基线 | `output/ml_*.csv/json` |
 
 #### 关于幂等
 
@@ -238,6 +240,27 @@ with DAG(
         """,
     )
 
+    build_features = project_task(
+        "build_features",
+        "-m ml.feature_pipeline --energy output/clean_batch_energy.csv "
+        "--production output/clean_batch_production.csv --output output/ml_features.csv",
+        "从本次全量清洗批次重建车间日特征；滞后和滚动统计仅使用目标日前数据。",
+    )
+    run_validation = project_task(
+        "run_validation",
+        "-m ml.rolling_validation --features output/ml_features.csv "
+        "--predictions output/ml_seasonal_predictions.csv --metrics output/ml_model_metrics.json",
+        "使用连续自然日的滚动折运行 7 日季节性基线，并输出可复算预测明细和指标。",
+    )
+    verify_ml_artifacts = project_task(
+        "verify_ml_artifacts",
+        "tools/verify_ml_artifacts.py --energy output/clean_batch_energy.csv "
+        "--production output/clean_batch_production.csv "
+        "--features output/ml_features.csv --predictions output/ml_seasonal_predictions.csv "
+        "--metrics output/ml_model_metrics.json",
+        "验证特征键与当前清洗批次一致，且 MAE/RMSE 可由预测明细复算。",
+    )
+
     sync_ods_dimensions = lakehouse_task(
         "sync_ods_dimensions",
         "for t in dim_workshop dim_energy_type dim_calendar fact_production; do "
@@ -277,6 +300,7 @@ with DAG(
     )
 
     generate_raw_data >> clean_data >> load_warehouse >> run_analysis >> build_report
+    clean_data >> build_features >> run_validation >> verify_ml_artifacts
     clean_data >> [sync_ods_dimensions, sync_ods_energy]
     [sync_ods_dimensions, sync_ods_energy] >> build_dwd >> quality_dwd
     quality_dwd >> build_dws >> quality_dws >> build_ads

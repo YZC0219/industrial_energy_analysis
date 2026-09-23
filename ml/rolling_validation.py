@@ -8,6 +8,10 @@ import pandas as pd
 def rolling_splits(dates, train_days=365, test_days=30, step_days=30):
     values=pd.DatetimeIndex(sorted(pd.to_datetime(pd.Series(dates).dropna().unique())))
     if not len(values): return
+    # train_days/test_days 是“日历天”而不是“观测行数”；缺日会让折的含义改变，
+    # 因此即使调用者绕过 feature_pipeline，也在这里再次守住连续日契约。
+    if len(values)>1 and not (values[1:]-values[:-1]==pd.Timedelta(days=1)).all():
+        raise ValueError("滚动验证要求连续自然日，发现日期缺口")
     start=values.min()+pd.Timedelta(days=train_days)
     end=values.max()
     while start<=end:
@@ -23,9 +27,9 @@ def evaluate_seasonal_naive(features, train_days=365, test_days=30, step_days=30
         test=df[df["record_date"].isin(test_dates)].dropna(subset=["tce","tce_lag_7"]).copy()
         for r in test.itertuples(): rows.append({"fold":fold,"record_date":r.record_date,"workshop_code":r.workshop_code,"actual":r.tce,"prediction":r.tce_lag_7,"train_end":train_dates.max()})
     pred=pd.DataFrame(rows)
-    if pred.empty: return pred,{"model":"seasonal_naive_7d","samples":0,"mae":None,"rmse":None}
+    if pred.empty: return pred,{"model":"seasonal_naive_7d","samples":0,"mae":None,"rmse":None,"alert_lead_time_days":None,"lead_time_status":"unavailable_no_verified_incident_labels"}
     err=pred["actual"]-pred["prediction"]
-    return pred,{"model":"seasonal_naive_7d","samples":len(pred),"mae":float(err.abs().mean()),"rmse":float(np.sqrt((err**2).mean()))}
+    return pred,{"model":"seasonal_naive_7d","samples":len(pred),"mae":float(err.abs().mean()),"rmse":float(np.sqrt((err**2).mean())),"alert_lead_time_days":None,"lead_time_status":"unavailable_no_verified_incident_labels"}
 
 def main():
     p=argparse.ArgumentParser(); p.add_argument("--features",default="output/ml_features.csv"); p.add_argument("--predictions",default="output/ml_seasonal_predictions.csv"); p.add_argument("--metrics",default="output/ml_model_metrics.json"); a=p.parse_args()

@@ -16,6 +16,10 @@ on:
       - "src/clean_data.py"
       - "src/import_mysql.py"
       - "sql/**"
+      - "ml/**"
+      - "tests/test_ml_pipeline.py"
+      - "tools/verify_ml_artifacts.py"
+      - "dags/energy_pipeline_dag.py"
       - "requirements.txt"
   workflow_dispatch:
 
@@ -105,6 +109,29 @@ jobs:
         # 失败即中止 —— 后面的步骤不会用未经验证的基线去生成报告。
         # 若改动是有意改变口径, 本地跑 python tests/update_baseline.py 刷新基线,
         # 在提交信息里写明为什么变, 再 push。
+
+      - name: Build and verify forecasting artifacts
+        run: |
+          python -m ml.feature_pipeline
+          python -m ml.rolling_validation
+          python tools/verify_ml_artifacts.py \
+            --energy output/clean_energy.csv \
+            --production output/clean_production.csv \
+            --features output/ml_features.csv \
+            --predictions output/ml_seasonal_predictions.csv \
+            --metrics output/ml_model_metrics.json
+          python -m pytest tests/test_ml_pipeline.py -q
+
+      - name: Upload forecasting evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: forecasting-evidence-${{ github.sha }}
+          path: |
+            output/ml_features.csv
+            output/ml_seasonal_predictions.csv
+            output/ml_model_metrics.json
+          if-no-files-found: error
+          retention-days: 30
 
       # ---- 生成 Pages 报告 ----
       - name: Generate responsive report from verified baselines
