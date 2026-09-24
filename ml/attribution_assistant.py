@@ -18,6 +18,8 @@ ANOMALY_QUERIES={"Q16","Q24","Q25","Q26","Q27"}
 KEYWORDS=("综合能耗","单耗","异常","停产","待机","费用","碳排放","温度","产量",
           "CUSUM","2sigma","2σ","能源结构","同比","环比")
 CAUSAL_WORDS=("为什么","原因","导致","故障","根因")
+SUMMARY_INSUFFICIENT=("现有指标、SQL 结果和异常证据不足以确认原因；需要维护记录、操作员确认或设备事件。")
+SUMMARY_GROUNDED=("已找到与问题相关的可追溯证据；以下仅陈述记录本身，不推断原因。")
 FILE_HINTS={"待机":"Q13","停产":"Q13","单耗异常":"Q16","2sigma":"Q16",
             "2σ":"Q16","cusum":"Q27","三种检测":"Q26","碳排放":"Q21"}
 
@@ -139,6 +141,9 @@ def validate_grounding(result: dict, evidence: list[Evidence]) -> None:
         raise GroundingError("insufficient_evidence 必须是布尔值")
     if result["insufficient_evidence"] and result["claims"]:
         raise GroundingError("证据不足时不得输出归因 claim")
+    expected_summary=SUMMARY_INSUFFICIENT if result["insufficient_evidence"] else SUMMARY_GROUNDED
+    if result["summary"]!=expected_summary:
+        raise GroundingError("summary 必须使用受控措辞，避免在摘要中绕过逐条引用")
     allowed=[item.citation() for item in evidence]
     for claim in result["claims"]:
         if set(claim)!={"statement","citations"} or not claim["statement"] or not claim["citations"]:
@@ -146,21 +151,23 @@ def validate_grounding(result: dict, evidence: list[Evidence]) -> None:
         for citation in claim["citations"]:
             if citation.get("source_type") not in ALLOWED_SOURCE_TYPES:
                 raise GroundingError("引用了未授权来源类型")
-            if not any(citation.get("source_type")==item["source_type"]
-                       and citation.get("source_path")==item["source_path"]
-                       and citation.get("record_key")==item["record_key"]
-                       and _same_value(citation.get("evidence_value"),item["evidence_value"])
-                       for item in allowed):
+            matching=[item for item in evidence
+                      if citation.get("source_type")==item.source_type
+                      and citation.get("source_path")==item.source_path
+                      and citation.get("record_key")==item.record_key
+                      and _same_value(citation.get("evidence_value"),item.evidence_value)]
+            if not matching:
                 raise GroundingError("引用不在本次检索证据中")
+            if not any(claim["statement"] in item.text for item in matching):
+                raise GroundingError("claim 必须直接摘自对应证据，不能只附上真实引用")
 
 
 def _offline_summary(question: str, evidence: list[Evidence], analysis_id: str) -> dict:
     if not evidence or any(word in question for word in CAUSAL_WORDS):
-        return {"analysis_id":analysis_id,
-                "summary":"现有指标、SQL 结果和异常证据不足以确认原因；需要维护记录、操作员确认或设备事件。",
+        return {"analysis_id":analysis_id,"summary":SUMMARY_INSUFFICIENT,
                 "claims":[],"insufficient_evidence":True}
     item=evidence[0]
-    return {"analysis_id":analysis_id,"summary":"已找到与问题相关的可追溯证据；以下仅陈述记录本身，不推断原因。",
+    return {"analysis_id":analysis_id,"summary":SUMMARY_GROUNDED,
             "claims":[{"statement":item.text,"citations":[item.citation()]}],
             "insufficient_evidence":False}
 
@@ -186,8 +193,7 @@ def analyze(question: str, evidence: list[Evidence],
     force_insufficient=any(word in question for word in CAUSAL_WORDS) or missing_entity
     prompt=build_prompt(question,selected)
     if force_insufficient:
-        result={"analysis_id":analysis_id,
-                "summary":"现有指标、SQL 结果和异常证据不足以确认所问实体或原因；需要匹配记录、维护记录、操作员确认或设备事件。",
+        result={"analysis_id":analysis_id,"summary":SUMMARY_INSUFFICIENT,
                 "claims":[],"insufficient_evidence":True}
     else:
         result=_offline_summary(question,selected,analysis_id) if llm is None else llm(prompt)

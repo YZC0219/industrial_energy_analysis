@@ -5,7 +5,8 @@ import pytest
 from ml.feature_pipeline import build_features
 from ml.rolling_validation import evaluate_seasonal_naive
 from ml.model_benchmark import evaluate_lightgbm, evaluate_models
-from ml.attribution_assistant import Evidence, GroundingError, analyze, retrieve, validate_grounding
+from ml.attribution_assistant import (Evidence, GroundingError, SUMMARY_GROUNDED,
+                                      analyze, retrieve, validate_grounding)
 from ml.deep_benchmark import build_sequences, evaluate_deep_model
 
 def sample(days=400):
@@ -89,11 +90,22 @@ def test_attribution_refuses_to_invent_root_cause_from_anomaly_signal():
 def test_attribution_rejects_citation_not_returned_by_retrieval():
     evidence=[Evidence("e1","sql_result","output/Q13.csv","车间=W04",{"待机浪费_元":"196015.33"},
                        "W04 待机浪费_元=196015.33")]
-    fabricated={"analysis_id":"x","summary":"x","insufficient_evidence":False,
+    fabricated={"analysis_id":"x","summary":SUMMARY_GROUNDED,"insufficient_evidence":False,
                 "claims":[{"statement":"x","citations":[{"source_type":"sql_result",
                 "source_path":"output/Q99.csv","record_key":"x","evidence_value":999}]}]}
     with pytest.raises(GroundingError,match="不在本次检索证据"):
         validate_grounding(fabricated,evidence)
+
+
+def test_attribution_rejects_invented_claim_with_real_citation():
+    item=Evidence("e1","sql_result","output/Q13.csv","车间=W04",
+                  {"待机浪费_元":"196015.33"},"Q13 W04 待机浪费_元=196015.33")
+    fabricated={"analysis_id":"x",
+                "summary":SUMMARY_GROUNDED,
+                "insufficient_evidence":False,
+                "claims":[{"statement":"W04 因设备故障造成费用上升", "citations":[item.citation()]}]}
+    with pytest.raises(GroundingError,match="直接摘自"):
+        validate_grounding(fabricated,[item])
 
 
 def test_attribution_offline_answer_keeps_exact_source_citation():
