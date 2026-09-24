@@ -5,7 +5,7 @@
 
 ```
 generate_raw_data → clean_data → load_warehouse → run_analysis → build_report
-                          └→ build_features → run_validation → verify_ml_artifacts → run_deep_validation
+                          └→ run_phase2 → run_deep_validation
 ```
 
 | 阶段 | 做什么 | 产出 |
@@ -15,8 +15,8 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 | load_warehouse | 增量装载进 MySQL 星型模型(维护水位线) | 3 张维表 + 2 张事实表 + `etl_watermark` |
 | run_analysis | 执行 24 条业务查询 | `output/Q01..Q24_*.csv` |
 | build_report | 结果内联进模板, 生成自包含报告 | `output/report.html` |
-| build_features / run_validation | 重建预测特征并执行滚动基线 | `output/ml_*.csv/json` |
-| run_deep_validation | 可选运行 LSTM/Transformer 并核验滚动测试键 | `output/ml_deep_*.csv/json` |
+| run_phase2 | 统一入口重建特征、基线与 LightGBM，写入输入/产物哈希清单并复核 | `output/ml_*.csv/json` + `ml_provenance.json` |
+| run_deep_validation | 可选运行 LSTM/Transformer 并核验逐折训练集、测试键和指标 | `output/ml_deep_*.csv/json` |
 
 #### 关于幂等
 
@@ -255,34 +255,17 @@ with DAG(
         """,
     )
 
-    build_features = project_task(
-        "build_features",
-        "-m ml.feature_pipeline --energy output/clean_batch_energy.csv "
-        "--production output/clean_batch_production.csv --output output/ml_features.csv",
-        "从本次全量清洗批次重建车间日特征；滞后和滚动统计仅使用目标日前数据。",
-    )
-    run_validation = project_task(
-        "run_validation",
-        "-m ml.model_benchmark --features output/ml_features.csv "
-        "--predictions output/ml_model_predictions.csv --metrics output/ml_model_metrics.json",
-        "使用同一连续自然日滚动折运行季节基线与 LightGBM，并输出可复算预测明细和指标。",
-    )
-    verify_ml_artifacts = project_task(
-        "verify_ml_artifacts",
-        "tools/verify_ml_artifacts.py --energy output/clean_batch_energy.csv "
-        "--production output/clean_batch_production.csv "
-        "--features output/ml_features.csv --predictions output/ml_model_predictions.csv "
-        "--metrics output/ml_model_metrics.json",
-        "验证特征键与当前清洗批次一致，且 MAE/RMSE 可由预测明细复算。",
+    run_phase2 = project_task(
+        "run_phase2",
+        "tools/run_phase2.py --energy output/clean_batch_energy.csv "
+        "--production output/clean_batch_production.csv",
+        "统一入口重建预测全链路，核对输入及产物 SHA-256，复算指标并写入新鲜度清单。",
     )
     run_deep_validation = optional_deep_task(
         "run_deep_validation",
-        "python -m ml.deep_benchmark --features output/ml_features.csv "
-        "--predictions output/ml_deep_predictions.csv --metrics output/ml_deep_metrics.json && "
-        "python tools/verify_deep_artifacts.py "
-        "--baseline-predictions output/ml_model_predictions.csv "
-        "--deep-predictions output/ml_deep_predictions.csv --metrics output/ml_deep_metrics.json",
-        "配置 Torch 并设置 DEEP_LEARNING_ENABLED=1 后，运行 LSTM/Transformer，随后核验其测试键、时间顺序和指标。",
+        "tools/run_phase2.py --deep-only --energy output/clean_batch_energy.csv "
+        "--production output/clean_batch_production.csv",
+        "配置 Torch 并设置 DEEP_LEARNING_ENABLED=1 后，复用本次新鲜特征运行深度模型，并核验每折训练行、训练键摘要、测试键和指标。",
     )
 
     sync_ods_dimensions = lakehouse_task(
@@ -324,7 +307,7 @@ with DAG(
     )
 
     generate_raw_data >> clean_data >> load_warehouse >> run_analysis >> build_report
-    clean_data >> build_features >> run_validation >> verify_ml_artifacts >> run_deep_validation
+    clean_data >> run_phase2 >> run_deep_validation
     clean_data >> [sync_ods_dimensions, sync_ods_energy]
     [sync_ods_dimensions, sync_ods_energy] >> build_dwd >> quality_dwd
     quality_dwd >> build_dws >> quality_dws >> build_ads

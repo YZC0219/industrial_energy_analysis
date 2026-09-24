@@ -150,13 +150,12 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
     load_module("energy_pipeline_contract", "dags/energy_pipeline_dag.py")
     expected={
       "generate_raw_data":{"clean_data"},
-      "clean_data":{"load_warehouse","sync_ods_dimensions","sync_ods_energy_incremental","build_features"},
+      "clean_data":{"load_warehouse","sync_ods_dimensions","sync_ods_energy_incremental","run_phase2"},
       "load_warehouse":{"run_analysis"}, "run_analysis":{"build_report"},
       "sync_ods_dimensions":{"build_dwd"}, "sync_ods_energy_incremental":{"build_dwd"},
       "build_dwd":{"quality_dwd"}, "quality_dwd":{"build_dws"},
       "build_dws":{"quality_dws"}, "quality_dws":{"build_ads"},
-      "build_features":{"run_validation"}, "run_validation":{"verify_ml_artifacts"},
-      "verify_ml_artifacts":{"run_deep_validation"},
+      "run_phase2":{"run_deep_validation"},
     }
     assert {k:v.downstream for k,v in registry.items() if v.downstream}==expected
     assert "ENERGY_ALERT_WEBHOOK" in text("dags/energy_pipeline_dag.py")

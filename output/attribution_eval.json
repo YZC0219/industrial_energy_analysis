@@ -1,31 +1,50 @@
 {
+  "mode": "offline",
   "cases": [
     {
       "case_id": "grounded_standby_cost",
       "passed": true,
+      "provider": "offline_guarded",
+      "latency_seconds": 0.237,
       "insufficient_evidence": false,
-      "citation_count": 1
+      "citation_count": 1,
+      "error": null,
+      "statement_matches_expected": true
     },
     {
       "case_id": "reject_device_root_cause",
       "passed": true,
+      "provider": "offline_guarded",
+      "latency_seconds": 0.165,
       "insufficient_evidence": true,
-      "citation_count": 0
+      "citation_count": 0,
+      "error": null,
+      "statement_matches_expected": true
     },
     {
       "case_id": "reject_unknown_workshop",
       "passed": true,
+      "provider": "offline_guarded",
+      "latency_seconds": 0.144,
       "insufficient_evidence": true,
-      "citation_count": 0
+      "citation_count": 0,
+      "error": null,
+      "statement_matches_expected": true
     },
     {
       "case_id": "grounded_cusum_signal",
       "passed": true,
+      "provider": "offline_guarded",
+      "latency_seconds": 0.142,
       "insufficient_evidence": false,
-      "citation_count": 1
+      "citation_count": 1,
+      "error": null,
+      "statement_matches_expected": true
     }
   ],
   "passed": 4,
   "total": 4,
+  "pass_rate": 1.0,
+  "duration_seconds": 0.689,
   "failed_cases": []
 }

@@ -81,11 +81,13 @@ CUSUM 出现不合理的负向信号后，我沿数据链路回查，定位到�
 
 ### 阶段二：预测与智能归因（进行中）
 
-阶段二在保留 2σ、产量基线和 CUSUM 的基础上，增加统一特征工程、滚动时序验证、季节性基线、树模型与深度时序模型对照，并建设只依据指标字典、SQL 结果和异常证据回答的可追溯归因助手。当前已落地无泄漏特征管道、滚动验证框架、7 日季节性朴素基线、LightGBM、LSTM、Transformer，以及带引用白名单、证据不足降级和审计记录的 RAG 归因入口。常规模型进入每夜 Airflow/CI；深度模型通过 `DEEP_LEARNING_ENABLED=1` 启用，并有独立手工 CI 保存证据。在线 LLM 效果需配置模型端点后单独评测。详见 [阶段二设计说明](docs/阶段二_预测与智能归因.md)。
+阶段二在保留 2σ、产量基线和 CUSUM 的基础上，增加统一特征工程、滚动时序验证、季节性基线、树模型与深度时序模型对照，并建设只依据指标字典、SQL 结果和异常证据回答的可追溯归因助手。当前已落地无泄漏特征管道、滚动验证框架、7 日季节性朴素基线、LightGBM、LSTM、Transformer，以及带引用白名单、证据不足降级和审计记录的 RAG 归因入口。常规模型进入每夜 Airflow/CI；深度模型通过 `DEEP_LEARNING_ENABLED=1` 启用，并有独立手工 CI 保存证据。在线 LLM 已提供可配置的端到端评测入口与手工 CI，但效果仍需在配置模型端点后实测。详见 [阶段二设计说明](docs/阶段二_预测与智能归因.md)。
 
-当前 731 天本地数据在相同的扩展训练窗口上各产生 `2,928` 条滚动预测：7 日季节基线 MAE `0.7513 tce`、RMSE `1.3144 tce`；LightGBM MAE `0.4848 tce`、RMSE `0.8027 tce`，较基线分别下降约 `35.5%` 和 `38.9%`。为满足预测时点可用性，实际产量、温度、能源价格指数和设备状态只使用前一日值，当天仅使用预先可知的日历特征。对应的 `ml_features.csv`、双模型预测明细和 `ml_model_metrics.json` 由 Airflow 每夜重建，CI 会从明细复算每个模型的指标并上传 30 天留存的 `forecasting-evidence-<commit>` 工件。告警提前量当前明确为 N/A，因为仓库尚无经维护记录或人工确认的真实事件标签。
+Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行时写出 SHA-256 provenance，将当前输入绑定到特征、预测和 metrics，并由验证器检查文件新鲜度及重算一致性。滚动对照在 731 天数据上使用共同 28 日预热期、365 日训练、完整 30 日测试折和 30 日步长；共 11 折，每模型 2,640 条测试行，不纳入末尾 8 天。每折训练/测试行数及训练业务键摘要进入 metrics，基线、LightGBM 与深度模型必须使用同一目标训练样本。按本次复跑，总体 MAE/RMSE（tce）为：季节基线 `0.7550/1.3300`、LightGBM `0.4674/0.7750`、LSTM `0.5213/0.8538`、Transformer `0.5448/0.8415`；统计口径是全部测试行微平均，逐折结果另存。产量、温度、价格和实测状态只使用前一日值；`low_load_share` / `shutdown_share` 是按能源明细行计算的事后状态占比，也只以 t-1 值入模。告警提前量当前为 N/A，因为没有经维护记录或人工确认的真实事件标签。
 
-同一滚动折上的 28 日序列模型结果为：LSTM MAE/RMSE `0.5493/0.8697 tce`，Transformer `0.5947/0.8967 tce`。两者均优于季节基线，但没有超过 LightGBM；这与当前数据量较小、特征以表格型外生变量和短期滞后为主相符，不以“用了深度学习”代替实际指标比较。该结果使用 CPU、固定随机种子、12 个 epoch 的紧凑模型，输入包含车间身份，定位为可复现对照而非充分调参后的性能上限。
+离线归因助手用于检索与证据守卫回归，不是产品化问答：它可能将排序第一条证据原文作为 claim，而非真正回答问题；在线 LLM 的回答质量须使用问题相关性与检索命中评测集单独评估。逐折模型与归因评测结果以本次上传的 evidence/provenance 产物为准，不沿用与新折口径不匹配的旧数字。
+
+配置 OpenAI Chat Completions 兼容服务的 `LLM_API_URL`、`LLM_API_KEY`、`LLM_MODEL` 后，可运行 `python -m ml.evaluate_attribution --use-llm --output output/attribution_eval_online.json`。该入口会把逐用例耗时、模型/契约错误、引用数和关键陈述命中写入报告；仓库也提供需手工触发的 `Online LLM attribution evaluation` 工作流，避免在没有模型密钥时宣称在线效果已验证。
 
 阶段一证据来自 Ubuntu VM（2 vCPU、8 GB、Spark 3.5.1、Hive 3.1.3、Hadoop 单节点）：19,006 条能耗事实覆盖 731 天，构建出 5,848 条车间日汇总和 731 个全厂日分区。首次全量 DWD/DWS/ADS 墙钟时间分别为 353.690、206.166、160.278 秒；pandas、MySQL、Spark 各导出 5,848 行，四项指标在绝对误差 `0.01` 内全部一致。另以 2024-03-15 的记录执行 2026-09-23 迟到修正，DWD、DWS、ADS 均联动更新，恢复源值后再次回归原结果。原始证据见 `output/spark_performance.jsonl`、`output/engine_comparison.json`、`output/lakehouse_validation.json` 与三份日粒度 CSV。当前结论只代表 1× 单节点基线，不冒充尚未进行的 10×/100×扩容实验。
 
@@ -114,12 +116,12 @@ Airflow 中的执行链为：
 
 ```text
 generate_raw_data → clean_data → load_warehouse → run_analysis → build_report
-                          └→ build_features → run_validation → verify_ml_artifacts → run_deep_validation(可选)
+                          └→ run_phase2 → run_deep_validation(可选)
 ```
 
 （上面是 `dags/energy_pipeline_dag.py` 里的 `task_id`；对应的脚本依次是
 `generate_data.py`、`clean_data.py`、`import_mysql.py --incremental`、
-`import_mysql.py --run-analysis`、`make_report.py`。）
+`import_mysql.py --run-analysis`、`make_report.py`；预测侧由 `tools/run_phase2.py` 统一编排。）
 
 ## 技术栈
 

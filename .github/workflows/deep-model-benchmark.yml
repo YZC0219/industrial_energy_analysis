@@ -23,13 +23,8 @@ jobs:
         run: |
           python src/generate_data.py
           python src/clean_data.py
-          python -m ml.feature_pipeline
-          python -m ml.model_benchmark
-          python -m ml.deep_benchmark
-          python tools/verify_deep_artifacts.py \
-            --baseline-predictions output/ml_model_predictions.csv \
-            --deep-predictions output/ml_deep_predictions.csv \
-            --metrics output/ml_deep_metrics.json
+          python src/clean_data.py --batch-all
+          python tools/run_phase2.py --deep --energy output/clean_batch_energy.csv --production output/clean_batch_production.csv
       - name: Upload deep-model evidence
         uses: actions/upload-artifact@v4
         with:
@@ -37,5 +32,6 @@ jobs:
           path: |
             output/ml_deep_predictions.csv
             output/ml_deep_metrics.json
+            output/ml_provenance.json
           if-no-files-found: error
           retention-days: 30

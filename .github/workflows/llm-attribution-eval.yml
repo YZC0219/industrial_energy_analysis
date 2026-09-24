@@ -1,0 +1,34 @@
+name: Online LLM attribution evaluation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LLM_API_URL: ${{ secrets.LLM_API_URL }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+      LLM_TIMEOUT_SECONDS: "90"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Restore reproducible SQL evidence
+        run: cp tests/baseline/Q*.csv output/
+      - name: Evaluate configured model end to end
+        run: python -m ml.evaluate_attribution --use-llm --output output/attribution_eval_online.json
+      - name: Upload evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-attribution-eval-${{ github.sha }}
+          path: output/attribution_eval_online.json
+          if-no-files-found: error
+          retention-days: 30

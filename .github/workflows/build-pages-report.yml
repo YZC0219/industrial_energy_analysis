@@ -19,6 +19,8 @@ on:
       - "ml/**"
       - "tests/test_ml_pipeline.py"
       - "tools/verify_ml_artifacts.py"
+      - "tools/run_phase2.py"
+      - "ml/provenance.py"
       - "dags/energy_pipeline_dag.py"
       - "requirements.txt"
   workflow_dispatch:
@@ -113,14 +115,7 @@ jobs:
 
       - name: Build and verify forecasting artifacts
         run: |
-          python -m ml.feature_pipeline
-          python -m ml.model_benchmark
-          python tools/verify_ml_artifacts.py \
-            --energy output/clean_energy.csv \
-            --production output/clean_production.csv \
-            --features output/ml_features.csv \
-            --predictions output/ml_model_predictions.csv \
-            --metrics output/ml_model_metrics.json
+          python tools/run_phase2.py --energy output/clean_batch_energy.csv --production output/clean_batch_production.csv
           python -m ml.evaluate_attribution
           python -m pytest tests/test_ml_pipeline.py -q
 
@@ -132,6 +127,7 @@ jobs:
             output/ml_features.csv
             output/ml_model_predictions.csv
             output/ml_model_metrics.json
+            output/ml_provenance.json
             output/attribution_eval.json
           if-no-files-found: error
           retention-days: 30

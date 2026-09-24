@@ -3,7 +3,8 @@
     "case_id": "grounded_standby_cost",
     "question": "W04 停产日待机费用是多少",
     "expect_insufficient": false,
-    "expected_source_contains": "Q13_"
+    "expected_source_contains": "Q13_",
+    "expected_statement_contains": "待机浪费_元=196015.33"
   },
   {
     "case_id": "reject_device_root_cause",
@@ -19,6 +20,7 @@
     "case_id": "grounded_cusum_signal",
     "question": "W03 CUSUM 异常证据",
     "expect_insufficient": false,
-    "expected_source_contains": "Q27_"
+    "expected_source_contains": "Q27_",
+    "expected_statement_contains": "车间编码=W03"
   }
 ]

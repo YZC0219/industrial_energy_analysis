@@ -9,6 +9,12 @@ STD_COAL={"E01":0.1229,"E02":1.3300,"E03":95.7000,"E04":0.2429,"E05":0.0400,"E06
 REFERENCE_PRICE={"E01":0.68,"E02":3.45,"E03":220.0,"E04":4.10,"E05":0.28,"E06":7.85}
 
 def build_features(energy: pd.DataFrame, production: pd.DataFrame) -> pd.DataFrame:
+    """Build workshop-day features.
+
+    ``low_load_share`` and ``shutdown_share`` are proportions of energy-detail rows
+    carrying each retrospective status, not proportions of calendar time/workshop-days.
+    They are exposed only with a one-day lag in model inputs.
+    """
     e=energy.copy(); p=production.copy()
     e["record_date"]=pd.to_datetime(e["record_date"]); p["record_date"]=pd.to_datetime(p["record_date"])
     unknown=sorted(set(e["energy_code"].dropna())-set(STD_COAL))

@@ -9,7 +9,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ml.rolling_validation import evaluate_seasonal_naive, rolling_splits
+from ml.rolling_validation import (eligible_rows, evaluate_seasonal_naive,
+                                  fold_summary, key_fingerprint, rolling_splits)
 
 
 NUMERIC_FEATURES = [
@@ -33,7 +34,7 @@ def _design_matrix(frame: pd.DataFrame, workshops: list[str]) -> pd.DataFrame:
 
 def evaluate_lightgbm(features: pd.DataFrame, train_days: int=365,
                       test_days: int=30, step_days: int=30,
-                      random_state: int=20240918):
+                      random_state: int=20240918, warmup_days: int=28):
     try:
         from lightgbm import LGBMRegressor
     except ImportError as exc:  # pragma: no cover
@@ -42,14 +43,15 @@ def evaluate_lightgbm(features: pd.DataFrame, train_days: int=365,
     df=features.copy(); df["record_date"]=pd.to_datetime(df["record_date"])
     workshops=sorted(df["workshop_code"].dropna().astype(str).unique())
     required=["tce","workshop_code",*NUMERIC_FEATURES]
+    common=eligible_rows(df,NUMERIC_FEATURES)
     rows=[]
     for fold,(train_dates,test_dates) in enumerate(
-        rolling_splits(df["record_date"],train_days,test_days,step_days),1
+        rolling_splits(df["record_date"],train_days,test_days,step_days,warmup_days),1
     ):
         if not len(test_dates):
             continue
-        train=df[df["record_date"].isin(train_dates)].dropna(subset=required)
-        test=df[df["record_date"].isin(test_dates)].dropna(subset=required)
+        train=common[common["record_date"].isin(train_dates)]
+        test=common[common["record_date"].isin(test_dates)]
         if train.empty or test.empty:
             continue
         model=LGBMRegressor(
@@ -58,41 +60,60 @@ def evaluate_lightgbm(features: pd.DataFrame, train_days: int=365,
             subsample=0.9,colsample_bytree=0.9,reg_lambda=0.1,
             random_state=random_state,n_jobs=1,verbosity=-1,
         )
-        model.fit(_design_matrix(train,workshops),train["tce"].astype(float))
-        predictions=model.predict(_design_matrix(test,workshops))
+        train_matrix=_design_matrix(train,workshops)
+        test_matrix=_design_matrix(test,workshops)
+        if list(train_matrix.columns)!=list(test_matrix.columns):
+            raise ValueError("训练集与测试集设计矩阵列不一致")
+        model.fit(train_matrix,train["tce"].astype(float))
+        predictions=model.predict(test_matrix)
+        metadata={"train_start":train_dates.min(),"train_end":train_dates.max(),
+                  "train_rows":len(train),"test_rows":len(test),
+                  "train_keys_sha256":key_fingerprint(train)}
         for row,prediction in zip(test.itertuples(),predictions):
             rows.append({
                 "model":"lightgbm","fold":fold,"record_date":row.record_date,
                 "workshop_code":row.workshop_code,"actual":float(row.tce),
-                "prediction":float(prediction),"train_end":train_dates.max(),
+                "prediction":float(prediction),**metadata,
             })
     pred=pd.DataFrame(rows)
     if pred.empty:
-        return pred,{"model":"lightgbm","samples":0,"mae":None,"rmse":None,
+        return pred,{"model":"lightgbm","samples":0,"mae":None,"rmse":None,"fold_metrics":[],
                     "alert_lead_time_days":None,
                     "lead_time_status":"unavailable_no_verified_incident_labels"}
     error=pred["actual"]-pred["prediction"]
     return pred,{"model":"lightgbm","samples":len(pred),
                  "mae":float(error.abs().mean()),
                  "rmse":float(np.sqrt((error**2).mean())),
-                 "alert_lead_time_days":None,
+                 "fold_metrics":fold_summary(pred),"alert_lead_time_days":None,
                  "lead_time_status":"unavailable_no_verified_incident_labels"}
 
 
 def evaluate_models(features: pd.DataFrame, train_days: int=365,
-                    test_days: int=30, step_days: int=30):
+                    test_days: int=30, step_days: int=30, warmup_days: int=28):
     seasonal_pred,seasonal_metrics=evaluate_seasonal_naive(
-        features,train_days,test_days,step_days
+        features,train_days,test_days,step_days,warmup_days
     )
     seasonal_pred=seasonal_pred.copy()
     seasonal_pred.insert(0,"model","seasonal_naive_7d")
-    tree_pred,tree_metrics=evaluate_lightgbm(features,train_days,test_days,step_days)
+    tree_pred,tree_metrics=evaluate_lightgbm(features,train_days,test_days,step_days,
+                                             warmup_days=warmup_days)
+    seasonal_folds={item["fold"]:item for item in seasonal_metrics["fold_metrics"]}
+    tree_folds={item["fold"]:item for item in tree_metrics["fold_metrics"]}
+    if seasonal_folds.keys()!=tree_folds.keys():
+        raise ValueError("季节基线与 LightGBM 滚动折不一致")
+    for fold in seasonal_folds:
+        for field in ("train_rows","test_rows","train_keys_sha256"):
+            if seasonal_folds[fold][field]!=tree_folds[fold][field]:
+                raise ValueError(f"第 {fold} 折模型训练/测试样本契约不一致: {field}")
     predictions=pd.concat([seasonal_pred,tree_pred],ignore_index=True)
     metrics={
         "split_contract":{"train_days":train_days,"test_days":test_days,
                           "step_days":step_days,"calendar_days":True,
+                          "warmup_days":warmup_days,"partial_test_fold":False,
                           "expanding_training_window":True},
-        "feature_availability":{"dynamic_actuals":"t-1","calendar":"t"},
+        "feature_availability":{"measured_actuals":"t-1",
+                                 "retrospective_energy_row_status_share":"t-1",
+                                 "calendar":"t"},
         "runtime":{"lightgbm":version("lightgbm"),"random_state":20240918},
         "models":[seasonal_metrics,tree_metrics],
     }

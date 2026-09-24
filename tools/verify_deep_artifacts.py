@@ -25,6 +25,16 @@ def main() -> None:
         predictions=deep[deep["model"]==metrics["model"]].reset_index(drop=True)
         if not expected.equals(predictions[keys].astype(str)):
             raise SystemExit(f"{metrics['model']} 未使用与基线相同的滚动测试键")
+        population_fields=["train_rows","test_rows","train_keys_sha256"]
+        expected_population=(baseline[baseline["model"]=="seasonal_naive_7d"]
+                             .groupby("fold",sort=True).first()[population_fields])
+        actual_population=(predictions.groupby("fold",sort=True).first()[population_fields])
+        if not expected_population.astype(str).equals(actual_population.astype(str)):
+            raise SystemExit(f"{metrics['model']} 每折训练/测试样本与基线不一致")
+        metric_population=(pd.DataFrame(metrics.get("fold_metrics",[]))
+                           .set_index("fold")[population_fields])
+        if not expected_population.astype(str).equals(metric_population.astype(str)):
+            raise SystemExit(f"{metrics['model']} metrics 中的每折样本数/训练键摘要不一致")
         if len(predictions)!=metrics["samples"]:
             raise SystemExit(f"{metrics['model']} 样本数不一致")
         error=predictions["actual"].astype(float)-predictions["prediction"].astype(float)
@@ -35,6 +45,8 @@ def main() -> None:
             raise SystemExit(f"{metrics['model']} 存在时间穿越")
         if metrics.get("alert_lead_time_days") is not None:
             raise SystemExit("没有确认事件标签时不得报告提前量")
+    if report.get("split_contract",{}).get("partial_test_fold") is not False:
+        raise SystemExit("滚动验证必须排除不足完整测试窗口的末折")
     print(f"DEEP_ARTIFACTS PASS models={len(report['models'])} predictions={len(deep)}")
 
 

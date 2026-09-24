@@ -10,7 +10,8 @@ import numpy as np
 import pandas as pd
 
 from ml.model_benchmark import NUMERIC_FEATURES
-from ml.rolling_validation import rolling_splits
+from ml.rolling_validation import (eligible_rows, fold_summary, key_fingerprint,
+                                   rolling_splits)
 
 
 def _torch():
@@ -27,6 +28,8 @@ def build_sequences(features: pd.DataFrame, sequence_days: int=28):
     frame=features[columns].copy(); frame["record_date"]=pd.to_datetime(frame["record_date"])
     workshops=sorted(frame["workshop_code"].dropna().astype(str).unique())
     rows=[]
+    eligible=eligible_rows(frame,NUMERIC_FEATURES)
+    eligible_keys=set(zip(eligible["record_date"],eligible["workshop_code"].astype(str)))
     for workshop,group in frame.sort_values("record_date").groupby("workshop_code",sort=True):
         group=group.reset_index(drop=True)
         identity=np.zeros(len(workshops),dtype=np.float32)
@@ -36,7 +39,7 @@ def build_sequences(features: pd.DataFrame, sequence_days: int=28):
             # 目标 tce 本身不在 NUMERIC_FEATURES 中，因此可作为序列最后一步。
             window=group.iloc[index-sequence_days+1:index+1]
             target=group.iloc[index]
-            if window[NUMERIC_FEATURES].isna().any().any() or pd.isna(target["tce"]):
+            if (target["record_date"],str(target["workshop_code"])) not in eligible_keys:
                 continue
             values=window[NUMERIC_FEATURES].to_numpy(dtype=np.float32)
             workshop_values=np.repeat(identity[None,:],sequence_days,axis=0)
@@ -68,7 +71,7 @@ def _model(kind: str, input_size: int, sequence_days: int):
 
 def evaluate_deep_model(features: pd.DataFrame, kind: str, train_days: int=365,
                         test_days: int=30, step_days: int=30, sequence_days: int=28,
-                        epochs: int=12, random_state: int=20240918):
+                        epochs: int=12, random_state: int=20240918, warmup_days: int=28):
     if kind not in {"lstm","transformer"}:
         raise ValueError("kind 必须是 lstm 或 transformer")
     torch,nn=_torch(); torch.set_num_threads(1)
@@ -77,7 +80,7 @@ def evaluate_deep_model(features: pd.DataFrame, kind: str, train_days: int=365,
     sequences=build_sequences(frame,sequence_days)
     rows=[]
     for fold,(train_dates,test_dates) in enumerate(
-        rolling_splits(frame["record_date"],train_days,test_days,step_days),1
+        rolling_splits(frame["record_date"],train_days,test_days,step_days,warmup_days),1
     ):
         train=[row for row in sequences if row["record_date"] in train_dates]
         test=[row for row in sequences if row["record_date"] in test_dates]
@@ -85,9 +88,17 @@ def evaluate_deep_model(features: pd.DataFrame, kind: str, train_days: int=365,
             continue
         x_train=np.stack([row["sequence"] for row in train]); y_train=np.array([row["actual"] for row in train],dtype=np.float32)
         x_test=np.stack([row["sequence"] for row in test])
-        mean=x_train.mean(axis=(0,1),keepdims=True); std=x_train.std(axis=(0,1),keepdims=True); std[std<1e-6]=1
+        mean=np.nanmean(x_train,axis=(0,1),keepdims=True)
+        std=np.nanstd(x_train,axis=(0,1),keepdims=True)
+        std[~np.isfinite(std)|(std<1e-6)]=1
         y_mean=float(y_train.mean()); y_std=float(y_train.std()) or 1.0
-        x_train=(x_train-mean)/std; x_test=(x_test-mean)/std; y_scaled=(y_train-y_mean)/y_std
+        x_train=np.nan_to_num((x_train-mean)/std,nan=0.0,posinf=0.0,neginf=0.0)
+        x_test=np.nan_to_num((x_test-mean)/std,nan=0.0,posinf=0.0,neginf=0.0)
+        y_scaled=(y_train-y_mean)/y_std
+        train_keys=pd.DataFrame([{"record_date":row["record_date"],"workshop_code":row["workshop_code"]} for row in train])
+        metadata={"train_start":train_dates.min(),"train_end":train_dates.max(),
+                  "train_rows":len(train),"test_rows":len(test),
+                  "train_keys_sha256":key_fingerprint(train_keys)}
         network=_model(kind,x_train.shape[2],sequence_days)
         optimizer=torch.optim.Adam(network.parameters(),lr=0.003)
         loss_fn=nn.MSELoss(); network.train()
@@ -104,16 +115,17 @@ def evaluate_deep_model(features: pd.DataFrame, kind: str, train_days: int=365,
         for source,prediction in zip(test,predictions):
             rows.append({"model":kind,"fold":fold,"record_date":source["record_date"],
                          "workshop_code":source["workshop_code"],"actual":source["actual"],
-                         "prediction":float(prediction),"train_end":train_dates.max()})
+                         "prediction":float(prediction),**metadata})
     pred=pd.DataFrame(rows)
     if pred.empty:
-        return pred,{"model":kind,"samples":0,"mae":None,"rmse":None,
+        return pred,{"model":kind,"samples":0,"mae":None,"rmse":None,"fold_metrics":[],
                     "alert_lead_time_days":None,
                     "lead_time_status":"unavailable_no_verified_incident_labels"}
     error=pred["actual"]-pred["prediction"]
     return pred,{"model":kind,"samples":len(pred),"mae":float(error.abs().mean()),
                  "rmse":float(np.sqrt((error**2).mean())),"epochs":epochs,
-                 "sequence_days":sequence_days,"alert_lead_time_days":None,
+                 "sequence_days":sequence_days,"fold_metrics":fold_summary(pred),
+                 "alert_lead_time_days":None,
                  "lead_time_status":"unavailable_no_verified_incident_labels"}
 
 
@@ -133,8 +145,10 @@ def main() -> None:
     combined.to_csv(output,index=False,encoding="utf-8-sig")
     torch,_=_torch()
     report={"models":metrics,"split_contract":{"train_days":365,"test_days":30,
-            "step_days":30,"calendar_days":True,"expanding_training_window":True},
-            "feature_availability":{"dynamic_actuals":"t-1","calendar":"t"},
+            "step_days":30,"warmup_days":28,"partial_test_fold":False,
+            "calendar_days":True,"expanding_training_window":True},
+            "feature_availability":{"measured_actuals":"t-1",
+            "retrospective_energy_row_status_share":"t-1","calendar":"t"},
             "runtime":{"torch":torch.__version__,"device":"cpu","random_state":20240918}}
     Path(args.metrics).write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False))
