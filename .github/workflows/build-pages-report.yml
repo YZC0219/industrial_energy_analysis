@@ -116,7 +116,7 @@ jobs:
       - name: Build and verify forecasting artifacts
         run: |
           python tools/run_phase2.py --energy output/clean_batch_energy.csv --production output/clean_batch_production.csv
-          python -m ml.evaluate_attribution
+          python -m ml.evaluate_attribution --sql-dir tests/baseline
           python -m pytest tests/test_ml_pipeline.py -q
 
       - name: Upload forecasting evidence

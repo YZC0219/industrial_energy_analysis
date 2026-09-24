@@ -11,9 +11,16 @@ from ml.attribution_assistant import analyze, load_evidence, openai_compatible_l
 
 
 def evaluate(cases: list[dict], evidence, llm: Callable[[str],dict] | None=None) -> dict:
-    results=[]; failures=[]
+    results=[]; failures=[]; evaluated=0; llm_calls=0
     started=time.perf_counter()
     for case in cases:
+        if case.get("requires_llm") and llm is None:
+            results.append({"case_id":case["case_id"],"passed":None,
+                            "status":"skipped_requires_llm","provider":"not_run",
+                            "insufficient_evidence":None,"citation_count":0,
+                            "error":None,"statement_matches_expected":None})
+            continue
+        evaluated+=1
         case_started=time.perf_counter()
         error=None
         try:
@@ -27,26 +34,36 @@ def evaluate(cases: list[dict], evidence, llm: Callable[[str],dict] | None=None)
             statements=[claim["statement"] for claim in result["claims"]]
             if expected_statement:
                 passed=passed and any(expected_statement in statement for statement in statements)
+            expected_parts=case.get("expected_statement_contains_all",[])
+            if expected_parts:
+                passed=passed and any(all(part in statement for part in expected_parts)
+                                      for statement in statements)
             if not case["expect_insufficient"]:
                 passed=passed and bool(citations) and bool(statements)
         except Exception as exc:  # 单个模型错误也必须进入评测报告
             passed=False; error=f"{type(exc).__name__}: {exc}"
             result={"insufficient_evidence":None}; citations=[]; statements=[]
             expected_statement=case.get("expected_statement_contains")
+            expected_parts=case.get("expected_statement_contains_all",[])
             audit={"provider":"configured_llm" if llm else "offline_guarded"}
         elapsed=round(time.perf_counter()-case_started,3)
+        if audit["provider"]=="configured_llm":
+            llm_calls+=1
         results.append({"case_id":case["case_id"],"passed":passed,
-                        "provider":audit["provider"],"latency_seconds":elapsed,
+                        "status":"evaluated","provider":audit["provider"],"latency_seconds":elapsed,
                         "insufficient_evidence":result["insufficient_evidence"],
                         "citation_count":len(citations),"error":error,
-                        "statement_matches_expected":(True if not expected_statement else
-                            any(expected_statement in statement for statement in statements))})
+                        "statement_matches_expected":(
+                            True if not expected_statement and not expected_parts else
+                            any((not expected_statement or expected_statement in statement)
+                                and all(part in statement for part in expected_parts)
+                                for statement in statements))})
         if not passed:
             failures.append(case["case_id"])
-    total=len(results)
     return {"mode":"online" if llm else "offline", "cases":results,
-            "passed":total-len(failures),"total":total,
-            "pass_rate":round((total-len(failures))/total,4) if total else 0.0,
+            "passed":evaluated-len(failures),"total":evaluated,"skipped":len(results)-evaluated,
+            "llm_calls":llm_calls,
+            "pass_rate":round((evaluated-len(failures))/evaluated,4) if evaluated else 0.0,
             "duration_seconds":round(time.perf_counter()-started,3),
             "failed_cases":failures}
 

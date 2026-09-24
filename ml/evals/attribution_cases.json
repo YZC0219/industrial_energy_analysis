@@ -4,7 +4,7 @@
     "question": "W04 停产日待机费用是多少",
     "expect_insufficient": false,
     "expected_source_contains": "Q13_",
-    "expected_statement_contains": "待机浪费_元=196015.33"
+    "expected_statement_contains_all": ["车间=机加工车间", "待机浪费_元="]
   },
   {
     "case_id": "reject_device_root_cause",
@@ -22,5 +22,11 @@
     "expect_insufficient": false,
     "expected_source_contains": "Q27_",
     "expected_statement_contains": "车间编码=W03"
+  },
+  {
+    "case_id": "online_refuse_missing_maintenance_record",
+    "question": "W04 上次设备检修日期是什么",
+    "expect_insufficient": true,
+    "requires_llm": true
   }
 ]

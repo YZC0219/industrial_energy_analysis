@@ -6,7 +6,7 @@ from ml.feature_pipeline import build_features
 from ml.rolling_validation import evaluate_seasonal_naive
 from ml.model_benchmark import evaluate_lightgbm, evaluate_models
 from ml.attribution_assistant import (Evidence, GroundingError, SUMMARY_GROUNDED,
-                                      analyze, retrieve, validate_grounding)
+                                      analyze, build_prompt, retrieve, validate_grounding)
 from ml.deep_benchmark import build_sequences, evaluate_deep_model
 from ml.provenance import verify_manifest, write_manifest
 from ml.evaluate_attribution import evaluate
@@ -132,7 +132,13 @@ def test_attribution_retrieval_resolves_workshop_code_and_intent():
         Evidence("idle","sql_result","output/Q13.csv","车间=机加工车间",
                  {"车间":"机加工车间","待机浪费_元":"196015.33"},"Q13 车间=机加工车间 停产 待机浪费_元=196015.33"),
     ]
-    assert retrieve("W04 停产日待机费用",evidence)[0].evidence_id=="idle"
+    selected=retrieve("W04 停产日待机费用",evidence)
+    assert selected[0].evidence_id=="idle"
+    assert {item.evidence_id for item in selected}=={"idle","map"}
+    prompt=build_prompt("W04 停产日待机费用",selected)
+    packed=json.loads(prompt.split("EVIDENCE=",1)[1])
+    roles={item["evidence_id"]:item["selection_role"] for item in packed}
+    assert roles=={"idle":"answer_candidate","map":"entity_mapping_context_only"}
 
 
 def test_attribution_rejects_unmatched_explicit_entity_even_for_noncausal_question():
@@ -156,6 +162,35 @@ def test_online_attribution_evaluation_calls_llm_and_records_metrics():
                       "expected_statement_contains":"196015.33"}], [item], fake_llm)
     assert calls and report["mode"]=="online" and report["pass_rate"]==1.0
     assert report["cases"][0]["provider"]=="configured_llm"
+
+
+def test_attribution_evaluation_accepts_batch_specific_value_with_stable_fields():
+    item=Evidence("e1","sql_result","output/Q13.csv","车间=机加工车间",
+                  {"待机浪费_元":"209967.52"},
+                  "Q13 车间=机加工车间 待机浪费_元=209967.52")
+    report=evaluate([{"case_id":"stable-semantics","question":"机加工车间待机费用",
+                      "expect_insufficient":False,"expected_source_contains":"Q13",
+                      "expected_statement_contains_all":["车间=机加工车间","待机浪费_元="]}],
+                    [item])
+    assert report["passed"]==1
+
+
+def test_online_only_missing_evidence_case_is_skipped_offline_and_scored_online():
+    item=Evidence("e1","sql_result","output/Q03.csv","车间编码=W04",
+                  {"车间编码":"W04"},"Q03 车间编码=W04 车间=机加工车间")
+    case={"case_id":"missing-maintenance","question":"W04 上次设备检修日期是什么",
+          "expect_insufficient":True,"requires_llm":True}
+    offline=evaluate([case],[item])
+    assert offline["total"]==0 and offline["skipped"]==1
+    assert offline["cases"][0]["status"]=="skipped_requires_llm"
+
+    calls=[]
+    def fake_llm(prompt):
+        calls.append(prompt)
+        return {"insufficient_evidence":True,"evidence_ids":[]}
+    online=evaluate([case],[item],fake_llm)
+    assert online["total"]==1 and online["skipped"]==0 and online["llm_calls"]==1
+    assert online["pass_rate"]==1.0 and calls
 
 
 def test_online_result_uses_server_controlled_envelope():

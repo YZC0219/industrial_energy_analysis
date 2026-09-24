@@ -22,6 +22,10 @@ jobs:
           python-version: "3.12"
       - name: Restore reproducible SQL evidence
         run: cp tests/baseline/Q*.csv output/
+      - name: Check model service configuration
+        run: |
+          test -n "$LLM_API_URL" || (echo "LLM_API_URL secret is required" && exit 1)
+          test -n "$LLM_MODEL" || (echo "LLM_MODEL secret is required" && exit 1)
       - name: Evaluate configured model end to end
         run: python -m ml.evaluate_attribution --use-llm --output output/attribution_eval_online.json
       - name: Upload evaluation evidence
