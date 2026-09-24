@@ -1,0 +1,41 @@
+name: Deep model benchmark
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-deep.txt
+      - name: Install deep-learning dependencies
+        run: python -m pip install -r requirements-deep.txt
+      - name: Build leakage-safe features and all forecasts
+        run: |
+          python src/generate_data.py
+          python src/clean_data.py
+          python -m ml.feature_pipeline
+          python -m ml.model_benchmark
+          python -m ml.deep_benchmark
+          python tools/verify_deep_artifacts.py \
+            --baseline-predictions output/ml_model_predictions.csv \
+            --deep-predictions output/ml_deep_predictions.csv \
+            --metrics output/ml_deep_metrics.json
+      - name: Upload deep-model evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deep-model-evidence-${{ github.sha }}
+          path: |
+            output/ml_deep_predictions.csv
+            output/ml_deep_metrics.json
+          if-no-files-found: error
+          retention-days: 30

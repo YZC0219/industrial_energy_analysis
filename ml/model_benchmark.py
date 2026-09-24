@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
@@ -91,6 +92,8 @@ def evaluate_models(features: pd.DataFrame, train_days: int=365,
         "split_contract":{"train_days":train_days,"test_days":test_days,
                           "step_days":step_days,"calendar_days":True,
                           "expanding_training_window":True},
+        "feature_availability":{"dynamic_actuals":"t-1","calendar":"t"},
+        "runtime":{"lightgbm":version("lightgbm"),"random_state":20240918},
         "models":[seasonal_metrics,tree_metrics],
     }
     return predictions,metrics

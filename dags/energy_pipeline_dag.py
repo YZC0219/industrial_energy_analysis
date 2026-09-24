@@ -5,7 +5,7 @@
 
 ```
 generate_raw_data → clean_data → load_warehouse → run_analysis → build_report
-                          └→ build_features → run_validation → verify_ml_artifacts
+                          └→ build_features → run_validation → verify_ml_artifacts → run_deep_validation
 ```
 
 | 阶段 | 做什么 | 产出 |
@@ -16,6 +16,7 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 | run_analysis | 执行 24 条业务查询 | `output/Q01..Q24_*.csv` |
 | build_report | 结果内联进模板, 生成自包含报告 | `output/report.html` |
 | build_features / run_validation | 重建预测特征并执行滚动基线 | `output/ml_*.csv/json` |
+| run_deep_validation | 可选运行 LSTM/Transformer 并核验滚动测试键 | `output/ml_deep_*.csv/json` |
 
 #### 关于幂等
 
@@ -124,6 +125,20 @@ def lakehouse_task(task_id: str, command: str, doc: str, **kwargs) -> BashOperat
             f"cd {PROJECT_DIR} && "
             "if [ \"${LAKEHOUSE_ENABLED:-0}\" != \"1\" ]; then "
             "echo '[SKIP] LAKEHOUSE_ENABLED!=1'; exit 0; fi && " + command
+        ),
+        doc_md=doc,
+        **kwargs,
+    )
+
+
+def optional_deep_task(task_id: str, command: str, doc: str, **kwargs) -> BashOperator:
+    """Torch 环境按部署开关运行；关闭时不制造或复用伪新鲜的深度模型产物。"""
+    return BashOperator(
+        task_id=task_id,
+        bash_command=(
+            f"cd {PROJECT_DIR} && "
+            "if [ \"${DEEP_LEARNING_ENABLED:-0}\" != \"1\" ]; then "
+            "echo '[SKIP] DEEP_LEARNING_ENABLED!=1'; exit 0; fi && " + command
         ),
         doc_md=doc,
         **kwargs,
@@ -260,6 +275,15 @@ with DAG(
         "--metrics output/ml_model_metrics.json",
         "验证特征键与当前清洗批次一致，且 MAE/RMSE 可由预测明细复算。",
     )
+    run_deep_validation = optional_deep_task(
+        "run_deep_validation",
+        "python -m ml.deep_benchmark --features output/ml_features.csv "
+        "--predictions output/ml_deep_predictions.csv --metrics output/ml_deep_metrics.json && "
+        "python tools/verify_deep_artifacts.py "
+        "--baseline-predictions output/ml_model_predictions.csv "
+        "--deep-predictions output/ml_deep_predictions.csv --metrics output/ml_deep_metrics.json",
+        "配置 Torch 并设置 DEEP_LEARNING_ENABLED=1 后，运行 LSTM/Transformer，随后核验其测试键、时间顺序和指标。",
+    )
 
     sync_ods_dimensions = lakehouse_task(
         "sync_ods_dimensions",
@@ -300,7 +324,7 @@ with DAG(
     )
 
     generate_raw_data >> clean_data >> load_warehouse >> run_analysis >> build_report
-    clean_data >> build_features >> run_validation >> verify_ml_artifacts
+    clean_data >> build_features >> run_validation >> verify_ml_artifacts >> run_deep_validation
     clean_data >> [sync_ods_dimensions, sync_ods_energy]
     [sync_ods_dimensions, sync_ods_energy] >> build_dwd >> quality_dwd
     quality_dwd >> build_dws >> quality_dws >> build_ads

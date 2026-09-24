@@ -156,6 +156,7 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
       "build_dwd":{"quality_dwd"}, "quality_dwd":{"build_dws"},
       "build_dws":{"quality_dws"}, "quality_dws":{"build_ads"},
       "build_features":{"run_validation"}, "run_validation":{"verify_ml_artifacts"},
+      "verify_ml_artifacts":{"run_deep_validation"},
     }
     assert {k:v.downstream for k,v in registry.items() if v.downstream}==expected
     assert "ENERGY_ALERT_WEBHOOK" in text("dags/energy_pipeline_dag.py")

@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {
+      "case_id": "grounded_standby_cost",
+      "passed": true,
+      "insufficient_evidence": false,
+      "citation_count": 1
+    },
+    {
+      "case_id": "reject_device_root_cause",
+      "passed": true,
+      "insufficient_evidence": true,
+      "citation_count": 0
+    },
+    {
+      "case_id": "reject_unknown_workshop",
+      "passed": true,
+      "insufficient_evidence": true,
+      "citation_count": 0
+    },
+    {
+      "case_id": "grounded_cusum_signal",
+      "passed": true,
+      "insufficient_evidence": false,
+      "citation_count": 1
+    }
+  ],
+  "passed": 4,
+  "total": 4,
+  "failed_cases": []
+}

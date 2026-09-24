@@ -6,6 +6,7 @@ from ml.feature_pipeline import build_features
 from ml.rolling_validation import evaluate_seasonal_naive
 from ml.model_benchmark import evaluate_lightgbm, evaluate_models
 from ml.attribution_assistant import Evidence, GroundingError, analyze, retrieve, validate_grounding
+from ml.deep_benchmark import build_sequences, evaluate_deep_model
 
 def sample(days=400):
     dates=pd.date_range("2024-01-01",periods=days)
@@ -118,3 +119,21 @@ def test_attribution_rejects_unmatched_explicit_entity_even_for_noncausal_questi
                        {"车间编码":"W04","综合能耗_tce":"1"},"W04 综合能耗_tce=1")]
     result,_=analyze("W99 综合能耗是多少",evidence,analysis_id="missing-entity")
     assert result["insufficient_evidence"] is True and result["claims"]==[]
+
+
+def test_deep_sequences_use_only_days_before_target():
+    energy,production=sample(70); features=build_features(energy,production)
+    sequences=build_sequences(features,sequence_days=28)
+    first=sequences[0]
+    source=features[features["record_date"]<=first["record_date"]].tail(28)
+    assert first["sequence"].shape==(28,15)  # 单车间样本：14 数值特征 + 1 个身份位
+    assert first["sequence"][-1,0]==pytest.approx(source.iloc[-1]["output_qty_lag_1"])
+
+
+def test_lstm_smoke_uses_chronological_fold():
+    pytest.importorskip("torch")
+    energy,production=sample(90); features=build_features(energy,production)
+    predictions,metrics=evaluate_deep_model(features,"lstm",train_days=60,test_days=15,
+                                             step_days=15,sequence_days=14,epochs=1)
+    assert len(predictions)==metrics["samples"]>0
+    assert (predictions["train_end"]<predictions["record_date"]).all()

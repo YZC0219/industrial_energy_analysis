@@ -1,0 +1,40 @@
+{
+  "models": [
+    {
+      "model": "lstm",
+      "samples": 2928,
+      "mae": 0.5492551137264933,
+      "rmse": 0.8697458892781315,
+      "epochs": 12,
+      "sequence_days": 28,
+      "alert_lead_time_days": null,
+      "lead_time_status": "unavailable_no_verified_incident_labels"
+    },
+    {
+      "model": "transformer",
+      "samples": 2928,
+      "mae": 0.5947393577488039,
+      "rmse": 0.8967261865075866,
+      "epochs": 12,
+      "sequence_days": 28,
+      "alert_lead_time_days": null,
+      "lead_time_status": "unavailable_no_verified_incident_labels"
+    }
+  ],
+  "split_contract": {
+    "train_days": 365,
+    "test_days": 30,
+    "step_days": 30,
+    "calendar_days": true,
+    "expanding_training_window": true
+  },
+  "feature_availability": {
+    "dynamic_actuals": "t-1",
+    "calendar": "t"
+  },
+  "runtime": {
+    "torch": "2.14.0+cpu",
+    "device": "cpu",
+    "random_state": 20240918
+  }
+}

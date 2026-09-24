@@ -1,0 +1,35 @@
+{
+  "split_contract": {
+    "train_days": 365,
+    "test_days": 30,
+    "step_days": 30,
+    "calendar_days": true,
+    "expanding_training_window": true
+  },
+  "feature_availability": {
+    "dynamic_actuals": "t-1",
+    "calendar": "t"
+  },
+  "runtime": {
+    "lightgbm": "4.7.0",
+    "random_state": 20240918
+  },
+  "models": [
+    {
+      "model": "seasonal_naive_7d",
+      "samples": 2928,
+      "mae": 0.7512499201645835,
+      "rmse": 1.3144318376934585,
+      "alert_lead_time_days": null,
+      "lead_time_status": "unavailable_no_verified_incident_labels"
+    },
+    {
+      "model": "lightgbm",
+      "samples": 2928,
+      "mae": 0.4847538001045476,
+      "rmse": 0.8026613186729434,
+      "alert_lead_time_days": null,
+      "lead_time_status": "unavailable_no_verified_incident_labels"
+    }
+  ]
+}

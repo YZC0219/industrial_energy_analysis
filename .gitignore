@@ -53,6 +53,10 @@ output/*
 !output/pandas_daily.csv
 !output/mysql_daily.csv
 !output/spark_daily.csv
+!output/ml_model_metrics.json
+!output/ml_deep_metrics.json
+!output/ml_deep_metrics.json
+!output/attribution_eval.json
 
 # 临时调试产物(非项目文件)
 _runs.json
