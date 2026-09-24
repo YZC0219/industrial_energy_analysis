@@ -4,6 +4,7 @@ scikit-learn>=1.6.0
 lightgbm>=4.5.0
 PyMySQL>=1.1.0
 cryptography>=42.0.0
+great_expectations==1.23.1
 
 # 测试 (仅开发/CI 需要, 生产运行管道不需要)
 pytest>=8.0.0

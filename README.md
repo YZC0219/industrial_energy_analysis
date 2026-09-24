@@ -91,9 +91,9 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 
 阶段一证据来自 Ubuntu VM（2 vCPU、8 GB、Spark 3.5.1、Hive 3.1.3、Hadoop 单节点）：19,006 条能耗事实覆盖 731 天，构建出 5,848 条车间日汇总和 731 个全厂日分区。首次全量 DWD/DWS/ADS 墙钟时间分别为 353.690、206.166、160.278 秒；pandas、MySQL、Spark 各导出 5,848 行，四项指标在绝对误差 `0.01` 内全部一致。另以 2024-03-15 的记录执行 2026-09-23 迟到修正，DWD、DWS、ADS 均联动更新，恢复源值后再次回归原结果。原始证据见 `output/spark_performance.jsonl`、`output/engine_comparison.json`、`output/lakehouse_validation.json` 与三份日粒度 CSV。当前结论只代表 1× 单节点基线，不冒充尚未进行的 10×/100×扩容实验。
 
-### 阶段三：数据质量与实时管道（预研）
+### 阶段三：数据质量与实时管道（进行中）
 
-实时事件契约已作为阶段三预研保留，但不计入阶段二完成度；Kafka/Flink、实时质量与流批对账将在阶段二验收后推进。
+阶段三已完成离线质量规则、CI 门禁及单机 Kafka/Flink 窗口流实验；版本化事件契约固定了事件与修正语义。删除捕获、超过 watermark 的迟到事件侧输出、流批对账和多节点高可用仍待实现。
 
 ```mermaid
 flowchart LR
@@ -569,16 +569,16 @@ python tests/update_baseline.py
 
 **目标：** 将现有手写测试扩展为可配置的数据质量体系，并验证准实时异常告警链路。
 
-- [ ] 评估 Great Expectations 与 Deequ，将完整性、唯一性、范围和跨表一致性规则配置化；
-- [ ] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；
-- [ ] 扩展 GitHub Actions，在可用的测试环境中自动运行离线测试、查询快照和关键端到端测试；
+- [x] 评估 Great Expectations 与 Deequ，将完整性、唯一性、范围和跨表一致性规则配置化；
+- [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，checkpoint 恢复后告警延迟约 3.0 秒（本机最近一次实测）；
+- [x] 扩展 GitHub Actions，在可用的测试环境中自动运行完整离线测试、MySQL 查询快照和关键端到端测试；
 - [ ] 为增量链路增加删除捕获机制，并让日期维表按数据范围自动扩展。
 
 ### 阶段四：服务化与可视化交付
 
 **目标：** 降低项目复现成本，让分析结果可以被其他系统和业务用户直接使用。
 
-- [ ] 为新增的大数据组件补充 Docker Compose 开发环境和分步启动文档；
+- [x] 为新增的大数据组件补充 Docker Compose 开发环境和分步启动文档；Kafka/Flink 使用可选 `streaming` profile。
 - [ ] 使用 FastAPI 提供指标查询、异常明细和报告摘要接口，并补充接口测试与 OpenAPI 文档；
 - [ ] 接入 Power BI、Tableau 或开源 BI 工具，验证权限、筛选和下钻能力；
 - [ ] 完善 Windows、Docker 两种运行方式的故障排查说明，以及毕业论文和答辩演示材料。

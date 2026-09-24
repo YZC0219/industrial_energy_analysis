@@ -172,7 +172,146 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # ---- 可选实时实验栈: docker compose --profile streaming up ----------------
+  kafka:
+    image: apache/kafka:3.9.1
+    profiles: [streaming]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_MAX_TIMEOUT_MS: 120000
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka-streaming-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+  kafka-topics-init:
+    image: apache/kafka:3.9.1
+    profiles: [streaming]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >-
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-events --partitions 1 --replication-factor 1 &&
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-alerts --partitions 1 --replication-factor 1
+    restart: "no"
+
+  flink-connector-init:
+    image: curlimages/curl:8.12.1
+    profiles: [streaming]
+    user: "0:0"
+    command:
+      - -fsSL
+      - -o
+      - /shared/flink-sql-connector-kafka-3.3.0-1.20.jar
+      - https://repo.maven.apache.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-1.20/flink-sql-connector-kafka-3.3.0-1.20.jar
+    volumes:
+      - flink-kafka-connector:/shared
+    restart: "no"
+
+  flink-checkpoint-init:
+    image: flink:1.20.2-scala_2.12-java17
+    profiles: [streaming]
+    user: "0:0"
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - chown -R 9999:9999 /opt/flink/checkpoints
+    volumes:
+      - flink-streaming-checkpoints:/opt/flink/checkpoints
+    restart: "no"
+
+  flink-jobmanager:
+    image: flink:1.20.2-scala_2.12-java17
+    profiles: [streaming]
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - cp /connectors/*.jar /opt/flink/lib/ && exec /docker-entrypoint.sh jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 768m
+        taskmanager.memory.process.size: 1024m
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 1
+        execution.checkpointing.interval: 2s
+        execution.checkpointing.mode: EXACTLY_ONCE
+        execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        state.backend.type: hashmap
+        restart-strategy.type: fixed-delay
+        restart-strategy.fixed-delay.attempts: 60
+        restart-strategy.fixed-delay.delay: 2s
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./streaming/flink:/opt/flink/sql:ro
+      - flink-kafka-connector:/connectors:ro
+      - flink-streaming-checkpoints:/opt/flink/checkpoints
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-topics-init:
+        condition: service_completed_successfully
+      flink-connector-init:
+        condition: service_completed_successfully
+      flink-checkpoint-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  flink-taskmanager:
+    image: flink:1.20.2-scala_2.12-java17
+    profiles: [streaming]
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - cp /connectors/*.jar /opt/flink/lib/ && exec /docker-entrypoint.sh taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 768m
+        taskmanager.memory.process.size: 1024m
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 1
+        execution.checkpointing.interval: 2s
+        execution.checkpointing.mode: EXACTLY_ONCE
+        execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        state.backend.type: hashmap
+        restart-strategy.type: fixed-delay
+        restart-strategy.fixed-delay.attempts: 60
+        restart-strategy.fixed-delay.delay: 2s
+    volumes:
+      - ./streaming/flink:/opt/flink/sql:ro
+      - flink-kafka-connector:/connectors:ro
+      - flink-streaming-checkpoints:/opt/flink/checkpoints
+    depends_on:
+      flink-jobmanager:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres-db:
   mysql-data:
   airflow-logs:
+  kafka-streaming-data:
+  flink-kafka-connector:
+  flink-streaming-checkpoints:

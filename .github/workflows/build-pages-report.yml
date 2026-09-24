@@ -20,8 +20,15 @@ on:
       - "tests/test_ml_pipeline.py"
       - "tools/verify_ml_artifacts.py"
       - "tools/run_phase2.py"
+      - "tools/check_data_quality.py"
+      - "quality/**"
+      - "tests/test_data_quality.py"
       - "ml/provenance.py"
       - "dags/energy_pipeline_dag.py"
+      - "docker-compose.yml"
+      - "streaming/**"
+      - "tests/test_streaming_contract.py"
+      - "tools/run_streaming_experiment.py"
       - "requirements.txt"
   workflow_dispatch:
 
@@ -116,8 +123,9 @@ jobs:
       - name: Build and verify forecasting artifacts
         run: |
           python tools/run_phase2.py --energy output/clean_batch_energy.csv --production output/clean_batch_production.csv
+          python tools/check_data_quality.py --energy output/clean_batch_energy.csv --production output/clean_batch_production.csv
           python -m ml.evaluate_attribution --sql-dir tests/baseline
-          python -m pytest tests/test_ml_pipeline.py -q
+          python -m pytest -q
 
       - name: Upload forecasting evidence
         uses: actions/upload-artifact@v4
@@ -129,15 +137,22 @@ jobs:
             output/ml_model_metrics.json
             output/ml_provenance.json
             output/attribution_eval.json
+            output/data_quality_report.json
           if-no-files-found: error
           retention-days: 30
 
       # ---- 生成 Pages 报告 ----
       - name: Generate responsive report from verified baselines
         run: |
+          mkdir -p /tmp/report-evidence
+          cp output/ml_model_metrics.json output/attribution_eval.json /tmp/report-evidence/
+          if [ -f output/ml_deep_metrics.json ]; then cp output/ml_deep_metrics.json /tmp/report-evidence/; fi
+          if [ -f output/engine_comparison.json ]; then cp output/engine_comparison.json /tmp/report-evidence/; fi
+          if [ -f output/lakehouse_validation.json ]; then cp output/lakehouse_validation.json /tmp/report-evidence/; fi
           rm -rf output
           mkdir -p output docs
           cp tests/baseline/*.csv output/
+          cp /tmp/report-evidence/*.json output/
           python src/make_report.py
           python - <<'PY'
           from pathlib import Path

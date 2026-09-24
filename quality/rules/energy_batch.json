@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "datasets": {
+    "energy": {
+      "required_columns": [
+        "record_date", "workshop_code", "energy_code", "consumption",
+        "unit_price", "cost", "record_status", "is_production_day"
+      ],
+      "expectations": [
+        {"rule_id": "energy.batch_not_empty", "type": "ExpectTableRowCountToBeBetween", "kwargs": {"min_value": 1}},
+        {"rule_id": "energy.record_date_required", "type": "ExpectColumnValuesToNotBeNull", "kwargs": {"column": "record_date"}},
+        {"rule_id": "energy.workshop_code_required", "type": "ExpectColumnValuesToNotBeNull", "kwargs": {"column": "workshop_code"}},
+        {"rule_id": "energy.energy_code_required", "type": "ExpectColumnValuesToNotBeNull", "kwargs": {"column": "energy_code"}},
+        {"rule_id": "energy.business_key_unique", "type": "ExpectCompoundColumnsToBeUnique", "kwargs": {"column_list": ["record_date", "workshop_code", "energy_code"]}},
+        {"rule_id": "energy.consumption_non_negative", "type": "ExpectColumnValuesToBeBetween", "kwargs": {"column": "consumption", "min_value": 0}},
+        {"rule_id": "energy.unit_price_non_negative", "type": "ExpectColumnValuesToBeBetween", "kwargs": {"column": "unit_price", "min_value": 0}},
+        {"rule_id": "energy.cost_non_negative", "type": "ExpectColumnValuesToBeBetween", "kwargs": {"column": "cost", "min_value": 0}},
+        {"rule_id": "energy.production_day_binary", "type": "ExpectColumnValuesToBeInSet", "kwargs": {"column": "is_production_day", "value_set": [0, 1]}},
+        {"rule_id": "energy.record_status_allowed", "type": "ExpectColumnValuesToBeInSet", "kwargs": {"column": "record_status", "value_set": ["正常", "低负荷", "停产"]}}
+      ]
+    },
+    "production": {
+      "required_columns": ["record_date", "workshop_code", "output_qty"],
+      "expectations": [
+        {"rule_id": "production.batch_not_empty", "type": "ExpectTableRowCountToBeBetween", "kwargs": {"min_value": 1}},
+        {"rule_id": "production.record_date_required", "type": "ExpectColumnValuesToNotBeNull", "kwargs": {"column": "record_date"}},
+        {"rule_id": "production.workshop_code_required", "type": "ExpectColumnValuesToNotBeNull", "kwargs": {"column": "workshop_code"}},
+        {"rule_id": "production.business_key_unique", "type": "ExpectCompoundColumnsToBeUnique", "kwargs": {"column_list": ["record_date", "workshop_code"]}},
+        {"rule_id": "production.output_qty_non_negative", "type": "ExpectColumnValuesToBeBetween", "kwargs": {"column": "output_qty", "min_value": 0}}
+      ]
+    }
+  },
+  "cross_table": [
+    {
+      "rule_id": "energy_workshop_day_exists_in_production",
+      "source_dataset": "energy",
+      "source_columns": ["record_date", "workshop_code"],
+      "target_dataset": "production",
+      "target_columns": ["record_date", "workshop_code"]
+    }
+  ]
+}
