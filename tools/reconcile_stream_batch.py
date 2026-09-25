@@ -99,30 +99,46 @@ def read_events(path: Path) -> tuple[list[dict], list[dict]]:
     return events, invalid
 
 
-def _latest_events(events: Iterable[dict]) -> tuple[dict, list[dict]]:
+def _latest_events(events: Iterable[dict]) -> tuple[dict, list[dict], list[dict]]:
     by_id: dict[str, str] = {}
+    by_version: dict[tuple[tuple[str, str, str], datetime], tuple] = {}
     latest: dict[tuple[str, str, str], dict] = {}
-    conflicts: list[dict] = []
+    id_conflicts: list[dict] = []
+    version_conflicts: list[dict] = []
     for event in events:
         event_id = str(event["event_id"])
         serialized = json.dumps(event, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
         if event_id in by_id:
             if by_id[event_id] != serialized:
-                conflicts.append({"event_id": event_id, "reason": "event_id_payload_conflict"})
+                id_conflicts.append({"event_id": event_id, "reason": "event_id_payload_conflict"})
             continue
         by_id[event_id] = serialized
         key = tuple(str(event[field]) for field in KEY_FIELDS)
+        updated_at = _timestamp(event["updated_at"])
+        assert updated_at is not None  # read_events has already validated timestamps.
+        state = (event["op"],)
+        if event["op"] == "UPSERT":
+            state += tuple(str(_number(event[field])) if field != "unit" else event[field]
+                           for field in VALUE_FIELDS)
+            state += (event.get("record_status"), event.get("is_production_day"))
+        version_key = (key, updated_at)
+        previous = by_version.setdefault(version_key, state)
+        if previous != state:
+            version_conflicts.append({
+                **dict(zip(KEY_FIELDS, key)), "updated_at": updated_at.isoformat(),
+                "event_id": event_id, "reason": "same_version_different_state",
+            })
         current = latest.get(key)
-        version = (_timestamp(event["updated_at"]), event_id)
+        version = (updated_at, event_id)
         current_version = (_timestamp(current["updated_at"]), str(current["event_id"])) if current else None
         if current is None or version > current_version:
             latest[key] = event
-    return latest, conflicts
+    return latest, id_conflicts, version_conflicts
 
 
 def reconcile(events_path: Path, batch_path: Path) -> dict:
     events, invalid = read_events(events_path)
-    latest, conflicts = _latest_events(events)
+    latest, conflicts, version_conflicts = _latest_events(events)
     with batch_path.open(encoding="utf-8-sig", newline="") as stream:
         batch_rows = list(csv.DictReader(stream))
     batch: dict[tuple[str, str, str], dict] = {}
@@ -162,7 +178,7 @@ def reconcile(events_path: Path, batch_path: Path) -> dict:
             mismatches.append({**dict(zip(KEY_FIELDS, key)), "differences": differences})
 
     success = bool(events and batch_rows) and not (
-        invalid or conflicts or batch_invalid or batch_duplicates
+        invalid or conflicts or version_conflicts or batch_invalid or batch_duplicates
         or only_batch or only_stream or mismatches
     )
     return {
@@ -174,7 +190,8 @@ def reconcile(events_path: Path, batch_path: Path) -> dict:
         },
         "counts": {
             "event_rows": len(events), "event_invalid_rows": len(invalid),
-            "event_id_conflicts": len(conflicts), "stream_business_keys": len(stream_state),
+            "event_id_conflicts": len(conflicts),
+            "version_conflicts": len(version_conflicts), "stream_business_keys": len(stream_state),
             "batch_rows": len(batch_rows), "batch_invalid_rows": len(batch_invalid),
             "batch_duplicate_keys": len(batch_duplicates), "only_in_batch": len(only_batch),
             "only_in_stream": len(only_stream), "value_mismatches": len(mismatches),
@@ -182,6 +199,7 @@ def reconcile(events_path: Path, batch_path: Path) -> dict:
         },
         "samples": {
             "invalid_events": invalid[:10], "event_id_conflicts": conflicts[:10],
+            "version_conflicts": version_conflicts[:10],
             "batch_invalid_rows": batch_invalid[:10], "batch_duplicate_keys": batch_duplicates[:10],
             "only_in_batch": only_batch[:10], "only_in_stream": only_stream[:10],
             "value_mismatches": mismatches[:10],

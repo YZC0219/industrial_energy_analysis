@@ -64,6 +64,28 @@ def test_reconciliation_reports_invalid_rows_and_event_id_conflicts(tmp_path):
     assert report["counts"]["event_id_conflicts"] == 1
 
 
+def test_reconciliation_rejects_conflicting_states_at_same_source_version(tmp_path):
+    events = [_event("a", "2026-09-01T01:00:00Z", consumption=12.5, cost=25),
+              _event("z", "2026-09-01T01:00:00Z", consumption=14, cost=28)]
+    batch = [{"record_date": "2026-09-01", "workshop_code": "W04", "energy_code": "E01",
+              "consumption": "14", "unit": "kWh", "unit_price": "2", "cost": "28"}]
+    report = reconcile(*_write_inputs(tmp_path, events, batch))
+    assert report["success"] is False
+    assert report["counts"]["version_conflicts"] == 1
+    assert report["counts"]["value_mismatches"] == 0
+    assert report["samples"]["version_conflicts"][0]["reason"] == "same_version_different_state"
+
+
+def test_reconciliation_accepts_same_version_same_state_with_new_event_id(tmp_path):
+    events = [_event("a", "2026-09-01T01:00:00Z"),
+              _event("b", "2026-09-01T01:00:00+00:00")]
+    batch = [{"record_date": "2026-09-01", "workshop_code": "W04", "energy_code": "E01",
+              "consumption": "12.5", "unit": "kWh", "unit_price": "2", "cost": "25"}]
+    report = reconcile(*_write_inputs(tmp_path, events, batch))
+    assert report["success"] is True
+    assert report["counts"]["version_conflicts"] == 0
+
+
 def test_reconciliation_rejects_duplicate_batch_keys(tmp_path):
     events = [_event("one", "2026-09-01T01:00:00Z")]
     row = {"record_date": "2026-09-01", "workshop_code": "W04", "energy_code": "E01",
