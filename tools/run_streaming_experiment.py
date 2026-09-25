@@ -102,11 +102,11 @@ def _checkpoint_id(job_id: str) -> str | None:
     return str(completed["id"]) if completed.get("id") is not None else None
 
 
-def _start_alert_consumer(run_id: str):
+def _start_topic_consumer(topic: str, run_id: str):
     process = subprocess.Popen(
         ["docker", "compose", "--profile", "streaming", "exec", "-T", "kafka",
          "/opt/kafka/bin/kafka-console-consumer.sh", "--bootstrap-server", "kafka:9092",
-         "--topic", "energy-alerts", "--group", f"stream-demo-{run_id}",
+         "--topic", topic, "--group", f"stream-demo-{topic}-{run_id}",
          "--consumer-property", "auto.offset.reset=latest", "--timeout-ms", "120000"],
         cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
     )
@@ -116,12 +116,23 @@ def _start_alert_consumer(run_id: str):
         assert process.stdout is not None
         for line in process.stdout:
             try:
-                messages.put(json.loads(line))
+                messages.put((time.monotonic(), json.loads(line)))
             except json.JSONDecodeError:
                 continue
 
     threading.Thread(target=read_messages, daemon=True).start()
     return process, messages
+
+
+def _wait_for_new_jobs(previous_ids: set[str], *, minimum: int, timeout: int) -> list[dict]:
+    def new_running_jobs():
+        jobs = _request("/jobs/overview").get("jobs", [])
+        return [job for job in jobs if job.get("state") == "RUNNING"
+                and job.get("jid") not in previous_ids]
+
+    result = _wait_for(lambda: (jobs if len(jobs := new_running_jobs()) >= minimum else None),
+                       timeout=timeout, description=f"{minimum} routed Flink jobs")
+    return result
 
 
 def run_experiment(*, keep_running: bool = False) -> dict:
@@ -136,6 +147,9 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         "watermark_lateness_seconds": 5,
         "arrival_event_time_offsets_seconds": [1, 5, 3],
         "expected_alert": {"workshop_code": "W04", "event_count": 3, "total_cost": 155.0},
+        "late_side_output_tested": False,
+        "delete_event_route_tested": False,
+        "invalid_event_quarantine_tested": False,
         "taskmanager_restart_tested": False,
         "success": False,
     }
@@ -187,7 +201,34 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                 raise TimeoutError("Flink SQL submission did not create a running job")
         report["flink_job_id"] = job["jid"]
 
+        prior_job_ids = {item.get("jid") for item in _request("/jobs/overview").get("jobs", [])}
+        route_client = subprocess.Popen(
+            ["docker", "compose", "--profile", "streaming", "exec", "-T",
+             "flink-jobmanager", "/opt/flink/bin/sql-client.sh", "-f",
+             "/opt/flink/sql/energy_quality_routes.sql"],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        try:
+            _wait_for_new_jobs(prior_job_ids, minimum=3, timeout=120)
+            report["quality_route_jobs_started"] = 3
+        finally:
+            if route_client.poll() is None:
+                route_client.terminate()
+                try:
+                    route_stdout, route_stderr = route_client.communicate(timeout=10)
+                except subprocess.TimeoutExpired:
+                    route_client.kill()
+                    route_stdout, route_stderr = route_client.communicate()
+            else:
+                route_stdout, route_stderr = route_client.communicate()
+            report["quality_route_sql_client_exit_code"] = route_client.returncode
+            report["quality_route_sql_client_stderr"] = route_stderr[-2000:]
+
         previous_checkpoint = _checkpoint_id(job["jid"])
+        consumers = {}
+        for topic in ("energy-alerts", "energy-late-events", "energy-delete-events",
+                      "energy-invalid-events"):
+            consumers[topic] = _start_topic_consumer(topic, run_id)
         _publish(events)
         time.sleep(1.5)
         def new_checkpoint():
@@ -215,39 +256,98 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             raise RuntimeError("Flink restored an older checkpoint than the event checkpoint")
         report["taskmanager_restart_tested"] = True
 
-        consumer, messages = _start_alert_consumer(run_id)
-        time.sleep(2)
-        started = time.monotonic()
+        alert_started = time.monotonic()
         _publish([watermark_event])
-        deadline = time.monotonic() + 15
+        late_event = {
+            **events[0], "event_id": f"{run_id}-late", "event_time": events[0]["event_time"],
+            "op": "UPSERT", "consumption": 9.0, "unit_price": 1.0, "cost": 9.0,
+        }
+        delete_event = {
+            **events[0], "event_id": f"{run_id}-delete", "event_time": watermark_event["event_time"],
+            "op": "DELETE", "workshop_code": "W02", "consumption": None,
+            "unit_price": None, "cost": None,
+        }
+        invalid_event = {
+            **events[0], "event_id": f"{run_id}-invalid", "event_time": watermark_event["event_time"],
+            "consumption": -1.0, "cost": -1.0,
+        }
+        time.sleep(1)
+        _publish([late_event, delete_event, invalid_event])
+
+        def wait_for_event(topic: str, event_id: str, timeout: int = 20):
+            process, messages = consumers[topic]
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                if process.poll() is not None and messages.empty():
+                    return None
+                try:
+                    received_at, item = messages.get(
+                        timeout=min(0.5, max(0.05, deadline - time.monotonic()))
+                    )
+                except queue.Empty:
+                    continue
+                if item.get("event_id") == event_id:
+                    return received_at, item
+            return None
+
+        late_result = wait_for_event("energy-late-events", late_event["event_id"])
+        delete_result = wait_for_event("energy-delete-events", delete_event["event_id"])
+        invalid_result = wait_for_event("energy-invalid-events", invalid_event["event_id"])
+        late_routed = late_result[1] if late_result else None
+        delete_routed = delete_result[1] if delete_result else None
+        invalid_routed = invalid_result[1] if invalid_result else None
+        report["late_event"] = late_routed
+        report["delete_event"] = delete_routed
+        report["invalid_event"] = invalid_routed
+        report["late_side_output_tested"] = late_routed is not None
+        report["delete_event_route_tested"] = delete_routed is not None
+        report["invalid_event_quarantine_tested"] = (
+            invalid_routed is not None and invalid_routed.get("quality_error") == "invalid_consumption"
+        )
+
+        deadline = alert_started + 15
         matched = None
-        while time.monotonic() < deadline:
+        alert_received_at = None
+        alert_process, messages = consumers["energy-alerts"]
+        while True:
+            if alert_process.poll() is not None and messages.empty():
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 and messages.empty():
+                break
             try:
-                candidate = messages.get(timeout=max(0.1, deadline - time.monotonic()))
+                received_at, candidate = messages.get(timeout=max(0.05, min(0.5, remaining)))
             except queue.Empty:
                 break
             if candidate.get("workshop_code") == "W04" \
                     and int(candidate.get("event_count", -1)) == 3 \
                     and Decimal(str(candidate.get("total_cost", "0"))) == Decimal("155.00"):
                 matched = candidate
+                alert_received_at = received_at
                 break
-        report["alert_latency_seconds"] = round(time.monotonic() - started, 3)
+        report["alert_latency_seconds"] = (
+            round(alert_received_at - alert_started, 3) if alert_received_at else None
+        )
         report["alert"] = matched
         report["seconds_level_alert"] = bool(
             matched is not None and report["alert_latency_seconds"] <= 10
         )
         report["success"] = bool(report["taskmanager_restart_tested"]
-                                  and report["seconds_level_alert"])
+                                  and report["seconds_level_alert"]
+                                  and report["late_side_output_tested"]
+                                  and report["delete_event_route_tested"]
+                                  and report["invalid_event_quarantine_tested"])
         if not report["success"]:
-            report["error"] = "Expected recovered 10-second window alert was not observed in <=10 seconds"
+            report["error"] = "One or more window, recovery, late-event, delete-route, or quality-route checks failed"
         return report
     finally:
-        if consumer is not None and consumer.poll() is None:
-            consumer.terminate()
-            try:
-                consumer.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                consumer.kill()
+        for process, _ in locals().get("consumers", {}).values():
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
         if not keep_running:
             try:
                 _compose("stop", "flink-taskmanager", "flink-jobmanager", "kafka", timeout=60)

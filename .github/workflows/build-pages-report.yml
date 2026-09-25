@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/build-pages-report.yml"
+      - "README.md"
       # 报告的直接输入
       - "src/make_report.py"
       - "src/report_template.html"
@@ -28,7 +29,9 @@ on:
       - "docker-compose.yml"
       - "streaming/**"
       - "tests/test_streaming_contract.py"
+      - "tests/test_stream_batch_reconciliation.py"
       - "tools/run_streaming_experiment.py"
+      - "tools/reconcile_stream_batch.py"
       - "requirements.txt"
   workflow_dispatch:
 

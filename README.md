@@ -93,7 +93,7 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 
 ### 阶段三：数据质量与实时管道（进行中）
 
-阶段三已完成离线质量规则、CI 门禁及单机 Kafka/Flink 窗口流实验；版本化事件契约固定了事件与修正语义。删除捕获、超过 watermark 的迟到事件侧输出、流批对账和多节点高可用仍待实现。
+阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口的代码与离线测试。新增 Flink late/DELETE/invalid 路由尚待 Docker 实跑；流批对账只验证导出输入且需同范围快照。MySQL 物理硬删 CDC 和多节点高可用仍未实现，不能将显式 DELETE 事件处理或单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
 
 ```mermaid
 flowchart LR
@@ -572,7 +572,10 @@ python tests/update_baseline.py
 - [x] 评估 Great Expectations 与 Deequ，将完整性、唯一性、范围和跨表一致性规则配置化；
 - [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，checkpoint 恢复后告警延迟约 3.0 秒（本机最近一次实测）；
 - [x] 扩展 GitHub Actions，在可用的测试环境中自动运行完整离线测试、MySQL 查询快照和关键端到端测试；
-- [ ] 为增量链路增加删除捕获机制，并让日期维表按数据范围自动扩展。
+- [x] 为增量链路增加软删除 tombstone 捕获，按 `updated_at` 重放到 Hive 并在 Spark 汇总排除删除行；硬删除仍需源端 CDC。
+- [x] 增加 Kafka 迟到/显式 DELETE/无效业务值隔离路径及事件 JSONL 对账器；Flink 容器实跑待验收，物理删除 CDC 未实现。
+- [x] 日期维表按能耗与产量数据范围自动扩展，并在增量装载时校验日期上下界。
+- [ ] 完成多节点 Kafka/Flink 高可用、MySQL 物理硬删除 CDC、反序列化隔离和流批自动回补/对账；需要集群资源与故障注入。
 
 ### 阶段四：服务化与可视化交付
 
