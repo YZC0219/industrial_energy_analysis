@@ -109,6 +109,12 @@ def test_raw_quarantine_keeps_kafka_offsets_and_original_bytes():
     assert "json_text IS JSON OBJECT" in RAW_SQL
     assert "unsupported_schema_version" in RAW_SQL
     assert "invalid_numeric_field" in RAW_SQL
+    assert "invalid_event_time" in RAW_SQL
+    assert "invalid_updated_at" in RAW_SQL
+    assert "invalid_record_date" in RAW_SQL
+    assert "valid_iso_datetime(JSON_VALUE(json_text, '$.event_time'))" in RAW_SQL
+    assert "valid_iso_datetime(JSON_VALUE(json_text, '$.updated_at'))" in RAW_SQL
+    assert "valid_iso_date(JSON_VALUE(json_text, '$.record_date'))" in RAW_SQL
     assert "'sink.delivery-guarantee' = 'exactly-once'" in RAW_SQL
     assert "WHERE op = 'UPSERT' AND schema_version = 1" in FLINK_SQL
     assert QUALITY_SQL.count("schema_version INT") == 3
@@ -139,3 +145,30 @@ def test_checked_in_four_fault_runtime_evidence_has_recoverable_payloads():
         pass
     else:
         raise AssertionError("invalid_utf8 evidence unexpectedly decodes")
+
+
+def test_checked_in_temporal_runtime_evidence_covers_all_seven_faults():
+    report = json.loads((ROOT / "output/streaming_experiment_temporal_20260926.json")
+                        .read_text(encoding="utf-8"))
+    assert report["success"] is True
+    assert report["taskmanager_restart_tested"] is True
+    assert report["completed_checkpoint_before_restart"] == report["restored_checkpoint_id"]
+    assert all(report[key] for key in (
+        "malformed_json_quarantine_tested", "invalid_utf8_quarantine_tested",
+        "unsupported_schema_quarantine_tested", "invalid_numeric_quarantine_tested",
+        "invalid_event_time_quarantine_tested", "invalid_updated_at_quarantine_tested",
+        "invalid_record_date_quarantine_tested", "seconds_level_alert",
+    ))
+    events = report["malformed_events"]
+    assert len(events) == 7
+    assert len({(item["source_partition"], item["source_offset"]) for item in events}) == 7
+    evidence = {item["quality_error"]: base64.b64decode(item["payload_base64"], validate=True)
+                for item in events}
+    assert set(evidence) == {
+        "invalid_json", "invalid_utf8", "unsupported_schema_version",
+        "invalid_numeric_field", "invalid_event_time", "invalid_updated_at",
+        "invalid_record_date",
+    }
+    assert json.loads(evidence["invalid_event_time"])["event_time"] == "2026-13-99T00:00:00Z"
+    assert json.loads(evidence["invalid_updated_at"])["updated_at"] == "2026-02-30T00:00:00Z"
+    assert json.loads(evidence["invalid_record_date"])["record_date"] == "2026-02-30"

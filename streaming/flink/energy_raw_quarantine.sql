@@ -9,6 +9,8 @@ SET 'execution.attached' = 'false';
 
 CREATE TEMPORARY SYSTEM FUNCTION strict_utf8 AS 'industrial.energy.streaming.StrictUtf8';
 CREATE TEMPORARY SYSTEM FUNCTION raw_base64 AS 'industrial.energy.streaming.RawBase64';
+CREATE TEMPORARY SYSTEM FUNCTION valid_iso_datetime AS 'industrial.energy.streaming.ValidIsoDateTime';
+CREATE TEMPORARY SYSTEM FUNCTION valid_iso_date AS 'industrial.energy.streaming.ValidIsoDate';
 
 CREATE TABLE raw_energy_events (
     payload BYTES,
@@ -50,6 +52,9 @@ FROM (
              WHEN schema_version IS NULL OR schema_version <> 1 THEN 'unsupported_schema_version'
              WHEN op = 'UPSERT' AND (consumption_value IS NULL
                   OR unit_price_value IS NULL OR cost_value IS NULL) THEN 'invalid_numeric_field'
+             WHEN NOT valid_iso_datetime(JSON_VALUE(json_text, '$.event_time')) THEN 'invalid_event_time'
+             WHEN NOT valid_iso_datetime(JSON_VALUE(json_text, '$.updated_at')) THEN 'invalid_updated_at'
+             WHEN NOT valid_iso_date(JSON_VALUE(json_text, '$.record_date')) THEN 'invalid_record_date'
            END AS quality_error
     FROM (
         SELECT payload, kafka_partition, kafka_offset, utf8_ok, json_text,

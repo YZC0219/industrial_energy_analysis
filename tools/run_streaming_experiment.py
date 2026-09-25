@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from tools.build_flink_udf import OUTPUT_JAR, main as build_flink_udf
+from tools.build_flink_udf import main as build_flink_udf
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "output" / "streaming_experiment.json"
@@ -171,13 +171,16 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         "invalid_utf8_quarantine_tested": False,
         "unsupported_schema_quarantine_tested": False,
         "invalid_numeric_quarantine_tested": False,
+        "invalid_event_time_quarantine_tested": False,
+        "invalid_updated_at_quarantine_tested": False,
+        "invalid_record_date_quarantine_tested": False,
         "taskmanager_restart_tested": False,
         "success": False,
     }
     consumer = None
     try:
-        if not OUTPUT_JAR.is_file():
-            build_flink_udf()
+        # Always rebuild: a stale local JAR could otherwise silently omit a new validator.
+        build_flink_udf()
         _compose("up", "-d", "kafka", "kafka-topics-init", "flink-connector-init",
                  "flink-checkpoint-init", "flink-jobmanager", "flink-taskmanager", timeout=900)
         _wait_for(lambda: _request("/overview"), timeout=180, description="Flink JobManager")
@@ -381,11 +384,26 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             **fresh_events[0], "event_id": f"{run_id}-bad-numeric",
             "consumption": "not-a-number",
         }, separators=(",", ":")).encode("utf-8")
+        invalid_event_time = json.dumps({
+            **fresh_events[0], "event_id": f"{run_id}-bad-event-time",
+            "event_time": "2026-13-99T00:00:00Z",
+        }, separators=(",", ":")).encode("utf-8")
+        invalid_updated_at = json.dumps({
+            **fresh_events[0], "event_id": f"{run_id}-bad-updated-at",
+            "updated_at": "2026-02-30T00:00:00Z",
+        }, separators=(",", ":")).encode("utf-8")
+        invalid_record_date = json.dumps({
+            **fresh_events[0], "event_id": f"{run_id}-bad-record-date",
+            "record_date": "2026-02-30",
+        }, separators=(",", ":")).encode("utf-8")
         expected_malformed = {
             _publish_raw(malformed_json): ("invalid_json", malformed_json),
             _publish_raw(invalid_utf8): ("invalid_utf8", invalid_utf8),
             _publish_raw(unsupported_schema): ("unsupported_schema_version", unsupported_schema),
             _publish_raw(invalid_numeric): ("invalid_numeric_field", invalid_numeric),
+            _publish_raw(invalid_event_time): ("invalid_event_time", invalid_event_time),
+            _publish_raw(invalid_updated_at): ("invalid_updated_at", invalid_updated_at),
+            _publish_raw(invalid_record_date): ("invalid_record_date", invalid_record_date),
         }
         observed_malformed = {}
         malformed_process, malformed_messages = consumers["energy-malformed-events"]
@@ -401,19 +419,21 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             if key in expected_malformed:
                 observed_malformed[key] = item
         report["malformed_events"] = list(observed_malformed.values())
+        flag_name_by_reason = {
+            "invalid_json": "malformed_json_quarantine_tested",
+            "invalid_utf8": "invalid_utf8_quarantine_tested",
+            "unsupported_schema_version": "unsupported_schema_quarantine_tested",
+            "invalid_numeric_field": "invalid_numeric_quarantine_tested",
+            "invalid_event_time": "invalid_event_time_quarantine_tested",
+            "invalid_updated_at": "invalid_updated_at_quarantine_tested",
+            "invalid_record_date": "invalid_record_date_quarantine_tested",
+        }
         for key, (reason, payload) in expected_malformed.items():
             item = observed_malformed.get(key, {})
             passed = (item.get("quality_error") == reason
                       and item.get("source_topic") == "energy-events"
                       and item.get("payload_base64") == base64.b64encode(payload).decode("ascii"))
-            if reason == "invalid_json":
-                report["malformed_json_quarantine_tested"] = passed
-            elif reason == "invalid_utf8":
-                report["invalid_utf8_quarantine_tested"] = passed
-            elif reason == "unsupported_schema_version":
-                report["unsupported_schema_quarantine_tested"] = passed
-            else:
-                report["invalid_numeric_quarantine_tested"] = passed
+            report[flag_name_by_reason[reason]] = passed
 
         deadline = alert_started + 15
         matched = None
@@ -453,7 +473,10 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                                   and report["malformed_json_quarantine_tested"]
                                   and report["invalid_utf8_quarantine_tested"]
                                   and report["unsupported_schema_quarantine_tested"]
-                                  and report["invalid_numeric_quarantine_tested"])
+                                  and report["invalid_numeric_quarantine_tested"]
+                                  and report["invalid_event_time_quarantine_tested"]
+                                  and report["invalid_updated_at_quarantine_tested"]
+                                  and report["invalid_record_date_quarantine_tested"])
         if not report["success"]:
             report["error"] = "One or more window, recovery, late-event, delete-route, or quality-route checks failed"
         return report
