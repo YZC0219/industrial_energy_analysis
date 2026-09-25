@@ -18,6 +18,12 @@ def main() -> None:
     baseline=pd.read_csv(args.baseline_predictions)
     deep=pd.read_csv(args.deep_predictions)
     report=json.loads(Path(args.metrics).read_text(encoding="utf-8"))
+    metric_models=[item["model"] for item in report["models"]]
+    if len(metric_models)!=len(set(metric_models)):
+        raise SystemExit("深度 metrics 中存在重复模型名")
+    prediction_models=set(deep["model"].astype(str).unique()) if len(deep) else set()
+    if prediction_models!=set(metric_models):
+        raise SystemExit("深度 metrics 与预测明细中的模型集合不一致")
     keys=["fold","record_date","workshop_code","train_end"]
     expected=(baseline[baseline["model"]=="seasonal_naive_7d"][keys]
               .astype(str).reset_index(drop=True))

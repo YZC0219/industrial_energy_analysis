@@ -10,6 +10,37 @@ from ml.feature_pipeline import build_features
 from ml.model_benchmark import evaluate_models
 from ml.provenance import verify_manifest
 
+POPULATION_FIELDS=('train_rows','test_rows','train_keys_sha256')
+TEST_KEY_FIELDS=['fold','record_date','workshop_code','train_end']
+
+def verify_shared_model_contract(models,pred):
+    """Require every reported model to use the same folds and sample populations."""
+    names=[item['model'] for item in models]
+    if len(names)!=len(set(names)):
+        raise SystemExit('metrics 中存在重复模型名')
+    prediction_names=set(pred['model'].astype(str).unique()) if len(pred) else set()
+    if prediction_names!=set(names):
+        raise SystemExit('metrics 与预测明细中的模型集合不一致')
+    if 'seasonal_naive_7d' not in names:
+        raise SystemExit('缺少统一对照 seasonal_naive_7d')
+
+    by_model={item['model']:item for item in models}
+    reference={fold['fold']:fold for fold in by_model['seasonal_naive_7d']['fold_metrics']}
+    expected_keys=(pred[pred['model']=='seasonal_naive_7d'][TEST_KEY_FIELDS]
+                   .astype(str).reset_index(drop=True))
+    for name,item in by_model.items():
+        folds={fold['fold']:fold for fold in item.get('fold_metrics',[])}
+        if folds.keys()!=reference.keys():
+            raise SystemExit(f'{name} 与季节基线折数不一致')
+        for fold in reference:
+            for field in POPULATION_FIELDS:
+                if folds[fold][field]!=reference[fold][field]:
+                    raise SystemExit(f'{name} 第 {fold} 折模型训练/测试样本不一致: {field}')
+        actual_keys=(pred[pred['model']==name][TEST_KEY_FIELDS]
+                     .astype(str).reset_index(drop=True))
+        if not expected_keys.equals(actual_keys):
+            raise SystemExit(f'{name} 未使用与季节基线相同的滚动测试键')
+
 def main():
     p=argparse.ArgumentParser(); p.add_argument('--energy',required=True); p.add_argument('--production',required=True); p.add_argument('--features',required=True); p.add_argument('--predictions',required=True); p.add_argument('--metrics',required=True); p.add_argument('--provenance'); a=p.parse_args()
     if a.provenance:
@@ -47,14 +78,7 @@ def main():
         fold_metrics=pd.DataFrame(item.get('fold_metrics',[]))
         if len(fold_metrics) and not (fold_metrics['test_rows']==fold_metrics['samples']).all():
             raise SystemExit(f"{item['model']} 每折 test_rows 与预测样本数不一致")
-    by_model={item['model']:item for item in metrics['models']}
-    seasonal={fold['fold']:fold for fold in by_model['seasonal_naive_7d']['fold_metrics']}
-    lightgbm={fold['fold']:fold for fold in by_model['lightgbm']['fold_metrics']}
-    if seasonal.keys()!=lightgbm.keys(): raise SystemExit('季节基线与 LightGBM 折数不一致')
-    for fold in seasonal:
-        for field in ('train_rows','test_rows','train_keys_sha256'):
-            if seasonal[fold][field]!=lightgbm[fold][field]:
-                raise SystemExit(f'第 {fold} 折模型训练/测试样本不一致: {field}')
+    verify_shared_model_contract(metrics['models'],pred)
     if metrics.get('split_contract',{}).get('partial_test_fold') is not False:
         raise SystemExit('滚动验证必须排除不足完整测试窗口的末折')
     if len(pred) and not (pd.to_datetime(pred['train_end'])<pd.to_datetime(pred['record_date'])).all():
