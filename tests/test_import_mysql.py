@@ -21,12 +21,14 @@ xfail(strict) —— 当时用的是 `LOAD DATA ... IGNORE`, IGNORE 的语义是
 from __future__ import annotations
 
 import os
+import secrets
 
 import pandas as pd
 import pytest
 
 import import_mysql as im
 from import_mysql import ENERGY_COLS, PROD_COLS, CAL_COLS
+from tools.setup_bi_reader import grant_bi_reader
 
 pytestmark = pytest.mark.db
 
@@ -74,6 +76,37 @@ def loaded_db(db_params):
     im.load_csv(conn, "fact_production", "clean_production.csv", PROD_COLS, db)
     yield conn, db
     conn.close()
+
+
+def test_bi_reader_can_query_only_the_enriched_view(loaded_db, db_params):
+    """Integration guard: BI view reads succeed, raw fact reads and writes fail."""
+    conn, db = loaded_db
+    import pymysql
+
+    username = "bi_test_" + secrets.token_hex(5)
+    password = secrets.token_urlsafe(24)
+    try:
+        grant_bi_reader(conn, db, username, password)
+        reader = pymysql.connect(
+            host=db_params["host"], port=db_params["port"], user=username,
+            password=password, database=db, charset="utf8mb4", autocommit=True,
+        )
+        try:
+            with reader.cursor() as cursor:
+                cursor.execute(f"SELECT COUNT(*) FROM `{db}`.v_energy_enriched")
+                assert cursor.fetchone()[0] > 0
+                with pytest.raises(pymysql.err.OperationalError, match="1142"):
+                    cursor.execute(f"SELECT COUNT(*) FROM `{db}`.fact_energy_consumption")
+                with pytest.raises(pymysql.err.OperationalError, match="1142"):
+                    cursor.execute(
+                        f"UPDATE `{db}`.v_energy_enriched SET consumption=0 LIMIT 1"
+                    )
+        finally:
+            reader.close()
+    finally:
+        with conn.cursor() as cursor:
+            cursor.execute(f"DROP USER IF EXISTS '{username}'@'%'")
+        conn.commit()
 
 
 # =============================================================================
@@ -267,6 +300,50 @@ def test_stale_version_does_not_overwrite(loaded_db):
                 os.remove(p2)
     finally:
         p = os.path.join(OUT_DIR, tmp)
+        if os.path.exists(p):
+            os.remove(p)
+
+
+def test_soft_delete_tombstone_hides_fact_and_stale_snapshot_cannot_resurrect(loaded_db):
+    conn, db = loaded_db
+    source = pd.read_csv(os.path.join(OUT_DIR, "clean_energy.csv"), encoding="utf-8-sig")
+    target = source.iloc[0]
+    key = (str(target["record_date"]), str(target["workshop_code"]),
+           str(target["energy_code"]))
+    deleted_at = pd.Timestamp(target["updated_at"]) + pd.Timedelta(days=1)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            f"UPDATE `{db}`.fact_energy_consumption SET is_deleted=1, updated_at=%s "
+            "WHERE record_date=%s AND workshop_code=%s AND energy_code=%s",
+            (deleted_at.to_pydatetime(), *key),
+        )
+        cur.execute(
+            f"SELECT COUNT(*) FROM `{db}`.v_energy_enriched "
+            "WHERE record_date=%s AND workshop_code=%s AND energy_code=%s", key,
+        )
+        assert cur.fetchone()[0] == 0
+    conn.commit()
+
+    # Replaying the older full snapshot must preserve the later tombstone timestamp.
+    temp_name = _patch_one_row(source, 0, float(target["consumption"]),
+                               str(target["updated_at"]))
+    try:
+        im.load_csv(conn, "fact_energy_consumption", temp_name, ENERGY_COLS, db,
+                    upsert=True)
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT is_deleted FROM `{db}`.fact_energy_consumption "
+                "WHERE record_date=%s AND workshop_code=%s AND energy_code=%s", key,
+            )
+            assert cur.fetchone()[0] == 1
+            cur.execute(
+                f"SELECT COUNT(*) FROM `{db}`.v_energy_enriched "
+                "WHERE record_date=%s AND workshop_code=%s AND energy_code=%s", key,
+            )
+            assert cur.fetchone()[0] == 0
+    finally:
+        p = os.path.join(OUT_DIR, temp_name)
         if os.path.exists(p):
             os.remove(p)
 

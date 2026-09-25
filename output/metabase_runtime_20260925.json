@@ -1,0 +1,24 @@
+{
+  "checked_at_utc": "2026-09-25T13:20:45.032711+00:00",
+  "metabase_base": "http://127.0.0.1:3000",
+  "database_id": 2,
+  "dashboard_id": 2,
+  "visible_tables": [
+    "v_energy_enriched"
+  ],
+  "view_rows": 20346,
+  "sample_filter": {
+    "workshop_code": "W04",
+    "date_from": "2025-01-01",
+    "date_to": "2025-01-31",
+    "rows": 94,
+    "cost_yuan": "375694.03"
+  },
+  "metabase_cost_yuan": "375694.03",
+  "dashboard_cards_with_both_filters": 2,
+  "native_sql_http_status": 403,
+  "dashboard_edit_http_status": 403,
+  "fact_table_read_denied": true,
+  "mysql_write_denied": true,
+  "result": "pass"
+}
