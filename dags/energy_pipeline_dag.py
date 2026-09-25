@@ -145,6 +145,30 @@ def optional_deep_task(task_id: str, command: str, doc: str, **kwargs) -> BashOp
     )
 
 
+def optional_stream_reconcile_task() -> BashOperator:
+    """Fail closed when the operator enables complete-history stream auditing."""
+    return BashOperator(
+        task_id="reconcile_stream_batch",
+        bash_command=(
+            f"cd {PROJECT_DIR} && "
+            "if [ \"${STREAM_RECON_ENABLED:-0}\" != \"1\" ]; then "
+            "echo '[SKIP] STREAM_RECON_ENABLED!=1'; exit 0; fi && "
+            ": \"${STREAM_RECON_BATCH_TIMEZONE:?set STREAM_RECON_BATCH_TIMEZONE}\" && "
+            "python -m tools.reconcile_kafka_snapshot "
+            "--batch output/clean_batch_energy.csv "
+            "--batch-timezone \"$STREAM_RECON_BATCH_TIMEZONE\" "
+            "--bootstrap \"${STREAM_RECON_BOOTSTRAP:-kafka:9092}\" "
+            "--topic \"${STREAM_RECON_TOPIC:-energy-events}\" "
+            "--report output/stream_batch_reconciliation_{{ ds_nodash }}.json"
+        ),
+        doc_md=(
+            "可选流批质量门禁：仅在 STREAM_RECON_ENABLED=1、Kafka topic 含完整同范围 "
+            "CDC 历史且显式配置批次时区时启用。冻结 Kafka offset 并核对业务键、指标和 "
+            "updated_at；失败阻断数仓和报告，不执行自动修复。演示 topic 不满足启用前提。"
+        ),
+    )
+
+
 with DAG(
     dag_id="energy_pipeline",
     description="工业能耗数据管道: 模拟数据 → 清洗 → 数仓 → 分析 → 报告",
@@ -194,6 +218,8 @@ with DAG(
         > "批次行必须是全量行的逐字节子集"。
         """,
     )
+
+    reconcile_stream_batch = optional_stream_reconcile_task()
 
     ensure_mysql_soft_delete_schema = project_task(
         "ensure_mysql_soft_delete_schema",
@@ -317,9 +343,10 @@ with DAG(
         "生成全厂日看板应用表。",
     )
 
-    generate_raw_data >> clean_data >> ensure_mysql_soft_delete_schema >> load_warehouse >> run_analysis >> build_report
-    clean_data >> run_phase2 >> run_deep_validation
-    clean_data >> [ensure_hive_soft_delete_schema, sync_ods_dimensions]
+    generate_raw_data >> clean_data >> reconcile_stream_batch
+    reconcile_stream_batch >> ensure_mysql_soft_delete_schema >> load_warehouse >> run_analysis >> build_report
+    reconcile_stream_batch >> run_phase2 >> run_deep_validation
+    reconcile_stream_batch >> [ensure_hive_soft_delete_schema, sync_ods_dimensions]
     [ensure_mysql_soft_delete_schema, ensure_hive_soft_delete_schema] >> sync_ods_energy
     [ensure_hive_soft_delete_schema, sync_ods_dimensions, sync_ods_energy] >> build_dwd >> quality_dwd
     quality_dwd >> build_dws >> quality_dws >> build_ads

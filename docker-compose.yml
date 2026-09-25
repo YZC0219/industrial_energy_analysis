@@ -45,6 +45,10 @@ x-airflow-common: &airflow-common
     DATAX_ENTRY: ${DATAX_ENTRY:-/opt/datax/bin/datax.py}
     SPARK_SQL: ${SPARK_SQL:-spark-sql}
     ENERGY_ALERT_WEBHOOK: ${ENERGY_ALERT_WEBHOOK:-}
+    STREAM_RECON_ENABLED: ${STREAM_RECON_ENABLED:-0}
+    STREAM_RECON_BATCH_TIMEZONE: ${STREAM_RECON_BATCH_TIMEZONE:-}
+    STREAM_RECON_BOOTSTRAP: ${STREAM_RECON_BOOTSTRAP:-kafka:9092}
+    STREAM_RECON_TOPIC: ${STREAM_RECON_TOPIC:-energy-events}
     PROJECT_DIR: /opt/airflow/project
   volumes:
     - ./dags:/opt/airflow/dags

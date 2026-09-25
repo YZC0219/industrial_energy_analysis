@@ -160,7 +160,8 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
     load_module("energy_pipeline_contract", "dags/energy_pipeline_dag.py")
     expected={
       "generate_raw_data":{"clean_data"},
-      "clean_data":{"ensure_mysql_soft_delete_schema","sync_ods_dimensions","ensure_hive_soft_delete_schema","run_phase2"},
+      "clean_data":{"reconcile_stream_batch"},
+      "reconcile_stream_batch":{"ensure_mysql_soft_delete_schema","sync_ods_dimensions","ensure_hive_soft_delete_schema","run_phase2"},
       "ensure_mysql_soft_delete_schema":{"load_warehouse","sync_ods_energy_incremental"},
       "ensure_hive_soft_delete_schema":{"sync_ods_energy_incremental","build_dwd"},
       "load_warehouse":{"run_analysis"}, "run_analysis":{"build_report"},
@@ -171,6 +172,10 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
     }
     assert {k:v.downstream for k,v in registry.items() if v.downstream}==expected
     assert "ENERGY_ALERT_WEBHOOK" in text("dags/energy_pipeline_dag.py")
+    dag_source=text("dags/energy_pipeline_dag.py")
+    assert "STREAM_RECON_ENABLED" in dag_source
+    assert "--batch-timezone \\\"$STREAM_RECON_BATCH_TIMEZONE\\\"" in dag_source
+    assert "--report output/stream_batch_reconciliation_{{ ds_nodash }}.json" in dag_source
 
 def test_full_snapshots_use_one_stable_partition():
     runner=text("datax/run_sync.py")
