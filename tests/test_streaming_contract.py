@@ -51,8 +51,8 @@ def test_local_kafka_flink_profile_has_checkpoints_and_durable_state_volume():
 
 
 def test_flink_sql_uses_bounded_out_of_order_event_time_windows_and_exactly_once_sink():
-    assert "WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND" in FLINK_SQL
-    assert "TUMBLE(TABLE energy_events, DESCRIPTOR(event_time), INTERVAL '10' SECOND)" in FLINK_SQL
+    assert "WATERMARK FOR event_time_safe AS event_time_safe - INTERVAL '5' SECOND" in FLINK_SQL
+    assert "TUMBLE(TABLE energy_events, DESCRIPTOR(event_time_safe), INTERVAL '10' SECOND)" in FLINK_SQL
     assert "'sink.delivery-guarantee' = 'exactly-once'" in FLINK_SQL
     assert "WHERE total_cost >= 100.00" in FLINK_SQL
 
@@ -85,8 +85,9 @@ def test_docker_console_transport_explicitly_uses_utf8(monkeypatch):
 
 
 def test_flink_routes_late_delete_and_invalid_events_to_durable_topics():
-    assert "CURRENT_WATERMARK(event_time) IS NOT NULL" in QUALITY_SQL
-    assert "event_time <= CURRENT_WATERMARK(event_time)" in QUALITY_SQL
+    assert "CURRENT_WATERMARK(event_time_safe) IS NOT NULL" in QUALITY_SQL
+    assert "event_time_safe <= CURRENT_WATERMARK(event_time_safe)" in QUALITY_SQL
+    assert QUALITY_SQL.count("WATERMARK FOR") == 1
     assert "'topic' = 'energy-late-events'" in QUALITY_SQL
     assert "WHERE op = 'DELETE'" in QUALITY_SQL
     assert "'topic' = 'energy-delete-events'" in QUALITY_SQL
@@ -115,6 +116,10 @@ def test_raw_quarantine_keeps_kafka_offsets_and_original_bytes():
     assert "valid_iso_datetime(JSON_VALUE(json_text, '$.event_time'))" in RAW_SQL
     assert "valid_iso_datetime(JSON_VALUE(json_text, '$.updated_at'))" in RAW_SQL
     assert "valid_iso_date(JSON_VALUE(json_text, '$.record_date'))" in RAW_SQL
+    assert "iso_epoch_millis(event_time) IS NOT NULL" in FLINK_SQL
+    assert "valid_iso_datetime(updated_at)" in FLINK_SQL
+    assert "valid_iso_date(record_date)" in FLINK_SQL
+    assert "event_time_safe AS TO_TIMESTAMP_LTZ" in FLINK_SQL
     assert "'sink.delivery-guarantee' = 'exactly-once'" in RAW_SQL
     assert "WHERE op = 'UPSERT' AND schema_version = 1" in FLINK_SQL
     assert QUALITY_SQL.count("schema_version INT") == 3
@@ -172,3 +177,26 @@ def test_checked_in_temporal_runtime_evidence_covers_all_seven_faults():
     assert json.loads(evidence["invalid_event_time"])["event_time"] == "2026-13-99T00:00:00Z"
     assert json.loads(evidence["invalid_updated_at"])["updated_at"] == "2026-02-30T00:00:00Z"
     assert json.loads(evidence["invalid_record_date"])["record_date"] == "2026-02-30"
+
+
+def test_poison_before_watermark_does_not_contaminate_alert():
+    from tools.run_streaming_experiment import build_fault_samples
+
+    template = {"schema_version": 1, "event_time": "2026-09-25T22:12:01Z",
+                "updated_at": "2026-09-25T22:11:00Z", "record_date": "2026-09-25",
+                "op": "UPSERT", "consumption": 60, "unit_price": 1, "cost": 60}
+    faults = build_fault_samples("unit-run", template)
+    assert len(faults) == 7
+    for reason in ("unsupported_schema_version", "invalid_numeric_field",
+                   "invalid_event_time", "invalid_updated_at", "invalid_record_date"):
+        assert json.loads(faults[reason])["cost"] == 500
+
+    report = json.loads((ROOT / "output/streaming_experiment_poison_20260926.json")
+                        .read_text(encoding="utf-8"))
+    assert report["success"] is True
+    assert report["faults_sent_before_watermark"] is True
+    assert report["alert_latency_reference"] == "watermark_publish_started"
+    assert report["alert"]["event_count"] == 3
+    assert report["alert"]["total_cost"] == 155
+    assert len(report["malformed_events"]) == 7
+    assert {item["quality_error"] for item in report["malformed_events"]} == set(faults)

@@ -107,6 +107,23 @@ def _publish_raw(payload: bytes) -> tuple[int, int]:
         producer.close(timeout=10)
 
 
+def build_fault_samples(run_id: str, template: dict) -> dict[str, bytes]:
+    """Poison the same alert window before its watermark to test isolation."""
+    def encoded(suffix: str, **overrides) -> bytes:
+        return json.dumps({**template, "event_id": f"{run_id}-{suffix}",
+                           "cost": 500, **overrides}, separators=(",", ":")).encode("utf-8")
+
+    return {
+        "invalid_json": b'{"event_id":"' + run_id.encode("ascii") + b'-broken-json"',
+        "invalid_utf8": b'{"event_id":"' + run_id.encode("ascii") + b'-bad-utf8","text":"\xff"}',
+        "unsupported_schema_version": encoded("schema-v2", schema_version=2),
+        "invalid_numeric_field": encoded("bad-numeric", consumption="not-a-number"),
+        "invalid_event_time": encoded("bad-event-time", event_time="2026-13-99T00:00:00Z"),
+        "invalid_updated_at": encoded("bad-updated-at", updated_at="2026-02-30T00:00:00Z"),
+        "invalid_record_date": encoded("bad-record-date", record_date="2026-02-30"),
+    }
+
+
 def _running_job() -> dict | None:
     jobs = _request("/jobs/overview").get("jobs", [])
     return next((job for job in jobs if job.get("state") == "RUNNING"), None)
@@ -164,6 +181,7 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         "watermark_lateness_seconds": 5,
         "arrival_event_time_offsets_seconds": [1, 5, 3],
         "expected_alert": {"workshop_code": "W04", "event_count": 3, "total_cost": 155.0},
+        "alert_latency_reference": "watermark_publish_started",
         "late_side_output_tested": False,
         "delete_event_route_tested": False,
         "invalid_event_quarantine_tested": False,
@@ -324,9 +342,15 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         )
         fresh_events, fresh_watermark = build_window_events(f"{run_id}-recovered", fresh_window_start)
         report["post_restart_window_start"] = fresh_window_start.isoformat(timespec="seconds")
-        alert_started = time.monotonic()
         _publish(fresh_events)
+        fault_payloads = build_fault_samples(run_id, fresh_events[0])
+        expected_malformed = {
+            _publish_raw(payload): (reason, payload)
+            for reason, payload in fault_payloads.items()
+        }
+        report["faults_sent_before_watermark"] = True
         time.sleep(0.5)
+        alert_started = time.monotonic()
         _publish([fresh_watermark])
         late_event = {
             **fresh_events[0], "event_id": f"{run_id}-late", "event_time": fresh_events[0]["event_time"],
@@ -375,36 +399,6 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             invalid_routed is not None and invalid_routed.get("quality_error") == "invalid_consumption"
         )
 
-        malformed_json = b'{"event_id":"' + run_id.encode("ascii") + b'-broken-json"'
-        invalid_utf8 = b'{"event_id":"' + run_id.encode("ascii") + b'-bad-utf8","text":"\xff"}'
-        unsupported_schema = json.dumps({
-            **fresh_events[0], "event_id": f"{run_id}-schema-v2", "schema_version": 2,
-        }, separators=(",", ":")).encode("utf-8")
-        invalid_numeric = json.dumps({
-            **fresh_events[0], "event_id": f"{run_id}-bad-numeric",
-            "consumption": "not-a-number",
-        }, separators=(",", ":")).encode("utf-8")
-        invalid_event_time = json.dumps({
-            **fresh_events[0], "event_id": f"{run_id}-bad-event-time",
-            "event_time": "2026-13-99T00:00:00Z",
-        }, separators=(",", ":")).encode("utf-8")
-        invalid_updated_at = json.dumps({
-            **fresh_events[0], "event_id": f"{run_id}-bad-updated-at",
-            "updated_at": "2026-02-30T00:00:00Z",
-        }, separators=(",", ":")).encode("utf-8")
-        invalid_record_date = json.dumps({
-            **fresh_events[0], "event_id": f"{run_id}-bad-record-date",
-            "record_date": "2026-02-30",
-        }, separators=(",", ":")).encode("utf-8")
-        expected_malformed = {
-            _publish_raw(malformed_json): ("invalid_json", malformed_json),
-            _publish_raw(invalid_utf8): ("invalid_utf8", invalid_utf8),
-            _publish_raw(unsupported_schema): ("unsupported_schema_version", unsupported_schema),
-            _publish_raw(invalid_numeric): ("invalid_numeric_field", invalid_numeric),
-            _publish_raw(invalid_event_time): ("invalid_event_time", invalid_event_time),
-            _publish_raw(invalid_updated_at): ("invalid_updated_at", invalid_updated_at),
-            _publish_raw(invalid_record_date): ("invalid_record_date", invalid_record_date),
-        }
         observed_malformed = {}
         malformed_process, malformed_messages = consumers["energy-malformed-events"]
         malformed_deadline = time.monotonic() + 30
@@ -466,6 +460,7 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             matched is not None and report["alert_latency_seconds"] <= 10
         )
         report["success"] = bool(report["taskmanager_restart_tested"]
+                                  and report["faults_sent_before_watermark"]
                                   and report["seconds_level_alert"]
                                   and report["late_side_output_tested"]
                                   and report["delete_event_route_tested"]

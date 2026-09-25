@@ -23,7 +23,8 @@ CREATE TABLE late_energy_events (
     cost DECIMAL(18, 2),
     record_status STRING,
     is_production_day INT,
-    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+    event_time_safe AS COALESCE(event_time, TO_TIMESTAMP_LTZ(0, 3)),
+    WATERMARK FOR event_time_safe AS event_time_safe - INTERVAL '5' SECOND
 ) WITH (
     'connector' = 'kafka',
     'topic' = 'energy-events',
@@ -63,10 +64,11 @@ CREATE TABLE energy_late_events (
 INSERT INTO energy_late_events
 SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
        energy_code, consumption, unit, unit_price, cost, record_status,
-       is_production_day, CURRENT_WATERMARK(event_time)
+       is_production_day, CURRENT_WATERMARK(event_time_safe)
 FROM late_energy_events
-WHERE CURRENT_WATERMARK(event_time) IS NOT NULL
-  AND event_time <= CURRENT_WATERMARK(event_time)
+WHERE CURRENT_WATERMARK(event_time_safe) IS NOT NULL
+  AND event_time IS NOT NULL
+  AND event_time_safe <= CURRENT_WATERMARK(event_time_safe)
   AND schema_version = 1;
 
 CREATE TABLE delete_energy_events (
@@ -83,8 +85,7 @@ CREATE TABLE delete_energy_events (
     unit_price DECIMAL(18, 4),
     cost DECIMAL(18, 2),
     record_status STRING,
-    is_production_day INT,
-    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+    is_production_day INT
 ) WITH (
     'connector' = 'kafka',
     'topic' = 'energy-events',
@@ -142,8 +143,7 @@ CREATE TABLE invalid_energy_events (
     cost DECIMAL(18, 2),
     record_status STRING,
     is_production_day INT,
-    quality_error STRING,
-    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+    quality_error STRING
 ) WITH (
     'connector' = 'kafka',
     'topic' = 'energy-events',
@@ -190,8 +190,10 @@ SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
          WHEN op = 'UPSERT' AND (consumption IS NULL OR consumption < 0) THEN 'invalid_consumption'
          WHEN op = 'UPSERT' AND (unit_price IS NULL OR unit_price <= 0) THEN 'invalid_unit_price'
          WHEN op = 'UPSERT' AND (cost IS NULL OR cost < 0) THEN 'invalid_cost'
+         WHEN op = 'UPSERT' AND (unit IS NULL OR TRIM(unit) = '') THEN 'invalid_unit'
+         WHEN record_date IS NULL THEN 'missing_business_date'
          WHEN workshop_code IS NULL OR energy_code IS NULL THEN 'missing_business_key'
-         WHEN event_id IS NULL OR updated_at IS NULL THEN 'missing_event_metadata'
+         WHEN event_id IS NULL OR event_time IS NULL OR updated_at IS NULL THEN 'missing_event_metadata'
        END
 FROM invalid_energy_events
 WHERE schema_version IS NULL OR schema_version <> 1
@@ -199,5 +201,7 @@ WHERE schema_version IS NULL OR schema_version <> 1
    OR (op = 'UPSERT' AND (consumption IS NULL OR consumption < 0))
    OR (op = 'UPSERT' AND (unit_price IS NULL OR unit_price <= 0))
    OR (op = 'UPSERT' AND (cost IS NULL OR cost < 0))
+   OR (op = 'UPSERT' AND (unit IS NULL OR TRIM(unit) = ''))
+   OR record_date IS NULL
    OR workshop_code IS NULL OR energy_code IS NULL
-   OR event_id IS NULL OR updated_at IS NULL;
+   OR event_id IS NULL OR event_time IS NULL OR updated_at IS NULL;

@@ -64,6 +64,7 @@ output/*
 !output/streaming_experiment_raw_20260926.json
 !output/streaming_experiment_schema_20260926.json
 !output/streaming_experiment_temporal_20260926.json
+!output/streaming_experiment_poison_20260926.json
 !output/kafka_snapshot_smoke_20260926.json
 !output/kafka_snapshot_smoke_20260926.jsonl
 

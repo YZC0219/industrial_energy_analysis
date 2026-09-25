@@ -4,20 +4,26 @@ SET 'execution.checkpointing.interval' = '2s';
 SET 'execution.checkpointing.mode' = 'EXACTLY_ONCE';
 SET 'execution.attached' = 'false';
 
+CREATE TEMPORARY SYSTEM FUNCTION iso_epoch_millis AS 'industrial.energy.streaming.IsoEpochMillis';
+CREATE TEMPORARY SYSTEM FUNCTION valid_iso_datetime AS 'industrial.energy.streaming.ValidIsoDateTime';
+CREATE TEMPORARY SYSTEM FUNCTION valid_iso_date AS 'industrial.energy.streaming.ValidIsoDate';
+
 CREATE TABLE energy_events (
     schema_version INT,
     event_id STRING,
-    event_time TIMESTAMP_LTZ(3),
-    updated_at TIMESTAMP_LTZ(3),
+    event_time STRING,
+    updated_at STRING,
     op STRING,
-    record_date DATE,
+    record_date STRING,
     workshop_code STRING,
     energy_code STRING,
     consumption DECIMAL(18, 3),
     unit STRING,
     unit_price DECIMAL(18, 4),
     cost DECIMAL(18, 2),
-    WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+    event_time_safe AS TO_TIMESTAMP_LTZ(
+        COALESCE(iso_epoch_millis(event_time), CAST(0 AS BIGINT)), 3),
+    WATERMARK FOR event_time_safe AS event_time_safe - INTERVAL '5' SECOND
 ) WITH (
     'connector' = 'kafka',
     'topic' = 'energy-events',
@@ -54,9 +60,16 @@ FROM (
            COUNT(*) AS event_count,
            CAST(SUM(cost) AS DECIMAL(18, 2)) AS total_cost
     FROM TABLE(
-        TUMBLE(TABLE energy_events, DESCRIPTOR(event_time), INTERVAL '10' SECOND)
+        TUMBLE(TABLE energy_events, DESCRIPTOR(event_time_safe), INTERVAL '10' SECOND)
     )
     WHERE op = 'UPSERT' AND schema_version = 1
+      AND event_id IS NOT NULL AND iso_epoch_millis(event_time) IS NOT NULL
+      AND valid_iso_datetime(updated_at) AND valid_iso_date(record_date)
+      AND workshop_code IS NOT NULL AND energy_code IS NOT NULL
+      AND consumption IS NOT NULL AND consumption >= 0
+      AND unit IS NOT NULL AND TRIM(unit) <> ''
+      AND unit_price IS NOT NULL AND unit_price > 0
+      AND cost IS NOT NULL AND cost >= 0
     GROUP BY workshop_code, window_start, window_end
 )
 WHERE total_cost >= 100.00;
