@@ -18,6 +18,7 @@ import json
 import os
 import statistics
 import sys
+from decimal import Decimal, InvalidOperation
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -94,6 +95,11 @@ def build() -> dict:
             "tce_ex": f(totals_ex["综合能耗_tce"]),
         },
     }
+
+    # 最近阶段的工程/模型证据。它们由阶段一真实集群验收与阶段二滚动验证生成，
+    # 页面只负责展示，不在前端重新推导。文件缺失时返回 available=False，整段隐藏，
+    # 这样仅用 SQL 基线生成报告的环境也不会伪造零值结论。
+    out["recent_evidence"] = _recent_evidence()
 
     # ---- Q03 车间排名 ----
     out["workshops"] = [
@@ -578,6 +584,101 @@ def build() -> dict:
         **_clean_volumes(),
     }
     return out
+
+
+def _json_soft(name: str) -> dict:
+    path = os.path.join(OUT_DIR, name)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def _warehouse_evidence_matches_report(engine: dict, lake: dict) -> bool:
+    """Do not mix a warehouse experiment from one batch with another Q01 snapshot."""
+    try:
+        with open(os.path.join(OUT_DIR, Q["totals"]), encoding="utf-8-sig", newline="") as fh:
+            summary = next(csv.DictReader(fh))
+        with open(os.path.join(OUT_DIR, "pandas_daily.csv"), encoding="utf-8-sig", newline="") as fh:
+            daily = list(csv.DictReader(fh))
+        if not daily or len(daily) != int(engine["rows"]["pandas"]):
+            return False
+        full = lake["full_load"]
+        if len(daily) != int(full["workshop_day_rows"]):
+            return False
+        if int(summary["统计天数"]) != int(full["factory_day_rows"]):
+            return False
+        for daily_col, summary_col in (
+            ("tce", "综合能耗_tce"),
+            ("cost_yuan", "能源费用_元"),
+            ("co2_t", "碳排放_tCO2"),
+        ):
+            actual = sum(Decimal(row[daily_col]) for row in daily)
+            expected = Decimal(summary[summary_col])
+            if abs(actual - expected) > Decimal("0.01"):
+                return False
+    except (OSError, KeyError, StopIteration, ValueError, InvalidOperation):
+        return False
+    return True
+
+
+def _recent_evidence() -> dict:
+    classic = _json_soft("ml_model_metrics.json")
+    deep = _json_soft("ml_deep_metrics.json")
+    engine = _json_soft("engine_comparison.json")
+    lake = _json_soft("lakehouse_validation.json")
+    attr = _json_soft("attribution_eval.json")
+
+    models = []
+    for source in (classic, deep):
+        for model in source.get("models", []):
+            models.append({
+                "name": model.get("model", ""),
+                "samples": model.get("samples", 0),
+                "mae": model.get("mae", 0),
+                "rmse": model.get("rmse", 0),
+                "folds": [
+                    {
+                        "fold": f.get("fold"),
+                        "start": f.get("test_start"),
+                        "end": f.get("test_end"),
+                        "mae": f.get("mae", 0),
+                        "rmse": f.get("rmse", 0),
+                    }
+                    for f in model.get("fold_metrics", [])
+                ],
+            })
+
+    full = lake.get("full_load", {})
+    comparisons = engine.get("comparisons", {})
+    cases = attr.get("cases", [])
+    return {
+        "available": bool(models and engine and lake and attr
+                          and _warehouse_evidence_matches_report(engine, lake)),
+        "models": models,
+        "split": classic.get("split_contract") or deep.get("split_contract") or {},
+        "warehouse": {
+            "energy_rows": full.get("energy_dwd_rows", 0),
+            "workshop_day_rows": full.get("workshop_day_rows", 0),
+            "factory_day_rows": full.get("factory_day_rows", 0),
+            "mysql_passed": comparisons.get("mysql", {}).get("passed", False),
+            "spark_passed": comparisons.get("spark", {}).get("passed", False),
+            "tolerance": engine.get("atol"),
+            "late_correction_passed": bool(
+                lake.get("late_correction", {}).get("quality_gates_passed_after_correction")
+                and lake.get("late_correction", {}).get("quality_gates_passed_after_restore")
+            ),
+            "environment": lake.get("environment", {}),
+            "scope": lake.get("scope", ""),
+        },
+        "attribution": {
+            "passed": attr.get("passed", 0),
+            "total": attr.get("total", 0),
+            "grounded": sum(1 for c in cases if c.get("passed") and not c.get("insufficient_evidence")),
+            "refused": sum(1 for c in cases if c.get("passed") and c.get("insufficient_evidence")),
+        },
+    }
 
 
 def _mom_daily_nov(monthly: list) -> dict:
