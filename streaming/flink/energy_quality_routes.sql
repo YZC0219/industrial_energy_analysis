@@ -8,13 +8,16 @@ SET 'execution.checkpointing.interval' = '2s';
 SET 'execution.checkpointing.mode' = 'EXACTLY_ONCE';
 SET 'execution.attached' = 'false';
 
+CREATE TEMPORARY SYSTEM FUNCTION iso_epoch_millis AS 'industrial.energy.streaming.IsoEpochMillis';
+CREATE TEMPORARY SYSTEM FUNCTION valid_iso_date AS 'industrial.energy.streaming.ValidIsoDate';
+
 CREATE TABLE late_energy_events (
     schema_version INT,
     event_id STRING,
-    event_time TIMESTAMP_LTZ(3),
-    updated_at TIMESTAMP_LTZ(3),
+    event_time STRING,
+    updated_at STRING,
     op STRING,
-    record_date DATE,
+    record_date STRING,
     workshop_code STRING,
     energy_code STRING,
     consumption DECIMAL(18, 3),
@@ -23,7 +26,8 @@ CREATE TABLE late_energy_events (
     cost DECIMAL(18, 2),
     record_status STRING,
     is_production_day INT,
-    event_time_safe AS COALESCE(event_time, TO_TIMESTAMP_LTZ(0, 3)),
+    event_time_safe AS TO_TIMESTAMP_LTZ(
+        COALESCE(iso_epoch_millis(event_time), CAST(0 AS BIGINT)), 3),
     WATERMARK FOR event_time_safe AS event_time_safe - INTERVAL '5' SECOND
 ) WITH (
     'connector' = 'kafka',
@@ -62,22 +66,25 @@ CREATE TABLE energy_late_events (
 );
 
 INSERT INTO energy_late_events
-SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
+SELECT event_id, event_time_safe, TO_TIMESTAMP_LTZ(iso_epoch_millis(updated_at), 3),
+       op, TRY_CAST(record_date AS DATE), workshop_code,
        energy_code, consumption, unit, unit_price, cost, record_status,
        is_production_day, CURRENT_WATERMARK(event_time_safe)
 FROM late_energy_events
 WHERE CURRENT_WATERMARK(event_time_safe) IS NOT NULL
-  AND event_time IS NOT NULL
+  AND iso_epoch_millis(event_time) IS NOT NULL
+  AND iso_epoch_millis(updated_at) IS NOT NULL
+  AND valid_iso_date(record_date)
   AND event_time_safe <= CURRENT_WATERMARK(event_time_safe)
   AND schema_version = 1;
 
 CREATE TABLE delete_energy_events (
     schema_version INT,
     event_id STRING,
-    event_time TIMESTAMP_LTZ(3),
-    updated_at TIMESTAMP_LTZ(3),
+    event_time STRING,
+    updated_at STRING,
     op STRING,
-    record_date DATE,
+    record_date STRING,
     workshop_code STRING,
     energy_code STRING,
     consumption DECIMAL(18, 3),
@@ -122,11 +129,16 @@ CREATE TABLE energy_delete_events (
 );
 
 INSERT INTO energy_delete_events
-SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
+SELECT event_id, TO_TIMESTAMP_LTZ(iso_epoch_millis(event_time), 3),
+       TO_TIMESTAMP_LTZ(iso_epoch_millis(updated_at), 3),
+       op, TRY_CAST(record_date AS DATE), workshop_code,
        energy_code, consumption, unit, unit_price, cost, record_status,
        is_production_day
 FROM delete_energy_events
-WHERE op = 'DELETE' AND schema_version = 1;
+WHERE op = 'DELETE' AND schema_version = 1
+  AND iso_epoch_millis(event_time) IS NOT NULL
+  AND iso_epoch_millis(updated_at) IS NOT NULL
+  AND valid_iso_date(record_date);
 
 CREATE TABLE invalid_energy_events (
     schema_version INT,

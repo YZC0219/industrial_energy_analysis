@@ -88,6 +88,10 @@ def test_flink_routes_late_delete_and_invalid_events_to_durable_topics():
     assert "CURRENT_WATERMARK(event_time_safe) IS NOT NULL" in QUALITY_SQL
     assert "event_time_safe <= CURRENT_WATERMARK(event_time_safe)" in QUALITY_SQL
     assert QUALITY_SQL.count("WATERMARK FOR") == 1
+    assert QUALITY_SQL.count("event_time STRING") == 2
+    assert QUALITY_SQL.count("updated_at STRING") == 2
+    assert QUALITY_SQL.count("iso_epoch_millis(updated_at) IS NOT NULL") == 2
+    assert QUALITY_SQL.count("valid_iso_date(record_date)") == 2
     assert "'topic' = 'energy-late-events'" in QUALITY_SQL
     assert "WHERE op = 'DELETE'" in QUALITY_SQL
     assert "'topic' = 'energy-delete-events'" in QUALITY_SQL
@@ -200,3 +204,24 @@ def test_poison_before_watermark_does_not_contaminate_alert():
     assert report["alert"]["total_cost"] == 155
     assert len(report["malformed_events"]) == 7
     assert {item["quality_error"] for item in report["malformed_events"]} == set(faults)
+
+
+def test_invalid_temporal_delete_is_quarantined_but_not_routed():
+    report = json.loads((ROOT / "output/streaming_experiment_delete_20260926.json")
+                        .read_text(encoding="utf-8"))
+    assert report["success"] is True
+    assert report["invalid_temporal_delete_blocked"] is True
+    assert report["delete_event_route_tested"] is True
+    assert report["late_side_output_tested"] is True
+    assert report["alert"]["event_count"] == 3
+    assert report["alert"]["total_cost"] == 155
+    assert len(report["malformed_events"]) == 8
+    invalid_deletes = [
+        json.loads(base64.b64decode(item["payload_base64"], validate=True))
+        for item in report["malformed_events"]
+        if item["quality_error"] == "invalid_updated_at"
+    ]
+    assert len(invalid_deletes) == 2
+    assert any(item["op"] == "DELETE" and item["event_id"].endswith("bad-delete-time")
+               and item["updated_at"] == "2026-02-30T00:00:00Z"
+               for item in invalid_deletes)

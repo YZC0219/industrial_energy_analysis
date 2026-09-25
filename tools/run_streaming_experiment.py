@@ -192,6 +192,7 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         "invalid_event_time_quarantine_tested": False,
         "invalid_updated_at_quarantine_tested": False,
         "invalid_record_date_quarantine_tested": False,
+        "invalid_temporal_delete_blocked": False,
         "taskmanager_restart_tested": False,
         "success": False,
     }
@@ -399,6 +400,21 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             invalid_routed is not None and invalid_routed.get("quality_error") == "invalid_consumption"
         )
 
+        # An invalid DELETE must not leak into either the delete or late side topic.
+        invalid_delete = {
+            **delete_event, "event_id": f"{run_id}-bad-delete-time",
+            "event_time": fresh_events[0]["event_time"],
+            "updated_at": "2026-02-30T00:00:00Z",
+        }
+        invalid_delete_raw = json.dumps(invalid_delete, separators=(",", ":")).encode("utf-8")
+        expected_malformed[_publish_raw(invalid_delete_raw)] = (
+            "invalid_updated_at", invalid_delete_raw
+        )
+        report["invalid_temporal_delete_blocked"] = (
+            wait_for_event("energy-delete-events", invalid_delete["event_id"], timeout=8) is None
+            and wait_for_event("energy-late-events", invalid_delete["event_id"], timeout=8) is None
+        )
+
         observed_malformed = {}
         malformed_process, malformed_messages = consumers["energy-malformed-events"]
         malformed_deadline = time.monotonic() + 30
@@ -422,12 +438,17 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             "invalid_updated_at": "invalid_updated_at_quarantine_tested",
             "invalid_record_date": "invalid_record_date_quarantine_tested",
         }
+        raw_passed_by_reason = {}
         for key, (reason, payload) in expected_malformed.items():
             item = observed_malformed.get(key, {})
             passed = (item.get("quality_error") == reason
                       and item.get("source_topic") == "energy-events"
                       and item.get("payload_base64") == base64.b64encode(payload).decode("ascii"))
-            report[flag_name_by_reason[reason]] = passed
+            raw_passed_by_reason.setdefault(reason, []).append(passed)
+        for reason, flag_name in flag_name_by_reason.items():
+            report[flag_name] = bool(raw_passed_by_reason.get(reason)) and all(
+                raw_passed_by_reason[reason]
+            )
 
         deadline = alert_started + 15
         matched = None
@@ -471,7 +492,8 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                                   and report["invalid_numeric_quarantine_tested"]
                                   and report["invalid_event_time_quarantine_tested"]
                                   and report["invalid_updated_at_quarantine_tested"]
-                                  and report["invalid_record_date_quarantine_tested"])
+                                  and report["invalid_record_date_quarantine_tested"]
+                                  and report["invalid_temporal_delete_blocked"])
         if not report["success"]:
             report["error"] = "One or more window, recovery, late-event, delete-route, or quality-route checks failed"
         return report
