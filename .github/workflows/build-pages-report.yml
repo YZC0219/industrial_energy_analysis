@@ -16,17 +16,33 @@ on:
       - "src/generate_data.py"
       - "src/clean_data.py"
       - "src/import_mysql.py"
+      - "src/api.py"
       - "sql/**"
+      - "datax/**"
+      - "hive/**"
+      - "spark/**"
       - "ml/**"
       - "tests/test_ml_pipeline.py"
+      - "tests/test_import_mysql.py"
+      - "tests/test_import_mysql_helpers.py"
+      - "tests/test_api.py"
+      - "tests/test_bi_contract.py"
+      - "tests/test_stage1_architecture.py"
+      - "tests/test_soft_delete_contract.py"
       - "tools/verify_ml_artifacts.py"
       - "tools/run_phase2.py"
       - "tools/check_data_quality.py"
+      - "tools/check_hive_quality.py"
+      - "tools/ensure_*_soft_delete_schema.py"
+      - "tools/setup_bi_reader.py"
+      - "docs/阶段四_服务化与可视化交付.md"
+      - "docs/阶段三_数据质量与实时管道.md"
       - "quality/**"
       - "tests/test_data_quality.py"
       - "ml/provenance.py"
       - "dags/energy_pipeline_dag.py"
       - "docker-compose.yml"
+      - ".env.example"
       - "streaming/**"
       - "tests/test_streaming_contract.py"
       - "tests/test_stream_batch_reconciliation.py"
@@ -123,6 +139,14 @@ jobs:
         # 若改动是有意改变口径, 本地跑 python tests/update_baseline.py 刷新基线,
         # 在提交信息里写明为什么变, 再 push。
 
+      - name: Verify MySQL incremental load and tombstone behavior
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: "3307"
+          MYSQL_USER: root
+          MYSQL_PWD: energy_root_pwd
+        run: python -m pytest tests/test_import_mysql.py -m db -q
+
       - name: Build and verify forecasting artifacts
         run: |
           python tools/run_phase2.py --energy output/clean_batch_energy.csv --production output/clean_batch_production.csv
@@ -152,10 +176,20 @@ jobs:
           if [ -f output/ml_deep_metrics.json ]; then cp output/ml_deep_metrics.json /tmp/report-evidence/; fi
           if [ -f output/engine_comparison.json ]; then cp output/engine_comparison.json /tmp/report-evidence/; fi
           if [ -f output/lakehouse_validation.json ]; then cp output/lakehouse_validation.json /tmp/report-evidence/; fi
+          cp output/pandas_daily.csv /tmp/report-evidence/
+          cp output/clean_energy.csv output/clean_production.csv output/dim_calendar.csv /tmp/report-evidence/
+          cp output/clean_rejects.csv output/clean_fixed.csv /tmp/report-evidence/
           rm -rf output
           mkdir -p output docs
           cp tests/baseline/*.csv output/
           cp /tmp/report-evidence/*.json output/
+          cp /tmp/report-evidence/pandas_daily.csv output/
+          cp /tmp/report-evidence/clean_*.csv /tmp/report-evidence/dim_calendar.csv output/
+          python - <<'PY'
+          from src.make_report import _recent_evidence
+          if not _recent_evidence()["available"]:
+              raise SystemExit("Pages report evidence does not reconcile with the Q01 snapshot")
+          PY
           python src/make_report.py
           python - <<'PY'
           from pathlib import Path

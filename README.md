@@ -83,7 +83,7 @@ CUSUM 出现不合理的负向信号后，我沿数据链路回查，定位到�
 
 阶段二在保留 2σ、产量基线和 CUSUM 的基础上，增加统一特征工程、滚动时序验证、季节性基线、树模型与深度时序模型对照，并建设只依据指标字典、SQL 结果和异常证据回答的可追溯归因助手。当前已落地无泄漏特征管道、滚动验证框架、7 日季节性朴素基线、LightGBM、LSTM、Transformer，以及带引用白名单、证据不足降级和审计记录的 RAG 归因入口。常规模型进入每夜 Airflow/CI；深度模型通过 `DEEP_LEARNING_ENABLED=1` 启用，并有独立手工 CI 保存证据。在线 LLM 已通过 DeepSeek API 完成固定集端到端评测，5/5 用例通过，其中 3 次真实模型调用成功。详见 [阶段二设计说明](docs/阶段二_预测与智能归因.md)。
 
-Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行时写出 SHA-256 provenance，将当前输入绑定到特征、预测和 metrics，并由验证器检查文件新鲜度及重算一致性。滚动对照在 731 天数据上使用共同 28 日预热期、365 日训练、完整 30 日测试折和 30 日步长；共 11 折，每模型 2,640 条测试行，不纳入末尾 8 天。每折训练/测试行数及训练业务键摘要进入 metrics，基线、LightGBM 与深度模型必须使用同一目标训练样本。按本次复跑，总体 MAE/RMSE（tce）为：季节基线 `0.7550/1.3300`、LightGBM `0.4674/0.7750`、LSTM `0.5213/0.8538`、Transformer `0.5448/0.8415`；统计口径是全部测试行微平均，逐折结果另存。产量、温度、价格和实测状态只使用前一日值；`low_load_share` / `shutdown_share` 是按能源明细行计算的事后状态占比，也只以 t-1 值入模。告警提前量当前为 N/A，因为没有经维护记录或人工确认的真实事件标签。
+Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行时写出 SHA-256 provenance，将当前输入绑定到特征、预测和 metrics，并由验证器检查文件新鲜度及重算一致性。滚动对照在 731 天数据上使用共同 28 日预热期、365 日训练、完整 30 日测试折和 30 日步长；共 11 折，每模型 2,640 条测试行，不纳入末尾 8 天。每折训练/测试行数及训练业务键摘要进入 metrics，所有已报告模型必须使用同一目标训练样本和滚动测试键。按本次复跑，总体 MAE/RMSE（tce）为：季节基线 `0.7550/1.3300`、LightGBM `0.4674/0.7750`、LSTM `0.5213/0.8538`、Transformer `0.5448/0.8415`；统计口径是全部测试行微平均。LightGBM 在本数据上的总体 MAE 比 LSTM 低 `0.054`，但这不构成逐折稳定优势：LSTM 在第 5、7、9 折更低，且各模型逐折 MAE 的总体范围为 `0.2946～1.2692`，季节波动大于两者总体差距。因此只能说 LightGBM 在本次数据和切分下总体略优，不能外推为“表格模型普遍优于序列模型”。逐折表见[阶段二设计说明](docs/阶段二_预测与智能归因.md)。产量、温度、价格和实测状态只使用前一日值；`low_load_share` / `shutdown_share` 是按能源明细行计算的事后状态占比，也只以 t-1 值入模。告警提前量当前为 N/A，因为没有经维护记录或人工确认的真实事件标签。
 
 离线归因助手用于检索与证据守卫回归，不是产品化问答：它可能将排序第一条证据原文作为 claim，而非真正回答问题；在线 LLM 的回答质量须使用问题相关性与检索命中评测集单独评估。逐折模型与归因评测结果以本次上传的 evidence/provenance 产物为准，不沿用与新折口径不匹配的旧数字。
 
@@ -91,9 +91,9 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 
 阶段一证据来自 Ubuntu VM（2 vCPU、8 GB、Spark 3.5.1、Hive 3.1.3、Hadoop 单节点）：19,006 条能耗事实覆盖 731 天，构建出 5,848 条车间日汇总和 731 个全厂日分区。首次全量 DWD/DWS/ADS 墙钟时间分别为 353.690、206.166、160.278 秒；pandas、MySQL、Spark 各导出 5,848 行，四项指标在绝对误差 `0.01` 内全部一致。另以 2024-03-15 的记录执行 2026-09-23 迟到修正，DWD、DWS、ADS 均联动更新，恢复源值后再次回归原结果。原始证据见 `output/spark_performance.jsonl`、`output/engine_comparison.json`、`output/lakehouse_validation.json` 与三份日粒度 CSV。当前结论只代表 1× 单节点基线，不冒充尚未进行的 10×/100×扩容实验。
 
-### 阶段三：数据质量与实时管道（进行中）
+### 阶段三：数据质量与实时管道（单机实时验收完成，工程化增强进行中）
 
-阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口的代码与离线测试。新增 Flink late/DELETE/invalid 路由尚待 Docker 实跑；流批对账只验证导出输入且需同范围快照。MySQL 物理硬删 CDC 和多节点高可用仍未实现，不能将显式 DELETE 事件处理或单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
+阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 在 Docker 实机完成端到端验收；修正 Windows→Kafka UTF-8 编码后复跑，窗口告警延迟 5.575 秒，checkpoint 9 在 TaskManager 重启后恢复；迟到、显式 DELETE、无效能耗隔离均命中，中文状态保持原文。逐次证据见[UTF-8 复跑报告](output/streaming_experiment_20260925_utf8.json)。流批对账仍是需同范围快照的离线审计；MySQL 物理硬删 CDC、多节点高可用、字节级反序列化隔离和自动回补仍未实现，不能把显式 DELETE 或单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
 
 ```mermaid
 flowchart LR
@@ -167,6 +167,7 @@ industrial_energy_analysis/
 │  ├─ generate_data.py              # 生成模拟数据
 │  ├─ clean_data.py                 # 清洗和质量留痕
 │  ├─ import_mysql.py               # 建表、装载和执行分析
+│  ├─ api.py                        # 只读指标、异常与报告摘要 API
 │  ├─ make_report.py                # 生成可视化报告
 │  ├─ mobile.css                    # 移动端响应式样式
 │  └─ report_template.html          # 报告模板
@@ -482,7 +483,7 @@ python tests/update_baseline.py
 
 **水位线列用 `updated_at`，不用 `record_date`。** 对"每天追加一天"的新数据两者等价。但上游**修正**一条历史记录时，`record_date` 不变而 `updated_at` 变晚 —— 用 `record_date` 做水位线，修正记录会永远落在水位线左侧，永远进不了增量批次。那等于把刚做好的历史修正能力，在增量路径上又关掉了。用 `updated_at` 则"水位线判新旧"与"upsert 判新旧"共用同一列，语义自洽。
 
-代价是无法发现**删除**（上游删了一行，水位线右侧没有它，增量装载感知不到），且依赖源系统时间戳单调递增。这两条都写进了[系统设计文档](docs/系统设计文档.md)的已知局限。
+物理删除仍无法由更新时间水位线发现，因此增量源必须保留 tombstone。本项目用 `is_deleted=1` 和新的 `updated_at` 表示软删除：MySQL 分析视图隐藏该记录，DataX/Hive 保留删除版本作血缘标记，Spark 汇总重算时排除它的指标贡献；同一业务键的旧版本重放不会复活记录。硬删、未带新更新时间的删除仍无法捕获。
 
 **`etl_watermark` 不进 `create_table.sql` 的 `DROP` 清单。** 判定标准是"重置它会不会丢已完成的工作"：`dim_workshop` 的种子行是主数据，该随之重置；水位线的行是进度，不该重置。所以它用 `CREATE TABLE IF NOT EXISTS`，独立于重建。
 
@@ -504,7 +505,7 @@ python tests/update_baseline.py
 
 注入一天新数据后做增量装载，事实表**正确**变成 19,054 行、水位线**正确**推进，但 Q01 的综合能耗**纹丝不动**。
 
-原因是 `v_energy_enriched` 用 `INNER JOIN dim_calendar`，而全部 29 条查询都经这个视图。日期维表的范围写死在 `clean_data.build_calendar()` 里（2024-01-01 ~ 2025-12-31），所以新日期的行**装得进事实表，却在视图的 JOIN 里被整批滤掉**——事实表行数正常、水位线正常、管道报 success，而所有分析结果里这批数据一行都看不见。
+当时的原因是 `v_energy_enriched` 用 `INNER JOIN dim_calendar`，而全部 29 条查询都经这个视图；日期维表固定在 2024-01-01 ~ 2025-12-31，新日期**装得进事实表，却在视图 JOIN 里被整批滤掉**。现已修复：全量清洗按能耗与产量数据的最早/最晚日期扩展维表，保留 2024–2025 基准范围；增量装载前同时校验批次日期下界和上界。
 
 这是最坏的一类失败：无声，且伪装成成功。所以我给增量装载加了一道守卫，越界直接终止：
 
@@ -570,10 +571,10 @@ python tests/update_baseline.py
 **目标：** 将现有手写测试扩展为可配置的数据质量体系，并验证准实时异常告警链路。
 
 - [x] 评估 Great Expectations 与 Deequ，将完整性、唯一性、范围和跨表一致性规则配置化；
-- [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，checkpoint 恢复后告警延迟约 3.0 秒（本机最近一次实测）；
+- [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，2026-09-25 UTF-8 复跑实测 checkpoint 9 恢复后告警延迟 5.575 秒（[运行报告](output/streaming_experiment_20260925_utf8.json)）；
 - [x] 扩展 GitHub Actions，在可用的测试环境中自动运行完整离线测试、MySQL 查询快照和关键端到端测试；
 - [x] 为增量链路增加软删除 tombstone 捕获，按 `updated_at` 重放到 Hive 并在 Spark 汇总排除删除行；硬删除仍需源端 CDC。
-- [x] 增加 Kafka 迟到/显式 DELETE/无效业务值隔离路径及事件 JSONL 对账器；Flink 容器实跑待验收，物理删除 CDC 未实现。
+- [x] 增加 Kafka 迟到/显式 DELETE/无效业务值隔离路径；2026-09-25 已通过容器端到端验证。事件 JSONL 对账器仍是离线审计入口，物理删除 CDC 未实现。
 - [x] 日期维表按能耗与产量数据范围自动扩展，并在增量装载时校验日期上下界。
 - [ ] 完成多节点 Kafka/Flink 高可用、MySQL 物理硬删除 CDC、反序列化隔离和流批自动回补/对账；需要集群资源与故障注入。
 
@@ -582,8 +583,10 @@ python tests/update_baseline.py
 **目标：** 降低项目复现成本，让分析结果可以被其他系统和业务用户直接使用。
 
 - [x] 为新增的大数据组件补充 Docker Compose 开发环境和分步启动文档；Kafka/Flink 使用可选 `streaming` profile。
-- [ ] 使用 FastAPI 提供指标查询、异常明细和报告摘要接口，并补充接口测试与 OpenAPI 文档；
-- [ ] 接入 Power BI、Tableau 或开源 BI 工具，验证权限、筛选和下钻能力；
-- [ ] 完善 Windows、Docker 两种运行方式的故障排查说明，以及毕业论文和答辩演示材料。
+- [x] 使用 FastAPI 提供指标查询、异常明细和报告摘要接口，并补充接口测试与 OpenAPI 文档；接口只读消费最近一次成功生成的 Q 查询文件，不冒充实时查询。
+- [x] 接入开源 Metabase，使用 MySQL 最小权限只读账号访问分析视图；2026-09-25 已实测日期/车间联合筛选、94 行下钻与权限边界，复验命令为 `python -m tools.verify_bi_runtime`，脱敏验收快照见[运行报告](output/metabase_runtime_20260925.json)和[筛选截图](output/metabase_dashboard_filtered_20260925.png)；
+- [x] 完善 Windows、Docker 两种运行方式的故障排查与答辩演示 runbook；论文/答辩引用的指标仍须与对应版本证据核对。
+
+FastAPI 本地启动、端点口径与错误语义见[阶段四服务说明](docs/阶段四_服务化与可视化交付.md)；Windows/Docker 故障排查、现场检查及 7 分钟演示顺序见[答辩演示 runbook](docs/Windows_Docker_故障排查与答辩演示.md)。服务启动后可在 `http://127.0.0.1:8000/docs` 查看交互式 OpenAPI 文档；认证、HTTPS 和实时数据库读取仍属于部署阶段工作。
 
 > 路线图表示计划，不代表已经完成。当前仓库可验证的能力以“最终实现”和测试章节为准；后续每项功能将在完成代码、测试和文档后再勾选。
