@@ -93,7 +93,7 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 
 ### 阶段三：数据质量与实时管道（单机实时验收完成，工程化增强进行中）
 
-阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 的 Docker 实机复跑验证了正常告警、checkpoint 恢复、迟到/DELETE/无效业务值路由和中文字段；[当次报告](output/streaming_experiment_20260925_utf8.json)保留原始证据。2026-09-26 增加原始 Kafka 字节隔离链路，并进一步对未知 `schema_version` 与无法转成数值的 UPSERT 字段留存原字节：四类故障样本均按 Base64、分区和 offset 进入隔离 topic，正常告警和恢复仍通过；见[最新报告](output/streaming_experiment_schema_20260926.json)。这不覆盖所有类型转换和 schema 演进。流批对账仍须同范围完整事件历史；MySQL 物理硬删 CDC、多节点高可用和自动回补仍未实现，不能把单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
+阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 的 Docker 实机复跑验证了正常告警、checkpoint 恢复、迟到/DELETE/无效业务值路由和中文字段；[当次报告](output/streaming_experiment_20260925_utf8.json)保留原始证据。2026-09-26 增加原始 Kafka 字节隔离链路，先后验证坏 UTF-8/JSON、未知 `schema_version`、不可解析的 UPSERT 数值及三个非法时间/日期字段：七类样本均按 Base64、分区和 offset 进入隔离 topic，正常告警和恢复仍通过；见[最新报告](output/streaming_experiment_temporal_20260926.json)。这不覆盖所有字段类型转换和 schema 演进。流批对账仍须同范围完整事件历史；MySQL 物理硬删 CDC、多节点高可用和自动回补仍未实现，不能把单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
 
 ```mermaid
 flowchart LR
@@ -571,12 +571,12 @@ python tests/update_baseline.py
 **目标：** 将现有手写测试扩展为可配置的数据质量体系，并验证准实时异常告警链路。
 
 - [x] 评估 Great Expectations 与 Deequ，将完整性、唯一性、范围和跨表一致性规则配置化；
-- [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，2026-09-26 最新复跑实测 checkpoint 13 恢复后告警延迟 4.272 秒（[运行报告](output/streaming_experiment_schema_20260926.json)）；
+- [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，2026-09-26 最新复跑实测 checkpoint 13 恢复后告警延迟 5.826 秒（[运行报告](output/streaming_experiment_temporal_20260926.json)）；
 - [x] 扩展 GitHub Actions，在可用的测试环境中自动运行完整离线测试、MySQL 查询快照和关键端到端测试；
 - [x] 为增量链路增加软删除 tombstone 捕获，按 `updated_at` 重放到 Hive 并在 Spark 汇总排除删除行；硬删除仍需源端 CDC。
 - [x] 增加 Kafka 迟到/显式 DELETE/无效业务值隔离路径；2026-09-25 已通过容器端到端验证。事件 JSONL 对账器仍是离线审计入口，物理删除 CDC 未实现。
 - [x] 日期维表按能耗与产量数据范围自动扩展，并在增量装载时校验日期上下界。
-- [x] 对坏 UTF-8、坏 JSON、未知 schema 版本和不可解析的 UPSERT 数值字段增加 Flink 原始字节隔离，保留分区、offset 和可还原的 Base64；不把这四类验收扩称为完整 schema registry。
+- [x] 对坏 UTF-8、坏 JSON、未知 schema 版本、不可解析的 UPSERT 数值字段，以及非法 `event_time`/`updated_at`/`record_date` 增加 Flink 原始字节隔离，保留分区、offset 和可还原的 Base64；不把这七类验收扩称为完整 schema registry。
 - [x] 增加一次性 Kafka offset 冻结/导出/流批对账入口，强制显式批次时区和 `updated_at` 版本一致；独立测试 topic 的[实机报告](output/kafka_snapshot_smoke_20260926.json)通过，不把单行演示冒充全量 CDC 对账。
 - [x] Airflow 增加默认关闭的 `reconcile_stream_batch` 质量门禁；只有部署方具备完整同范围 CDC topic 并显式启用后才阻断下游，当前演示 topic 不满足启用前提。
 - [ ] 完成多节点 Kafka/Flink 高可用、MySQL 物理硬删除 CDC、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
