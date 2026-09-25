@@ -34,9 +34,11 @@ def test_local_kafka_flink_profile_has_checkpoints_and_durable_state_volume():
     assert services["kafka"]["profiles"] == ["streaming"]
     assert services["flink-jobmanager"]["profiles"] == ["streaming"]
     assert services["flink-taskmanager"]["profiles"] == ["streaming"]
+    assert int(services["kafka"]["environment"]["KAFKA_TRANSACTION_MAX_TIMEOUT_MS"]) >= 7_200_000
     assert "flink-streaming-checkpoints" in COMPOSE
     assert "execution.checkpointing.mode: EXACTLY_ONCE" in COMPOSE
     assert "execution.checkpointing.interval: 2s" in COMPOSE
+    assert COMPOSE.count("taskmanager.numberOfTaskSlots: 4") == 2
     init_command = services["kafka-topics-init"]["command"][0]
     assert {"energy-events", "energy-alerts", "energy-late-events",
             "energy-delete-events", "energy-invalid-events"} <= set(
@@ -61,6 +63,21 @@ def test_demo_stream_contains_out_of_order_events_and_watermark_advancer():
     assert offsets == [1,5,3]
     assert sum(item["cost"] for item in events)==155
     assert (datetime.fromisoformat(advancer["event_time"].replace("Z","+00:00"))-base).total_seconds()==17
+
+
+def test_docker_console_transport_explicitly_uses_utf8(monkeypatch):
+    from tools import run_streaming_experiment as experiment
+
+    captured = {}
+
+    def fake_run(_command, **kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(experiment.subprocess, "run", fake_run)
+    experiment._compose("ps")
+    assert captured["encoding"] == "utf-8"
+    assert captured["text"] is True
 
 
 def test_flink_routes_late_delete_and_invalid_events_to_durable_topics():

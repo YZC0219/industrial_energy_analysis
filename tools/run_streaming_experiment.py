@@ -23,7 +23,8 @@ REST = "http://127.0.0.1:8081"
 def _compose(*args: str, timeout: int = 120, check: bool = True, **kwargs):
     return subprocess.run(
         ["docker", "compose", "--profile", "streaming", *args],
-        cwd=ROOT, timeout=timeout, check=check, capture_output=True, text=True, **kwargs,
+        cwd=ROOT, timeout=timeout, check=check, capture_output=True,
+        text=True, encoding="utf-8", **kwargs,
     )
 
 
@@ -108,7 +109,8 @@ def _start_topic_consumer(topic: str, run_id: str):
          "/opt/kafka/bin/kafka-console-consumer.sh", "--bootstrap-server", "kafka:9092",
          "--topic", topic, "--group", f"stream-demo-{topic}-{run_id}",
          "--consumer-property", "auto.offset.reset=latest", "--timeout-ms", "120000"],
-        cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+        cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        text=True, encoding="utf-8",
     )
     messages: queue.Queue = queue.Queue()
 
@@ -169,7 +171,8 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                 ["docker", "compose", "--profile", "streaming", "exec", "-T",
                  "flink-jobmanager", "/opt/flink/bin/sql-client.sh", "-f",
                  "/opt/flink/sql/energy_window.sql"],
-                cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, encoding="utf-8",
             )
             deadline = time.monotonic() + 90
             while time.monotonic() < deadline:
@@ -206,13 +209,18 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             ["docker", "compose", "--profile", "streaming", "exec", "-T",
              "flink-jobmanager", "/opt/flink/bin/sql-client.sh", "-f",
              "/opt/flink/sql/energy_quality_routes.sql"],
-            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8",
         )
         try:
             _wait_for_new_jobs(prior_job_ids, minimum=3, timeout=120)
             report["quality_route_jobs_started"] = 3
         finally:
-            if route_client.poll() is None:
+            route_client_stopped_after_jobs_running = route_client.poll() is None
+            report["quality_route_sql_client_stopped_after_jobs_running"] = (
+                route_client_stopped_after_jobs_running
+            )
+            if route_client_stopped_after_jobs_running:
                 route_client.terminate()
                 try:
                     route_stdout, route_stderr = route_client.communicate(timeout=10)
@@ -221,7 +229,11 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                     route_stdout, route_stderr = route_client.communicate()
             else:
                 route_stdout, route_stderr = route_client.communicate()
-            report["quality_route_sql_client_exit_code"] = route_client.returncode
+            # A deliberate SIGTERM after all INSERT jobs are RUNNING is expected;
+            # do not report that client shutdown status as a submission failure.
+            report["quality_route_sql_client_exit_code"] = (
+                None if route_client_stopped_after_jobs_running else route_client.returncode
+            )
             report["quality_route_sql_client_stderr"] = route_stderr[-2000:]
 
         previous_checkpoint = _checkpoint_id(job["jid"])
@@ -241,7 +253,9 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                          .get("latest", {}).get("restored") or {})
         prior_restore_id = str(prior_restore["id"]) if prior_restore.get("id") is not None else None
         _compose("stop", "flink-taskmanager", timeout=30)
-        _compose("start", "flink-taskmanager", timeout=60)
+        # Compose v5 start also starts one-shot dependencies; use up --no-deps
+        # so a TaskManager restart does not rerun network-dependent init jobs.
+        _compose("up", "-d", "--no-deps", "flink-taskmanager", timeout=60)
         _wait_for(lambda: len(_request("/taskmanagers").get("taskmanagers", [])) == 1,
                   timeout=90, description="TaskManager recovery")
         _wait_for(lambda: (_running_job() or {}).get("jid") == job["jid"],
@@ -256,19 +270,30 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             raise RuntimeError("Flink restored an older checkpoint than the event checkpoint")
         report["taskmanager_restart_tested"] = True
 
+        # Use a fresh future window after recovery. Matching only workshop/count/cost
+        # could accidentally consume a retained alert from an earlier run and report
+        # a negative latency. The unique window_start makes this run's alert explicit.
+        fresh_base_ts = int(datetime.now(timezone.utc).timestamp())
+        fresh_window_start = datetime.fromtimestamp(
+            fresh_base_ts - fresh_base_ts % 10 + 60, tz=timezone.utc
+        )
+        fresh_events, fresh_watermark = build_window_events(f"{run_id}-recovered", fresh_window_start)
+        report["post_restart_window_start"] = fresh_window_start.isoformat(timespec="seconds")
         alert_started = time.monotonic()
-        _publish([watermark_event])
+        _publish(fresh_events)
+        time.sleep(0.5)
+        _publish([fresh_watermark])
         late_event = {
-            **events[0], "event_id": f"{run_id}-late", "event_time": events[0]["event_time"],
+            **fresh_events[0], "event_id": f"{run_id}-late", "event_time": fresh_events[0]["event_time"],
             "op": "UPSERT", "consumption": 9.0, "unit_price": 1.0, "cost": 9.0,
         }
         delete_event = {
-            **events[0], "event_id": f"{run_id}-delete", "event_time": watermark_event["event_time"],
+            **fresh_events[0], "event_id": f"{run_id}-delete", "event_time": fresh_watermark["event_time"],
             "op": "DELETE", "workshop_code": "W02", "consumption": None,
             "unit_price": None, "cost": None,
         }
         invalid_event = {
-            **events[0], "event_id": f"{run_id}-invalid", "event_time": watermark_event["event_time"],
+            **fresh_events[0], "event_id": f"{run_id}-invalid", "event_time": fresh_watermark["event_time"],
             "consumption": -1.0, "cost": -1.0,
         }
         time.sleep(1)
@@ -320,6 +345,9 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             except queue.Empty:
                 break
             if candidate.get("workshop_code") == "W04" \
+                    and str(candidate.get("window_start", "")).startswith(
+                        fresh_window_start.isoformat(timespec="seconds")[:19]
+                    ) \
                     and int(candidate.get("event_count", -1)) == 3 \
                     and Decimal(str(candidate.get("total_cost", "0"))) == Decimal("155.00"):
                 matched = candidate
