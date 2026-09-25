@@ -1,0 +1,29 @@
+{
+  "checked_at_utc": "2026-09-25T22:28:00.563201+00:00",
+  "scope": "local Docker Compose MySQL; read-only preflight",
+  "variables": {
+    "binlog_expire_logs_seconds": "2592000",
+    "binlog_format": "ROW",
+    "binlog_row_image": "FULL",
+    "gtid_mode": "OFF",
+    "log_bin": "ON",
+    "server_id": "1"
+  },
+  "fact_primary_key": [],
+  "required_fact_columns_present": [],
+  "binlog_file": "binlog.000007",
+  "binlog_position": 252283,
+  "checks": {
+    "binary_logging_enabled": true,
+    "row_format": true,
+    "full_row_image": true,
+    "nonzero_server_id": true,
+    "fact_primary_key_id": false,
+    "required_fact_columns": false,
+    "binlog_position_available": true
+  },
+  "binlog_capture_prerequisites_met": false,
+  "physical_delete_cdc_implemented": false,
+  "full_snapshot_and_stream_verified": false,
+  "version_warning": "A physical DELETE does not update the deleted row's updated_at. Reconciliation needs binlog order or an independent monotonic source version; updated_at alone is not a valid delete ordering key."
+}

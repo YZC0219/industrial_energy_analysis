@@ -579,6 +579,7 @@ python tests/update_baseline.py
 - [x] 对坏 UTF-8、坏 JSON、未知 schema 版本、不可解析的 UPSERT 数值字段，以及非法 `event_time`/`updated_at`/`record_date` 增加 Flink 原始字节隔离；同窗口故障注入证明七类样本不污染正常费用聚合，不把这七类验收扩称为完整 schema registry。
 - [x] 增加一次性 Kafka offset 冻结/导出/流批对账入口，强制显式批次时区和 `updated_at` 版本一致；独立测试 topic 的[实机报告](output/kafka_snapshot_smoke_20260926.json)通过，不把单行演示冒充全量 CDC 对账。
 - [x] Airflow 增加默认关闭的 `reconcile_stream_batch` 质量门禁；只有部署方具备完整同范围 CDC topic 并显式启用后才阻断下游，当前演示 topic 不满足启用前提。
+- [x] 增加只读 MySQL binlog CDC 前提检查；2026-09-26 当前 Compose 实例的 ROW/FULL binlog 可用，但事实表缺失，故[预检报告](output/mysql_cdc_readiness_20260926.json)明确为 FAIL，不把前提检查冒充物理删除 CDC。
 - [ ] 完成多节点 Kafka/Flink 高可用、MySQL 物理硬删除 CDC、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
 ### 阶段四：服务化与可视化交付
