@@ -1,0 +1,125 @@
+{
+  "run_id": "77a3be6d",
+  "runtime": "local Docker Compose; single Kafka broker, one Flink TaskManager",
+  "window_seconds": 10,
+  "watermark_lateness_seconds": 5,
+  "arrival_event_time_offsets_seconds": [
+    1,
+    5,
+    3
+  ],
+  "expected_alert": {
+    "workshop_code": "W04",
+    "event_count": 3,
+    "total_cost": 155.0
+  },
+  "late_side_output_tested": true,
+  "delete_event_route_tested": true,
+  "invalid_event_quarantine_tested": true,
+  "malformed_json_quarantine_tested": true,
+  "invalid_utf8_quarantine_tested": true,
+  "unsupported_schema_quarantine_tested": true,
+  "invalid_numeric_quarantine_tested": true,
+  "taskmanager_restart_tested": true,
+  "success": true,
+  "sql_client_stopped_after_job_running": true,
+  "sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 25, 2026 9:41:23 PM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "flink_job_id": "5c7e18b33f0f6bddbbf6c6fc8cba4671",
+  "quality_route_jobs_started": 3,
+  "quality_route_sql_client_stopped_after_jobs_running": true,
+  "quality_route_sql_client_exit_code": null,
+  "quality_route_sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 25, 2026 9:41:32 PM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "raw_quarantine_job_id": "ca1e86cce5e50121313d56f5c967dc42",
+  "raw_quarantine_sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 25, 2026 9:41:44 PM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "completed_checkpoint_before_restart": "13",
+  "restored_checkpoint_id": "13",
+  "restored_checkpoint_path": "file:/opt/flink/checkpoints/5c7e18b33f0f6bddbbf6c6fc8cba4671/chk-13",
+  "post_restart_window_start": "2026-09-25T21:43:10+00:00",
+  "late_event": {
+    "event_id": "77a3be6d-late",
+    "event_time": "2026-09-25T21:43:11Z",
+    "updated_at": "2026-09-25T21:42:15.169Z",
+    "op": "UPSERT",
+    "record_date": "2026-09-25",
+    "workshop_code": "W04",
+    "energy_code": "E01",
+    "consumption": 9,
+    "unit": "kWh",
+    "unit_price": 1,
+    "cost": 9,
+    "record_status": "正常",
+    "is_production_day": 1,
+    "observed_watermark": "2026-09-25T21:43:22Z"
+  },
+  "delete_event": {
+    "event_id": "77a3be6d-delete",
+    "event_time": "2026-09-25T21:43:27Z",
+    "updated_at": "2026-09-25T21:42:15.169Z",
+    "op": "DELETE",
+    "record_date": "2026-09-25",
+    "workshop_code": "W02",
+    "energy_code": "E01",
+    "consumption": null,
+    "unit": "kWh",
+    "unit_price": null,
+    "cost": null,
+    "record_status": "正常",
+    "is_production_day": 1
+  },
+  "invalid_event": {
+    "event_id": "77a3be6d-invalid",
+    "event_time": "2026-09-25T21:43:27Z",
+    "updated_at": "2026-09-25T21:42:15.169Z",
+    "op": "UPSERT",
+    "record_date": "2026-09-25",
+    "workshop_code": "W04",
+    "energy_code": "E01",
+    "consumption": -1,
+    "unit": "kWh",
+    "unit_price": 1,
+    "cost": -1,
+    "record_status": "正常",
+    "is_production_day": 1,
+    "quality_error": "invalid_consumption"
+  },
+  "malformed_events": [
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 82,
+      "quality_error": "invalid_json",
+      "payload_base64": "eyJldmVudF9pZCI6Ijc3YTNiZTZkLWJyb2tlbi1qc29uIg=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 83,
+      "quality_error": "invalid_utf8",
+      "payload_base64": "eyJldmVudF9pZCI6Ijc3YTNiZTZkLWJhZC11dGY4IiwidGV4dCI6Iv8ifQ=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 84,
+      "quality_error": "unsupported_schema_version",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MiwiZXZlbnRfaWQiOiI3N2EzYmU2ZC1zY2hlbWEtdjIiLCJldmVudF90aW1lIjoiMjAyNi0wOS0yNVQyMTo0MzoxMS4wMDBaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDktMjVUMjE6NDI6MTUuMTY5WiIsIm9wIjoiVVBTRVJUIiwicmVjb3JkX2RhdGUiOiIyMDI2LTA5LTI1Iiwid29ya3Nob3BfY29kZSI6IlcwNCIsImVuZXJneV9jb2RlIjoiRTAxIiwiY29uc3VtcHRpb24iOjYwLjAsInVuaXQiOiJrV2giLCJ1bml0X3ByaWNlIjoxLjAsImNvc3QiOjYwLjAsInJlY29yZF9zdGF0dXMiOiJcdTZiNjNcdTVlMzgiLCJpc19wcm9kdWN0aW9uX2RheSI6MX0="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 85,
+      "quality_error": "invalid_numeric_field",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiI3N2EzYmU2ZC1iYWQtbnVtZXJpYyIsImV2ZW50X3RpbWUiOiIyMDI2LTA5LTI1VDIxOjQzOjExLjAwMFoiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wOS0yNVQyMTo0MjoxNS4xNjlaIiwib3AiOiJVUFNFUlQiLCJyZWNvcmRfZGF0ZSI6IjIwMjYtMDktMjUiLCJ3b3Jrc2hvcF9jb2RlIjoiVzA0IiwiZW5lcmd5X2NvZGUiOiJFMDEiLCJjb25zdW1wdGlvbiI6Im5vdC1hLW51bWJlciIsInVuaXQiOiJrV2giLCJ1bml0X3ByaWNlIjoxLjAsImNvc3QiOjYwLjAsInJlY29yZF9zdGF0dXMiOiJcdTZiNjNcdTVlMzgiLCJpc19wcm9kdWN0aW9uX2RheSI6MX0="
+    }
+  ],
+  "alert_latency_seconds": 4.272,
+  "alert": {
+    "workshop_code": "W04",
+    "window_start": "2026-09-25T21:43:10Z",
+    "window_end": "2026-09-25T21:43:20Z",
+    "event_count": 3,
+    "total_cost": 155,
+    "alert_level": "HIGH_COST"
+  },
+  "seconds_level_alert": true
+}
