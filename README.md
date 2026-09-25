@@ -93,7 +93,7 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 
 ### 阶段三：数据质量与实时管道（单机实时验收完成，工程化增强进行中）
 
-阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 在 Docker 实机完成端到端验收；修正 Windows→Kafka UTF-8 编码后复跑，窗口告警延迟 5.575 秒，checkpoint 9 在 TaskManager 重启后恢复；迟到、显式 DELETE、无效能耗隔离均命中，中文状态保持原文。逐次证据见[UTF-8 复跑报告](output/streaming_experiment_20260925_utf8.json)。流批对账仍是需同范围快照的离线审计；MySQL 物理硬删 CDC、多节点高可用、字节级反序列化隔离和自动回补仍未实现，不能把显式 DELETE 或单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
+阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 的 Docker 实机复跑验证了正常告警、checkpoint 恢复、迟到/DELETE/无效业务值路由和中文字段；[当次报告](output/streaming_experiment_20260925_utf8.json)保留原始证据。2026-09-26 又增加原始 Kafka 字节隔离链路：坏 JSON 和坏 UTF-8 都按原始字节的 Base64、分区和 offset 写入隔离 topic，实机复跑同时验证正常告警与恢复；见[本次报告](output/streaming_experiment_raw_20260926.json)。该路由只证明编码和 JSON 语法损坏隔离，不覆盖所有类型转换与 schema 演进。流批对账仍是需同范围快照的离线审计；MySQL 物理硬删 CDC、多节点高可用和自动回补仍未实现，不能把单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
 
 ```mermaid
 flowchart LR
@@ -571,12 +571,13 @@ python tests/update_baseline.py
 **目标：** 将现有手写测试扩展为可配置的数据质量体系，并验证准实时异常告警链路。
 
 - [x] 评估 Great Expectations 与 Deequ，将完整性、唯一性、范围和跨表一致性规则配置化；
-- [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，2026-09-25 UTF-8 复跑实测 checkpoint 9 恢复后告警延迟 5.575 秒（[运行报告](output/streaming_experiment_20260925_utf8.json)）；
+- [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，2026-09-26 复跑实测 checkpoint 13 恢复后告警延迟 5.696 秒（[运行报告](output/streaming_experiment_raw_20260926.json)）；
 - [x] 扩展 GitHub Actions，在可用的测试环境中自动运行完整离线测试、MySQL 查询快照和关键端到端测试；
 - [x] 为增量链路增加软删除 tombstone 捕获，按 `updated_at` 重放到 Hive 并在 Spark 汇总排除删除行；硬删除仍需源端 CDC。
 - [x] 增加 Kafka 迟到/显式 DELETE/无效业务值隔离路径；2026-09-25 已通过容器端到端验证。事件 JSONL 对账器仍是离线审计入口，物理删除 CDC 未实现。
 - [x] 日期维表按能耗与产量数据范围自动扩展，并在增量装载时校验日期上下界。
-- [ ] 完成多节点 Kafka/Flink 高可用、MySQL 物理硬删除 CDC、在线反序列化隔离和流批自动回补/对账；需要集群资源与故障注入。离线对账器已能按字节隔离损坏的 UTF-8/JSON 导出行并出具失败报告，但不等于 Flink 在线隔离。
+- [x] 对坏 UTF-8 与坏 JSON 增加 Flink 原始字节隔离 topic，保留分区、offset 和可还原的 Base64；与离线对账器的坏行报告分别验收。
+- [ ] 完成多节点 Kafka/Flink 高可用、MySQL 物理硬删除 CDC、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
 ### 阶段四：服务化与可视化交付
 

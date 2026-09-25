@@ -1,0 +1,109 @@
+{
+  "run_id": "5e684961",
+  "runtime": "local Docker Compose; single Kafka broker, one Flink TaskManager",
+  "window_seconds": 10,
+  "watermark_lateness_seconds": 5,
+  "arrival_event_time_offsets_seconds": [
+    1,
+    5,
+    3
+  ],
+  "expected_alert": {
+    "workshop_code": "W04",
+    "event_count": 3,
+    "total_cost": 155.0
+  },
+  "late_side_output_tested": true,
+  "delete_event_route_tested": true,
+  "invalid_event_quarantine_tested": true,
+  "malformed_json_quarantine_tested": true,
+  "invalid_utf8_quarantine_tested": true,
+  "taskmanager_restart_tested": true,
+  "success": true,
+  "sql_client_stopped_after_job_running": true,
+  "sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 25, 2026 9:17:16 PM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "flink_job_id": "506829e28e34d095f916042eccc8c868",
+  "quality_route_jobs_started": 3,
+  "quality_route_sql_client_stopped_after_jobs_running": true,
+  "quality_route_sql_client_exit_code": null,
+  "quality_route_sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 25, 2026 9:17:26 PM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "raw_quarantine_job_id": "611bd7a7b9f3b62b69b7db31d9a9e4d4",
+  "raw_quarantine_sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 25, 2026 9:17:37 PM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "completed_checkpoint_before_restart": "13",
+  "restored_checkpoint_id": "13",
+  "restored_checkpoint_path": "file:/opt/flink/checkpoints/506829e28e34d095f916042eccc8c868/chk-13",
+  "post_restart_window_start": "2026-09-25T21:18:50+00:00",
+  "late_event": {
+    "event_id": "5e684961-late",
+    "event_time": "2026-09-25T21:18:51Z",
+    "updated_at": "2026-09-25T21:17:56.681Z",
+    "op": "UPSERT",
+    "record_date": "2026-09-25",
+    "workshop_code": "W04",
+    "energy_code": "E01",
+    "consumption": 9,
+    "unit": "kWh",
+    "unit_price": 1,
+    "cost": 9,
+    "record_status": "正常",
+    "is_production_day": 1,
+    "observed_watermark": "2026-09-25T21:19:02Z"
+  },
+  "delete_event": {
+    "event_id": "5e684961-delete",
+    "event_time": "2026-09-25T21:19:07Z",
+    "updated_at": "2026-09-25T21:17:56.681Z",
+    "op": "DELETE",
+    "record_date": "2026-09-25",
+    "workshop_code": "W02",
+    "energy_code": "E01",
+    "consumption": null,
+    "unit": "kWh",
+    "unit_price": null,
+    "cost": null,
+    "record_status": "正常",
+    "is_production_day": 1
+  },
+  "invalid_event": {
+    "event_id": "5e684961-invalid",
+    "event_time": "2026-09-25T21:19:07Z",
+    "updated_at": "2026-09-25T21:17:56.681Z",
+    "op": "UPSERT",
+    "record_date": "2026-09-25",
+    "workshop_code": "W04",
+    "energy_code": "E01",
+    "consumption": -1,
+    "unit": "kWh",
+    "unit_price": 1,
+    "cost": -1,
+    "record_status": "正常",
+    "is_production_day": 1,
+    "quality_error": "invalid_consumption"
+  },
+  "malformed_events": [
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 70,
+      "quality_error": "invalid_json",
+      "payload_base64": "eyJldmVudF9pZCI6IjVlNjg0OTYxLWJyb2tlbi1qc29uIg=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 71,
+      "quality_error": "invalid_utf8",
+      "payload_base64": "eyJldmVudF9pZCI6IjVlNjg0OTYxLWJhZC11dGY4IiwidGV4dCI6Iv8ifQ=="
+    }
+  ],
+  "alert_latency_seconds": 5.696,
+  "alert": {
+    "workshop_code": "W04",
+    "window_start": "2026-09-25T21:18:50Z",
+    "window_end": "2026-09-25T21:19:00Z",
+    "event_count": 3,
+    "total_cost": 155,
+    "alert_level": "HIGH_COST"
+  },
+  "seconds_level_alert": true
+}
