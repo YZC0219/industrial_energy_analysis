@@ -5,6 +5,7 @@ from import_mysql import (
     _file_min_date,
     build_upsert_sql,
     ensure_soft_delete_column,
+    split_sql,
 )
 import pytest
 
@@ -36,3 +37,27 @@ def test_fact_upsert_carries_soft_delete_state():
 def test_soft_delete_migration_rejects_unsafe_database_identifier():
     with pytest.raises(ValueError, match="simple SQL identifier"):
         ensure_soft_delete_column(None, "industrial_energy`; DROP DATABASE other; --")
+
+
+def test_split_sql_keeps_semicolons_inside_literals_and_drops_comments():
+    statements = split_sql(
+        "-- header with a ;\n"
+        "CREATE TABLE `a;b` (note VARCHAR(20) COMMENT 'soft; delete');\n"
+        "/* block ; comment */\n"
+        "INSERT INTO `a;b` VALUES ('it''s; fine'); # trailing ; comment\n"
+    )
+    assert len(statements) == 2
+    assert "COMMENT 'soft; delete'" in statements[0]
+    assert "'it''s; fine'" in statements[1]
+    assert "comment" not in statements[1]
+
+
+def test_create_table_script_keeps_tombstone_comment_intact():
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[1] / "sql" / "create_table.sql"
+    statements = split_sql(script.read_text(encoding="utf-8"))
+    fact = [stmt for stmt in statements if "CREATE TABLE" in stmt
+            and "fact_energy_consumption" in stmt]
+    assert len(fact) == 1
+    assert "COMMENT '软删除标记; 增量 CDC tombstone'" in fact[0]

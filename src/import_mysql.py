@@ -66,21 +66,73 @@ def connect(args):
 
 
 def split_sql(script: str):
-    """按分号切分 SQL 脚本, 跳过注释与空语句
+    """按 SQL 语句分号切分, 忽略引号内分号与 SQL 注释。"""
+    statements = []
+    current = []
+    quote = None
+    line_comment = False
+    block_comment = False
+    i = 0
 
-    注意: 这里是**朴素按 `;` 切分**, 不识别引号 —— 单引号里的分号(例如
-    `COMMENT '...; ...'`)会把一条语句切成两半, 两半都语法错误。
-    `sql/create_table.sql` 里现存的 COMMENT 恰好都没有分号, 所以一直没暴露。
-    要写带分号的字符串字面量, 得么避开分号, 要么把本函数改成逐字符扫描引号状态。
-    """
-    lines = []
-    for line in script.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("--") or not stripped:
+    while i < len(script):
+        char = script[i]
+        nxt = script[i + 1] if i + 1 < len(script) else ""
+
+        if line_comment:
+            if char == "\n":
+                line_comment = False
+                current.append(char)
+            i += 1
             continue
-        lines.append(line)
-    body = "\n".join(lines)
-    return [s.strip() for s in body.split(";") if s.strip()]
+        if block_comment:
+            if char == "*" and nxt == "/":
+                block_comment = False
+                i += 2
+            else:
+                i += 1
+            continue
+        if quote:
+            current.append(char)
+            if char == "\\" and nxt:
+                current.append(nxt)
+                i += 2
+                continue
+            if char == quote:
+                if nxt == quote:
+                    current.append(nxt)
+                    i += 2
+                    continue
+                quote = None
+            i += 1
+            continue
+
+        if char in ("'", '"', "`"):
+            quote = char
+            current.append(char)
+            i += 1
+        elif char == "-" and nxt == "-" and (i + 2 == len(script) or script[i + 2].isspace()):
+            line_comment = True
+            i += 2
+        elif char == "#":
+            line_comment = True
+            i += 1
+        elif char == "/" and nxt == "*":
+            block_comment = True
+            i += 2
+        elif char == ";":
+            statement = "".join(current).strip()
+            if statement:
+                statements.append(statement)
+            current.clear()
+            i += 1
+        else:
+            current.append(char)
+            i += 1
+
+    statement = "".join(current).strip()
+    if statement:
+        statements.append(statement)
+    return statements
 
 
 def run_script(conn, path: str, use_db: str | None) -> None:
