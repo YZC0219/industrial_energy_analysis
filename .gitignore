@@ -30,6 +30,7 @@ Thumbs.db
 *.log
 *.tmp
 ~$*
+streaming/build/
 
 # 验收脚本的截图产物 (tools/check_filter_ui.py 每次运行都会重写)
 tools/_shot_*.png
@@ -60,6 +61,7 @@ output/*
 !output/metabase_runtime_20260925.json
 !output/metabase_dashboard_filtered_20260925.png
 !output/streaming_experiment_20260925_utf8.json
+!output/streaming_experiment_raw_20260926.json
 
 # 临时调试产物(非项目文件)
 _runs.json

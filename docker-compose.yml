@@ -254,7 +254,8 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-alerts --partitions 1 --replication-factor 1 &&
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-late-events --partitions 1 --replication-factor 1 &&
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-delete-events --partitions 1 --replication-factor 1 &&
-        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-invalid-events --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-invalid-events --partitions 1 --replication-factor 1 &&
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-malformed-events --partitions 1 --replication-factor 1
     restart: "no"
 
   flink-connector-init:
@@ -284,13 +285,13 @@ services:
     profiles: [streaming]
     entrypoint: ["/bin/bash", "-lc"]
     command:
-      - cp /connectors/*.jar /opt/flink/lib/ && exec /docker-entrypoint.sh jobmanager
+      - cp /connectors/*.jar /opt/flink/lib/ && if [ -s /udf/industrial-energy-raw-udf.jar ]; then cp /udf/industrial-energy-raw-udf.jar /opt/flink/lib/; fi && exec /docker-entrypoint.sh jobmanager
     environment:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         jobmanager.memory.process.size: 768m
         taskmanager.memory.process.size: 1024m
-        taskmanager.numberOfTaskSlots: 4
+        taskmanager.numberOfTaskSlots: 5
         parallelism.default: 1
         execution.checkpointing.interval: 2s
         execution.checkpointing.mode: EXACTLY_ONCE
@@ -304,6 +305,7 @@ services:
       - "8081:8081"
     volumes:
       - ./streaming/flink:/opt/flink/sql:ro
+      - ./streaming/build:/udf:ro
       - flink-kafka-connector:/connectors:ro
       - flink-streaming-checkpoints:/opt/flink/checkpoints
     depends_on:
@@ -322,13 +324,13 @@ services:
     profiles: [streaming]
     entrypoint: ["/bin/bash", "-lc"]
     command:
-      - cp /connectors/*.jar /opt/flink/lib/ && exec /docker-entrypoint.sh taskmanager
+      - cp /connectors/*.jar /opt/flink/lib/ && if [ -s /udf/industrial-energy-raw-udf.jar ]; then cp /udf/industrial-energy-raw-udf.jar /opt/flink/lib/; fi && exec /docker-entrypoint.sh taskmanager
     environment:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         jobmanager.memory.process.size: 768m
         taskmanager.memory.process.size: 1024m
-        taskmanager.numberOfTaskSlots: 4
+        taskmanager.numberOfTaskSlots: 5
         parallelism.default: 1
         execution.checkpointing.interval: 2s
         execution.checkpointing.mode: EXACTLY_ONCE
@@ -340,6 +342,7 @@ services:
         restart-strategy.fixed-delay.delay: 2s
     volumes:
       - ./streaming/flink:/opt/flink/sql:ro
+      - ./streaming/build:/udf:ro
       - flink-kafka-connector:/connectors:ro
       - flink-streaming-checkpoints:/opt/flink/checkpoints
     depends_on:

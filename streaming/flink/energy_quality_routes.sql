@@ -30,6 +30,7 @@ CREATE TABLE late_energy_events (
     'properties.group.id' = 'industrial-energy-late-v1',
     'scan.startup.mode' = 'earliest-offset',
     'format' = 'json',
+    'json.ignore-parse-errors' = 'true',
     'json.timestamp-format.standard' = 'ISO-8601'
 );
 
@@ -88,6 +89,7 @@ CREATE TABLE delete_energy_events (
     'properties.group.id' = 'industrial-energy-delete-v1',
     'scan.startup.mode' = 'earliest-offset',
     'format' = 'json',
+    'json.ignore-parse-errors' = 'true',
     'json.timestamp-format.standard' = 'ISO-8601'
 );
 
@@ -145,6 +147,7 @@ CREATE TABLE invalid_energy_events (
     'properties.group.id' = 'industrial-energy-invalid-v1',
     'scan.startup.mode' = 'earliest-offset',
     'format' = 'json',
+    'json.ignore-parse-errors' = 'true',
     'json.timestamp-format.standard' = 'ISO-8601'
 );
 

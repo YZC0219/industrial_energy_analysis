@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import queue
 import subprocess
@@ -14,6 +15,8 @@ from decimal import Decimal
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
+
+from tools.build_flink_udf import OUTPUT_JAR, main as build_flink_udf
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "output" / "streaming_experiment.json"
@@ -92,6 +95,18 @@ def _publish(records: list[dict]) -> None:
     )
 
 
+def _publish_raw(payload: bytes) -> tuple[int, int]:
+    """Use the byte-oriented Kafka producer; console-producer transcodes UTF-8."""
+    from kafka import KafkaProducer
+
+    producer = KafkaProducer(bootstrap_servers=["127.0.0.1:29092"], acks="all")
+    try:
+        record = producer.send("energy-events", value=payload).get(timeout=30)
+        return record.partition, record.offset
+    finally:
+        producer.close(timeout=10)
+
+
 def _running_job() -> dict | None:
     jobs = _request("/jobs/overview").get("jobs", [])
     return next((job for job in jobs if job.get("state") == "RUNNING"), None)
@@ -152,11 +167,15 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         "late_side_output_tested": False,
         "delete_event_route_tested": False,
         "invalid_event_quarantine_tested": False,
+        "malformed_json_quarantine_tested": False,
+        "invalid_utf8_quarantine_tested": False,
         "taskmanager_restart_tested": False,
         "success": False,
     }
     consumer = None
     try:
+        if not OUTPUT_JAR.is_file():
+            build_flink_udf()
         _compose("up", "-d", "kafka", "kafka-topics-init", "flink-connector-init",
                  "flink-checkpoint-init", "flink-jobmanager", "flink-taskmanager", timeout=900)
         _wait_for(lambda: _request("/overview"), timeout=180, description="Flink JobManager")
@@ -236,10 +255,31 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             )
             report["quality_route_sql_client_stderr"] = route_stderr[-2000:]
 
+        raw_prior_ids = {item.get("jid") for item in _request("/jobs/overview").get("jobs", [])}
+        raw_client = subprocess.Popen(
+            ["docker", "compose", "--profile", "streaming", "exec", "-T",
+             "flink-jobmanager", "/opt/flink/bin/sql-client.sh", "-f",
+             "/opt/flink/sql/energy_raw_quarantine.sql"],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8",
+        )
+        try:
+            raw_jobs = _wait_for_new_jobs(raw_prior_ids, minimum=1, timeout=120)
+            report["raw_quarantine_job_id"] = raw_jobs[0]["jid"]
+        finally:
+            if raw_client.poll() is None:
+                raw_client.terminate()
+            try:
+                _, raw_stderr = raw_client.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                raw_client.kill()
+                _, raw_stderr = raw_client.communicate()
+            report["raw_quarantine_sql_client_stderr"] = raw_stderr[-2000:]
+
         previous_checkpoint = _checkpoint_id(job["jid"])
         consumers = {}
         for topic in ("energy-alerts", "energy-late-events", "energy-delete-events",
-                      "energy-invalid-events"):
+                      "energy-invalid-events", "energy-malformed-events"):
             consumers[topic] = _start_topic_consumer(topic, run_id)
         _publish(events)
         time.sleep(1.5)
@@ -330,6 +370,36 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             invalid_routed is not None and invalid_routed.get("quality_error") == "invalid_consumption"
         )
 
+        malformed_json = b'{"event_id":"' + run_id.encode("ascii") + b'-broken-json"'
+        invalid_utf8 = b'{"event_id":"' + run_id.encode("ascii") + b'-bad-utf8","text":"\xff"}'
+        expected_malformed = {
+            _publish_raw(malformed_json): ("invalid_json", malformed_json),
+            _publish_raw(invalid_utf8): ("invalid_utf8", invalid_utf8),
+        }
+        observed_malformed = {}
+        malformed_process, malformed_messages = consumers["energy-malformed-events"]
+        malformed_deadline = time.monotonic() + 30
+        while len(observed_malformed) < len(expected_malformed) and time.monotonic() < malformed_deadline:
+            if malformed_process.poll() is not None and malformed_messages.empty():
+                break
+            try:
+                _, item = malformed_messages.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            key = (item.get("source_partition"), item.get("source_offset"))
+            if key in expected_malformed:
+                observed_malformed[key] = item
+        report["malformed_events"] = list(observed_malformed.values())
+        for key, (reason, payload) in expected_malformed.items():
+            item = observed_malformed.get(key, {})
+            passed = (item.get("quality_error") == reason
+                      and item.get("source_topic") == "energy-events"
+                      and item.get("payload_base64") == base64.b64encode(payload).decode("ascii"))
+            if reason == "invalid_json":
+                report["malformed_json_quarantine_tested"] = passed
+            else:
+                report["invalid_utf8_quarantine_tested"] = passed
+
         deadline = alert_started + 15
         matched = None
         alert_received_at = None
@@ -364,7 +434,9 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                                   and report["seconds_level_alert"]
                                   and report["late_side_output_tested"]
                                   and report["delete_event_route_tested"]
-                                  and report["invalid_event_quarantine_tested"])
+                                  and report["invalid_event_quarantine_tested"]
+                                  and report["malformed_json_quarantine_tested"]
+                                  and report["invalid_utf8_quarantine_tested"])
         if not report["success"]:
             report["error"] = "One or more window, recovery, late-event, delete-route, or quality-route checks failed"
         return report

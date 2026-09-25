@@ -24,6 +24,7 @@ CREATE TABLE energy_events (
     'properties.group.id' = 'industrial-energy-window-v1',
     'scan.startup.mode' = 'earliest-offset',
     'format' = 'json',
+    'json.ignore-parse-errors' = 'true',
     'json.timestamp-format.standard' = 'ISO-8601'
 );
 

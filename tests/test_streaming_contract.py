@@ -9,6 +9,7 @@ SCHEMA=json.loads((ROOT/"streaming/schemas/energy_event.schema.json").read_text(
 COMPOSE=(ROOT/"docker-compose.yml").read_text(encoding="utf-8")
 FLINK_SQL=(ROOT/"streaming/flink/energy_window.sql").read_text(encoding="utf-8")
 QUALITY_SQL=(ROOT/"streaming/flink/energy_quality_routes.sql").read_text(encoding="utf-8")
+RAW_SQL=(ROOT/"streaming/flink/energy_raw_quarantine.sql").read_text(encoding="utf-8")
 
 def test_event_contract_has_version_identity_and_two_clocks():
     required=set(SCHEMA["required"])
@@ -38,12 +39,14 @@ def test_local_kafka_flink_profile_has_checkpoints_and_durable_state_volume():
     assert "flink-streaming-checkpoints" in COMPOSE
     assert "execution.checkpointing.mode: EXACTLY_ONCE" in COMPOSE
     assert "execution.checkpointing.interval: 2s" in COMPOSE
-    assert COMPOSE.count("taskmanager.numberOfTaskSlots: 4") == 2
+    assert COMPOSE.count("taskmanager.numberOfTaskSlots: 5") == 2
     init_command = services["kafka-topics-init"]["command"][0]
     assert {"energy-events", "energy-alerts", "energy-late-events",
-            "energy-delete-events", "energy-invalid-events"} <= set(
+            "energy-delete-events", "energy-invalid-events",
+            "energy-malformed-events"} <= set(
                 re.findall(r"--topic ([\w-]+)", init_command)
             )
+    assert COMPOSE.count("./streaming/build:/udf:ro") == 2
 
 
 def test_flink_sql_uses_bounded_out_of_order_event_time_windows_and_exactly_once_sink():
@@ -92,3 +95,17 @@ def test_flink_routes_late_delete_and_invalid_events_to_durable_topics():
     assert "does not capture a physical MySQL delete" in QUALITY_SQL
     groups = re.findall(r"'properties.group.id'\s*=\s*'([^']+)'", QUALITY_SQL)
     assert len(groups) == len(set(groups)) == 3
+
+
+def test_raw_quarantine_keeps_kafka_offsets_and_original_bytes():
+    assert "payload BYTES" in RAW_SQL
+    assert "METADATA FROM 'partition' VIRTUAL" in RAW_SQL
+    assert "METADATA FROM 'offset' VIRTUAL" in RAW_SQL
+    assert "'format' = 'raw'" in RAW_SQL
+    assert "'topic' = 'energy-malformed-events'" in RAW_SQL
+    assert "strict_utf8(payload)" in RAW_SQL
+    assert "raw_base64(payload)" in RAW_SQL
+    assert "json_text IS JSON OBJECT" in RAW_SQL
+    assert "'sink.delivery-guarantee' = 'exactly-once'" in RAW_SQL
+    assert FLINK_SQL.count("'json.ignore-parse-errors' = 'true'") == 1
+    assert QUALITY_SQL.count("'json.ignore-parse-errors' = 'true'") == 3
