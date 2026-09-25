@@ -47,14 +47,30 @@ def _timestamp(value: object) -> datetime | None:
 
 def read_events(path: Path) -> tuple[list[dict], list[dict]]:
     events, invalid = [], []
-    with path.open(encoding="utf-8-sig") as stream:
-        for line_number, line in enumerate(stream, start=1):
-            if not line.strip():
+    byte_offset = 0
+    with path.open("rb") as stream:
+        for line_number, raw_line in enumerate(stream, start=1):
+            offset = byte_offset
+            byte_offset += len(raw_line)
+            if not raw_line.strip():
+                continue
+            try:
+                line = raw_line.decode("utf-8-sig" if line_number == 1 else "utf-8")
+            except UnicodeDecodeError:
+                invalid.append({
+                    "line": line_number, "byte_offset": offset,
+                    "raw_sha256": hashlib.sha256(raw_line).hexdigest(),
+                    "reason": "invalid_utf8",
+                })
                 continue
             try:
                 event = json.loads(line)
             except json.JSONDecodeError as exc:
-                invalid.append({"line": line_number, "reason": "invalid_json", "detail": str(exc)})
+                invalid.append({
+                    "line": line_number, "byte_offset": offset,
+                    "raw_sha256": hashlib.sha256(raw_line).hexdigest(),
+                    "reason": "invalid_json", "detail": str(exc),
+                })
                 continue
             if not isinstance(event, dict):
                 invalid.append({"line": line_number, "reason": "event_must_be_object"})

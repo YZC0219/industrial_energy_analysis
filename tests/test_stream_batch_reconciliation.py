@@ -1,7 +1,8 @@
 import csv
+import hashlib
 import json
 
-from tools.reconcile_stream_batch import reconcile
+from tools.reconcile_stream_batch import main, reconcile
 
 
 def _write_inputs(tmp_path, events, batch_rows):
@@ -85,3 +86,31 @@ def test_reconciliation_quarantines_non_object_json_and_non_finite_values(tmp_pa
     report = reconcile(events_path, batch_path)
     assert report["success"] is False
     assert report["counts"]["event_invalid_rows"] == 2
+
+
+def test_invalid_utf8_is_reported_without_losing_later_valid_events(tmp_path):
+    event = _event("good", "2026-09-01T01:00:00Z")
+    row = {"record_date": "2026-09-01", "workshop_code": "W04", "energy_code": "E01",
+           "consumption": "12.5", "unit": "kWh", "unit_price": "2", "cost": "25"}
+    events_path, batch_path = _write_inputs(tmp_path, [event], [row])
+    invalid_line = b"\xff\xfe\n"
+    invalid_json_line = b'{"event_id":\n'
+    events_path.write_bytes(invalid_line + invalid_json_line + events_path.read_bytes())
+
+    output = tmp_path / "reconciliation.json"
+    assert main(["--events", str(events_path), "--batch", str(batch_path),
+                 "--output", str(output)]) == 1
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["success"] is False
+    assert report["counts"]["event_rows"] == 1
+    assert report["counts"]["event_invalid_rows"] == 2
+    assert report["samples"]["invalid_events"][0] == {
+        "line": 1, "byte_offset": 0,
+        "raw_sha256": hashlib.sha256(invalid_line).hexdigest(),
+        "reason": "invalid_utf8",
+    }
+    json_error = report["samples"]["invalid_events"][1]
+    assert json_error["reason"] == "invalid_json"
+    assert json_error["line"] == 2
+    assert json_error["byte_offset"] == len(invalid_line)
+    assert json_error["raw_sha256"] == hashlib.sha256(invalid_json_line).hexdigest()
