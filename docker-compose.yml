@@ -59,6 +59,43 @@ x-airflow-common: &airflow-common
 
 services:
 
+  # ---- Optional local BI UI -------------------------------------------
+  # Start with: docker compose --profile bi up -d metabase-db metabase
+  metabase-db:
+    image: postgres:16
+    profiles: [bi]
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: metabase
+      POSTGRES_PASSWORD: ${METABASE_DB_PASSWORD:-metabase_local_only}
+    volumes:
+      - metabase-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metabase -d metabase"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:v0.63.18
+    profiles: [bi]
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: metabase
+      MB_DB_PASS: ${METABASE_DB_PASSWORD:-metabase_local_only}
+      MB_DB_HOST: metabase-db
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      metabase-db:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
   # ---- Airflow 元数据库 ------------------------------------------------
   postgres:
     image: postgres:15
@@ -188,7 +225,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_MAX_TIMEOUT_MS: 120000
+      # Flink's exactly-once Kafka sink needs a broker limit above its transaction timeout.
+      KAFKA_TRANSACTION_MAX_TIMEOUT_MS: 7200000
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     ports:
@@ -223,11 +261,9 @@ services:
     image: curlimages/curl:8.12.1
     profiles: [streaming]
     user: "0:0"
+    entrypoint: ["/bin/sh", "-lc"]
     command:
-      - -fsSL
-      - -o
-      - /shared/flink-sql-connector-kafka-3.3.0-1.20.jar
-      - https://repo.maven.apache.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-1.20/flink-sql-connector-kafka-3.3.0-1.20.jar
+      - 'if [ -s /shared/flink-sql-connector-kafka-3.3.0-1.20.jar ]; then echo "Kafka connector jar already exists"; else curl --fail --show-error --location --retry 3 --output /shared/flink-sql-connector-kafka-3.3.0-1.20.jar.tmp https://repo.maven.apache.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-1.20/flink-sql-connector-kafka-3.3.0-1.20.jar && mv /shared/flink-sql-connector-kafka-3.3.0-1.20.jar.tmp /shared/flink-sql-connector-kafka-3.3.0-1.20.jar; fi'
     volumes:
       - flink-kafka-connector:/shared
     restart: "no"
@@ -254,7 +290,7 @@ services:
         jobmanager.rpc.address: flink-jobmanager
         jobmanager.memory.process.size: 768m
         taskmanager.memory.process.size: 1024m
-        taskmanager.numberOfTaskSlots: 2
+        taskmanager.numberOfTaskSlots: 4
         parallelism.default: 1
         execution.checkpointing.interval: 2s
         execution.checkpointing.mode: EXACTLY_ONCE
@@ -292,7 +328,7 @@ services:
         jobmanager.rpc.address: flink-jobmanager
         jobmanager.memory.process.size: 768m
         taskmanager.memory.process.size: 1024m
-        taskmanager.numberOfTaskSlots: 2
+        taskmanager.numberOfTaskSlots: 4
         parallelism.default: 1
         execution.checkpointing.interval: 2s
         execution.checkpointing.mode: EXACTLY_ONCE
@@ -313,6 +349,7 @@ services:
 
 volumes:
   postgres-db:
+  metabase-db:
   mysql-data:
   airflow-logs:
   kafka-streaming-data:
