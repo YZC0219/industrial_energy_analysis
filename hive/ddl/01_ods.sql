@@ -3,7 +3,8 @@ CREATE EXTERNAL TABLE IF NOT EXISTS energy_ods.ods_energy_consumption (
   id BIGINT, record_date DATE, workshop_code STRING, energy_code STRING,
   consumption STRING, unit STRING, unit_price STRING,
   cost STRING, record_status STRING, avg_temperature STRING,
-  data_source STRING, is_production_day TINYINT, updated_at TIMESTAMP
+  data_source STRING, is_production_day TINYINT, updated_at TIMESTAMP,
+  is_deleted TINYINT
 ) PARTITIONED BY (dt STRING)
 STORED AS ORC
 LOCATION '/warehouse/energy_ods/ods_energy_consumption'

@@ -137,6 +137,7 @@ CREATE TABLE fact_energy_consumption (
     data_source       VARCHAR(16)           COMMENT '数据来源',
     is_production_day TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '是否生产日',
     updated_at        DATETIME     NULL COMMENT '源系统最后修改时刻',
+    is_deleted        TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '软删除标记; 增量 CDC tombstone',
     PRIMARY KEY (id),
     UNIQUE KEY uk_date_ws_energy (record_date, workshop_code, energy_code),
     KEY idx_date (record_date),
@@ -195,7 +196,7 @@ CREATE TABLE IF NOT EXISTS etl_watermark (
 -- =============================================================================
 
 -- 明细级: 附上折标煤、碳排放、单价参考价
-CREATE VIEW v_energy_enriched AS
+CREATE OR REPLACE VIEW v_energy_enriched AS
 SELECT
     f.record_date,
     c.year,
@@ -224,7 +225,8 @@ SELECT
 FROM fact_energy_consumption f
 JOIN dim_workshop    w ON w.workshop_code = f.workshop_code
 JOIN dim_energy_type e ON e.energy_code   = f.energy_code
-JOIN dim_calendar    c ON c.calendar_date = f.record_date;
+JOIN dim_calendar    c ON c.calendar_date = f.record_date
+WHERE f.is_deleted = 0;
 
 
 -- 车间 × 日 汇总

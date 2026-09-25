@@ -5,10 +5,13 @@ SET hive.exec.dynamic.partition.mode=nonstrict;
 -- 由本同步批次实际影响的业务日期驱动重算，而不是假定业务日期等于同步日期。
 INSERT OVERWRITE TABLE energy_dws.dws_workshop_energy_day PARTITION(dt)
 SELECT e.record_date,e.workshop_code,max(e.workshop_name),max(e.process_type),max(e.year_month),
-       round(sum(e.std_coal_kgce)/1000,4),round(sum(e.co2_kg)/1000,3),round(sum(e.cost),2),
+       round(sum(CASE WHEN coalesce(e.is_deleted,0)=0 THEN e.std_coal_kgce ELSE 0 END)/1000,4),
+       round(sum(CASE WHEN coalesce(e.is_deleted,0)=0 THEN e.co2_kg ELSE 0 END)/1000,3),
+       round(sum(CASE WHEN coalesce(e.is_deleted,0)=0 THEN e.cost ELSE 0 END),2),
        max(p.output_qty),max(p.output_unit),
-       CASE WHEN max(p.output_qty)>0 THEN round(sum(e.std_coal_kgce)/max(p.output_qty),5) END,
-       max(CASE WHEN e.is_production_day=0 THEN 1 ELSE 0 END),avg(e.avg_temperature),
+       CASE WHEN max(p.output_qty)>0 THEN round(sum(CASE WHEN coalesce(e.is_deleted,0)=0 THEN e.std_coal_kgce ELSE 0 END)/max(p.output_qty),5) END,
+       max(CASE WHEN coalesce(e.is_deleted,0)=0 AND e.is_production_day=0 THEN 1 ELSE 0 END),
+       avg(CASE WHEN coalesce(e.is_deleted,0)=0 THEN e.avg_temperature END),
        current_timestamp(),cast(e.record_date AS string)
 FROM energy_dwd.dwd_energy_consumption_detail e
 JOIN (SELECT DISTINCT target_dt FROM energy_dwd.dwd_energy_consumption_merge_stage

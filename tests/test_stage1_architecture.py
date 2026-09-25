@@ -25,6 +25,7 @@ def test_all_four_layers_have_declared_grain_and_partitions():
     assert ddl.count("PARTITIONED BY") == sum(expected.values())
     assert ddl.count("LOCATION '/warehouse/") == sum(expected.values()) + len(expected)
     assert "source_updated_at TIMESTAMP" in ddl
+    assert "is_deleted TINYINT" in ddl
     ods=text("hive/ddl/01_ods.sql")
     assert ods.count("CREATE EXTERNAL TABLE") == ods.count("LOCATION '/warehouse/energy_ods/") == 5
     assert ods.count("STORED AS ORC") == 5
@@ -34,6 +35,7 @@ def test_datax_schema_preserves_timestamp_and_increment_is_half_open():
     _,mode,columns=mod.TABLES["fact_energy_consumption"]
     assert mode=="incremental"
     assert dict(columns)["updated_at"]=="timestamp"
+    assert dict(columns)["is_deleted"]=="tinyint"
     assert dict(columns)["consumption"]=="string"          # DataX ORC writer 无 DECIMAL
     job=text("datax/jobs/mysql_to_hive_incremental.json")
     assert "updated_at >= '${WINDOW_START}' AND updated_at < '${WINDOW_END}'" in job
@@ -52,6 +54,8 @@ def test_datax_schema_preserves_timestamp_and_increment_is_half_open():
     dwd=text("spark/sql/10_dwd_energy.sql")
     assert "cast(f.consumption AS decimal(16,3))" in dwd
     assert "cast(f.unit_price AS decimal(12,4))" in dwd
+    assert "coalesce(f.is_deleted,0)=1" in dwd
+    assert "is_deleted" in dwd
 
 def test_late_correction_is_merged_into_business_date_partition():
     dwd=text("spark/sql/10_dwd_energy.sql")
@@ -71,6 +75,12 @@ def test_late_correction_is_merged_into_business_date_partition():
         assert "dwd_energy_consumption_merge_stage" in sql  # 受影响日期继续向下传播
         assert "PARTITION(dt)" in sql
         assert "WHERE batch_id='${biz_date}'" in sql
+    dws=text("spark/sql/20_dws.sql")
+    assert "coalesce(e.is_deleted,0)=0" in dws
+    assert "CASE WHEN coalesce(e.is_deleted,0)=0 THEN e.cost ELSE 0 END" in dws
+    assert "WHERE coalesce(x.is_deleted,0)=0" in text("tools/check_hive_quality.py")
+    assert "WHERE f.is_deleted = 0" in text("sql/create_table.sql")
+    assert "ensure_hive_soft_delete_schema" in text("dags/energy_pipeline_dag.py")
 
 def test_each_fact_transform_is_overwrite_and_partition_pruned():
     dwd=text("spark/sql/10_dwd_energy.sql")
@@ -150,7 +160,9 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
     load_module("energy_pipeline_contract", "dags/energy_pipeline_dag.py")
     expected={
       "generate_raw_data":{"clean_data"},
-      "clean_data":{"load_warehouse","sync_ods_dimensions","sync_ods_energy_incremental","run_phase2"},
+      "clean_data":{"ensure_mysql_soft_delete_schema","sync_ods_dimensions","ensure_hive_soft_delete_schema","run_phase2"},
+      "ensure_mysql_soft_delete_schema":{"load_warehouse","sync_ods_energy_incremental"},
+      "ensure_hive_soft_delete_schema":{"sync_ods_energy_incremental","build_dwd"},
       "load_warehouse":{"run_analysis"}, "run_analysis":{"build_report"},
       "sync_ods_dimensions":{"build_dwd"}, "sync_ods_energy_incremental":{"build_dwd"},
       "build_dwd":{"quality_dwd"}, "quality_dwd":{"build_dws"},

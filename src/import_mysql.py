@@ -47,7 +47,7 @@ OUT_DIR = os.path.join(BASE_DIR, "output")
 # CSV 列顺序必须与建表顺序一致 (dim_calendar 的列名与表头一致)
 ENERGY_COLS = ["record_date", "workshop_code", "energy_code", "consumption", "unit",
                "unit_price", "cost", "record_status", "avg_temperature",
-               "data_source", "is_production_day", "updated_at"]
+               "data_source", "is_production_day", "updated_at", "is_deleted"]
 PROD_COLS = ["record_date", "workshop_code", "output_qty", "output_unit"]
 CAL_COLS = ["calendar_date", "year", "quarter", "month", "year_month",
             "day_of_week", "weekday_name", "is_weekend", "holiday_name", "is_holiday"]
@@ -93,6 +93,26 @@ def run_script(conn, path: str, use_db: str | None) -> None:
         for stmt in statements:
             cur.execute(stmt)
     conn.commit()
+
+
+def ensure_soft_delete_column(conn, db: str) -> None:
+    """Idempotently upgrade pre-existing MySQL fact tables for soft-delete CDC."""
+    if not re.fullmatch(r"[A-Za-z0-9_]{1,64}", db):
+        raise ValueError("database must be a simple SQL identifier")
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA=%s AND TABLE_NAME='fact_energy_consumption' "
+            "AND COLUMN_NAME='is_deleted'", (db,)
+        )
+        if cur.fetchone()[0] == 0:
+            cur.execute(
+                f"ALTER TABLE `{db}`.`fact_energy_consumption` "
+                "ADD COLUMN `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 "
+                "COMMENT '软删除标记; 增量 CDC tombstone' AFTER `updated_at`"
+            )
+    conn.commit()
+    run_script(conn, os.path.join(SQL_DIR, "migrations", "001_soft_delete_view.sql"), db)
 
 
 def build_upsert_sql(table: str, columns, db: str, key: str = "updated_at") -> str:
@@ -142,6 +162,20 @@ def _file_max_date(path: str, col: str) -> str:
         reader = csv.DictReader(f)
         vals = [r[col] for r in reader if r.get(col)]
     return max(vals) if vals else ""
+
+
+def _file_min_date(path: str, col: str) -> str:
+    """读取 ISO 日期列的最小值, 与 _file_max_date 配对做完整范围校验。"""
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        vals = [r[col] for r in reader if r.get(col)]
+    return min(vals) if vals else ""
+
+
+def _date_range_is_covered(calendar_min: str, calendar_max: str,
+                           batch_min: str, batch_max: str) -> bool:
+    """判断非空批次日期区间是否完整落在日期维覆盖范围内。"""
+    return not batch_min or calendar_min <= batch_min <= batch_max <= calendar_max
 
 
 def load_csv(conn, table: str, csv_name: str, columns, db: str, upsert: bool = False,
@@ -428,6 +462,8 @@ def main() -> None:
         conn.commit()
         log("      --init 已重置水位线")
 
+    ensure_soft_delete_column(conn, args.db)
+
     wm_table = "fact_energy_consumption"
     wm_col = "updated_at"
     wm_val, wm_batch = read_watermark(conn, args.db, wm_table)
@@ -459,9 +495,8 @@ def main() -> None:
         # 事实表行数正常、水位线正常推进、管道报 success, 而所有分析结果里
         # 这批数据**一行都看不见**。这是最坏的一类失败: 无声、且伪装成成功。
         #
-        # 真实场景的修法是让 dim_calendar 随日期滚动生成(维表本该覆盖未来一段
-        # 时间), 本项目里维表范围写死在 clean_data.build_calendar() 里. 无论哪种,
-        # 装载端都必须**校验而不是假设** —— 维表范围是上游给的, 上游会变。
+        # clean_data.build_calendar() 已按全量源事实的 min/max 日期扩展维表; 装载端
+        # 仍必须**校验而不是假设**, 同时检查下界和上界, 捕捉批文件/维表不一致。
         cal_p = os.path.join(args.batch_dir, "dim_calendar.csv")
         if not os.path.exists(cal_p):
             log(f"[错误] 增量模式需要日期维表 {cal_p} 来做覆盖校验, 但它不存在。")
@@ -469,14 +504,22 @@ def main() -> None:
             log(f"       却在 v_energy_enriched 的 JOIN 里被静默滤掉。")
             log(f"       先跑: python src/clean_data.py --batch-all")
             raise SystemExit(3)
+        cal_min = _file_min_date(cal_p, "calendar_date")
         cal_max = _file_max_date(cal_p, "calendar_date")
-        bat_max = _file_max_date(os.path.join(args.batch_dir, batch_energy),
-                                 "record_date")
-        if bat_max > cal_max:
-            log(f"[错误] 批次数据有 {bat_max}, 但 dim_calendar 只到 {cal_max}。")
+        batch_dates = [
+            (_file_min_date(os.path.join(args.batch_dir, name), "record_date"),
+             _file_max_date(os.path.join(args.batch_dir, name), "record_date"))
+            for name in (batch_energy, batch_prod)
+        ]
+        nonempty_ranges = [(lo, hi) for lo, hi in batch_dates if lo and hi]
+        bat_min = min((lo for lo, _ in nonempty_ranges), default="")
+        bat_max = max((hi for _, hi in nonempty_ranges), default="")
+        if not _date_range_is_covered(cal_min, cal_max, bat_min, bat_max):
+            log(f"[错误] 批次日期范围 [{bat_min}, {bat_max}] 超出 dim_calendar "
+                f"覆盖范围 [{cal_min}, {cal_max}]。")
             log(f"       这些行能装进事实表, 但会在 v_energy_enriched 的 JOIN 里被")
             log(f"       静默滤掉 —— 分析结果看不见它们, 而管道不会报错。")
-            log(f"       请先扩充日期维表范围 (src/clean_data.py build_calendar)。")
+            log(f"       请检查全量清洗生成的日期维表 (src/clean_data.py build_calendar)。")
             raise SystemExit(4)
         # commit=False: 装载与水位线推进要落在同一个事务里。见 advance_watermark 的说明。
         n_eng = load_csv(conn, wm_table, batch_energy, ENERGY_COLS, args.db,

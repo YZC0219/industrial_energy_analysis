@@ -195,6 +195,12 @@ with DAG(
         """,
     )
 
+    ensure_mysql_soft_delete_schema = project_task(
+        "ensure_mysql_soft_delete_schema",
+        "tools/ensure_mysql_soft_delete_schema.py",
+        "幂等升级 MySQL 能耗事实表及分析视图，为增量软删除事件预置 tombstone 字段。",
+    )
+
     load_warehouse = project_task(
         "load_warehouse",
         "src/import_mysql.py --incremental",
@@ -274,6 +280,11 @@ with DAG(
         "python datax/run_sync.py --table $t --biz-date {{ ds }} || exit $?; done",
         "DataX 全量覆盖同步小维表与当前产量快照；稳定 current 分区可幂等重跑。",
     )
+    ensure_hive_soft_delete_schema = lakehouse_task(
+        "ensure_hive_soft_delete_schema",
+        "python tools/ensure_hive_soft_delete_schema.py",
+        "幂等升级旧 Hive 表，为 MySQL 增量 tombstone 增加 is_deleted 列。",
+    )
     sync_ods_energy = lakehouse_task(
         "sync_ods_energy_incremental",
         "python datax/run_sync.py --table fact_energy_consumption --biz-date {{ ds }} "
@@ -306,8 +317,9 @@ with DAG(
         "生成全厂日看板应用表。",
     )
 
-    generate_raw_data >> clean_data >> load_warehouse >> run_analysis >> build_report
+    generate_raw_data >> clean_data >> ensure_mysql_soft_delete_schema >> load_warehouse >> run_analysis >> build_report
     clean_data >> run_phase2 >> run_deep_validation
-    clean_data >> [sync_ods_dimensions, sync_ods_energy]
-    [sync_ods_dimensions, sync_ods_energy] >> build_dwd >> quality_dwd
+    clean_data >> [ensure_hive_soft_delete_schema, sync_ods_dimensions]
+    [ensure_mysql_soft_delete_schema, ensure_hive_soft_delete_schema] >> sync_ods_energy
+    [ensure_hive_soft_delete_schema, sync_ods_dimensions, sync_ods_energy] >> build_dwd >> quality_dwd
     quality_dwd >> build_dws >> quality_dws >> build_ads

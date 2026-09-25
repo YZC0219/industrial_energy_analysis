@@ -171,9 +171,10 @@ def parse_dates(s: pd.Series) -> pd.Series:
     return out
 
 
-def build_calendar() -> pd.DataFrame:
+def build_calendar(min_date: str | date | None = None,
+                  max_date: str | date | None = None) -> pd.DataFrame:
     """
-    构造日期维表: 2024-01-01 ~ 2025-12-31 逐日, 并打上周末与法定节假日标记。
+    构造日期维表: 至少覆盖 2024-01-01 ~ 2025-12-31, 并按数据日期自动向外扩展。
 
     返回:
         DataFrame, 含 calendar_date / year / quarter / month / year_month /
@@ -190,7 +191,22 @@ def build_calendar() -> pd.DataFrame:
             holiday_map[d] = name
             d += timedelta(days=1)
 
-    days = pd.date_range("2024-01-01", "2025-12-31", freq="D")
+    # 固定基准范围保证历史分析/空输入行为稳定; 传入源数据范围后, 新的历史或
+    # 未来日期会自动纳入维表, 避免 INNER JOIN 静默过滤维表之外的事实记录。
+    parsed_min = pd.Timestamp(min_date).date() if min_date is not None else None
+    parsed_max = pd.Timestamp(max_date).date() if max_date is not None else None
+    if parsed_min is not None and parsed_max is not None and parsed_min > parsed_max:
+        raise ValueError(f"日期维表起始日期晚于结束日期: {parsed_min} > {parsed_max}")
+
+    start = date(2024, 1, 1)
+    end = date(2025, 12, 31)
+    if parsed_min is not None and not pd.isna(parsed_min):
+        start = min(start, parsed_min)
+    if parsed_max is not None and not pd.isna(parsed_max):
+        end = max(end, parsed_max)
+    if start > end:
+        raise ValueError(f"日期维表起始日期晚于结束日期: {start} > {end}")
+    days = pd.date_range(start, end, freq="D")
     df = pd.DataFrame({"calendar_date": days})
     df["year"] = df["calendar_date"].dt.year
     df["quarter"] = df["calendar_date"].dt.quarter
@@ -440,6 +456,9 @@ def main() -> None:
         "unit_price", "cost", "record_status", "avg_temperature",
         "data_source", "is_production_day", "updated_at",
     ]].copy()
+    # CSV 里的常规快照表示当前有效行; 上游删除必须通过数据库里的 tombstone
+    # (is_deleted=1 + 新 updated_at) 单独表达, 不能靠从 CSV 消失来推断。
+    energy_fact["is_deleted"] = 0
     energy_fact["record_date"] = energy_fact["record_date"].dt.strftime("%Y-%m-%d")
     # updated_at 落盘为 'YYYY-MM-DD HH:MM:SS'; NaT 写成空串, 由装载侧的
     # NULLIF(@col,'') 转成 NULL(与 avg_temperature 的处理一致)
@@ -466,7 +485,13 @@ def main() -> None:
     prod_fact["output_qty"] = prod_fact["output_qty"].round(3)
     stats["产量记录数"] = len(prod_fact)
 
-    calendar = build_calendar()
+    all_record_dates = pd.concat(
+        [energy_fact["record_date"], prod_fact["record_date"]], ignore_index=True
+    ).dropna()
+    calendar = build_calendar(
+        min_date=all_record_dates.min() if not all_record_dates.empty else None,
+        max_date=all_record_dates.max() if not all_record_dates.empty else None,
+    )
 
     # ---- 14. 落盘 ---------------------------------------------------------
     # encoding="utf-8-sig" 会写入 BOM, 这样 Excel 双击打开中文表头不会乱码;
@@ -508,8 +533,8 @@ def main() -> None:
         batch_energy.to_csv(os.path.join(batch_dir, "clean_batch_energy.csv"), **csv_kw)
         batch_prod.to_csv(os.path.join(batch_dir, "clean_batch_production.csv"), **csv_kw)
         # dim_calendar 照**全量**写: 事实表有指向 dim_calendar.calendar_date 的外键,
-        # 若维表只装窗口内的日期, 跨月批次的新日期尚未入库, 外键会失败。维表是静态的
-        # (731 行)、装载幂等(INSERT IGNORE), 全量重写零成本且消除一整类边界问题。
+        # 若维表只装窗口内的日期, 跨月批次的新日期尚未入库, 外键会失败。维表范围由
+        # 全量事实数据自动确定, 装载幂等(INSERT IGNORE), 每批完整写出以覆盖新增日期。
         calendar.to_csv(os.path.join(OUT_DIR, "dim_calendar.csv"), **csv_kw)
         # 留痕文件在批模式下**不写**: clean_rejects/fixed.csv 是全量口径的留痕,
         # 掺进批次行会让"这条记录为什么变了"的追溯变成两套文件。批次的留痕需求

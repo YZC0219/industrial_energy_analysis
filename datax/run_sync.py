@@ -15,7 +15,7 @@ TABLES = {
         ("id","bigint"),("record_date","date"),("workshop_code","string"),("energy_code","string"),
         ("consumption","string"),("unit","string"),("unit_price","string"),("cost","string"),
         ("record_status","string"),("avg_temperature","string"),("data_source","string"),
-        ("is_production_day","tinyint"),("updated_at","timestamp")]),
+        ("is_production_day","tinyint"),("updated_at","timestamp"),("is_deleted","tinyint")]),
     "fact_production": ("ods_production", "full", [("record_date","date"),("workshop_code","string"),("output_qty","string"),("output_unit","string")]),
     "dim_workshop": ("ods_workshop", "full", [("workshop_code","string"),("workshop_name","string"),("process_type","string"),("is_continuous","tinyint"),("output_unit","string"),("area_m2","string"),("manager","string")]),
     "dim_energy_type": ("ods_energy_type", "full", [("energy_code","string"),("energy_name","string"),("unit","string"),("std_coal_factor","string"),("co2_factor","string"),("reference_price","string")]),

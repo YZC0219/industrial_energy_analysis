@@ -22,21 +22,25 @@ WITH incoming AS (
          round(cast(f.consumption AS decimal(16,3))*cast(e.std_coal_factor AS decimal(10,4)),3) std_coal_kgce,
          round(cast(f.consumption AS decimal(16,3))*cast(e.co2_factor AS decimal(10,4)),3) co2_kg,
          f.updated_at source_updated_at,
+         coalesce(f.is_deleted,0) is_deleted,
          current_timestamp() etl_time
   FROM energy_ods.ods_energy_consumption f
   JOIN energy_ods.ods_workshop w ON f.workshop_code=w.workshop_code AND w.dt='current'
   JOIN energy_ods.ods_energy_type e ON f.energy_code=e.energy_code AND e.dt='current'
   JOIN energy_ods.ods_calendar c ON f.record_date=c.calendar_date AND c.dt='current'
   WHERE ('${load_mode}'='full' OR f.dt='${biz_date}')
-    AND cast(f.consumption AS decimal(16,3))>=0
-    AND cast(f.unit_price AS decimal(12,4))>0
+    AND (coalesce(f.is_deleted,0)=1 OR (
+      cast(f.consumption AS decimal(16,3))>=0
+      AND cast(f.unit_price AS decimal(12,4))>0
+    ))
 ),
 impacted AS (SELECT DISTINCT record_date FROM incoming),
 candidates AS (
   SELECT d.energy_detail_key,d.record_date,d.workshop_code,d.workshop_name,d.process_type,
          d.energy_code,d.energy_name,d.consumption,d.unit,d.unit_price,d.cost,d.record_status,
          d.avg_temperature,d.is_production_day,d.is_weekend,d.is_holiday,d.year_month,
-         d.std_coal_kgce,d.co2_kg,d.source_updated_at,d.etl_time,0 source_priority
+         d.std_coal_kgce,d.co2_kg,d.source_updated_at,coalesce(d.is_deleted,0) is_deleted,
+         d.etl_time,0 source_priority
   FROM energy_dwd.dwd_energy_consumption_detail d
   JOIN impacted i ON d.dt=cast(i.record_date AS string) AND d.record_date=i.record_date
   WHERE '${load_mode}' <> 'full'
@@ -55,7 +59,7 @@ PARTITION (run_dt,batch_id)
 SELECT energy_detail_key,record_date,workshop_code,workshop_name,process_type,
        energy_code,energy_name,consumption,unit,unit_price,cost,record_status,
        avg_temperature,is_production_day,is_weekend,is_holiday,year_month,
-       std_coal_kgce,co2_kg,source_updated_at,etl_time,
+       std_coal_kgce,co2_kg,source_updated_at,etl_time,is_deleted,
        cast(record_date AS string) target_dt,cast('${biz_date}' AS string) run_dt,
        cast('${biz_date}' AS string) batch_id
 FROM latest WHERE version_rank=1;
@@ -65,7 +69,7 @@ INSERT OVERWRITE TABLE energy_dwd.dwd_energy_consumption_detail PARTITION (dt)
 SELECT energy_detail_key,record_date,workshop_code,workshop_name,process_type,
        energy_code,energy_name,consumption,unit,unit_price,cost,record_status,
        avg_temperature,is_production_day,is_weekend,is_holiday,year_month,
-       std_coal_kgce,co2_kg,source_updated_at,etl_time,target_dt
+       std_coal_kgce,co2_kg,source_updated_at,etl_time,is_deleted,target_dt
 FROM energy_dwd.dwd_energy_consumption_merge_stage
 WHERE batch_id='${biz_date}';
 

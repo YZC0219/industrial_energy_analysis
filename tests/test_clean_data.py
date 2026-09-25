@@ -124,6 +124,17 @@ class TestBuildCalendar:
         assert cal["calendar_date"].min() == "2024-01-01"
         assert cal["calendar_date"].max() == "2025-12-31"
 
+    def test_extends_to_data_dates_without_losing_baseline_coverage(self):
+        cal = cd.build_calendar(min_date="2023-12-30", max_date="2026-01-02")
+        assert cal["calendar_date"].min() == "2023-12-30"
+        assert cal["calendar_date"].max() == "2026-01-02"
+        assert len(cal) == (pd.Timestamp("2026-01-02") - pd.Timestamp("2023-12-30")).days + 1
+        assert cal["calendar_date"].is_unique
+
+    def test_rejects_invalid_calendar_bounds(self):
+        with pytest.raises(ValueError, match="晚于结束日期"):
+            cd.build_calendar(min_date="2026-01-02", max_date="2023-12-30")
+
     def test_dates_are_unique(self):
         """维表主键是 calendar_date, 不能有重复"""
         cal = cd.build_calendar()
