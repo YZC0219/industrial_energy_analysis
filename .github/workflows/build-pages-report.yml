@@ -48,6 +48,8 @@ on:
       - "tests/test_stream_batch_reconciliation.py"
       - "tools/run_streaming_experiment.py"
       - "tools/reconcile_stream_batch.py"
+      - "tools/reconcile_kafka_snapshot.py"
+      - "tests/test_kafka_snapshot_reconciliation.py"
       - "requirements.txt"
   workflow_dispatch:
 

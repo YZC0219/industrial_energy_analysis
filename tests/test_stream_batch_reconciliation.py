@@ -2,7 +2,7 @@ import csv
 import hashlib
 import json
 
-from tools.reconcile_stream_batch import main, reconcile
+from tools.reconcile_stream_batch import _batch_timestamp, main, reconcile
 
 
 def _write_inputs(tmp_path, events, batch_rows):
@@ -11,6 +11,8 @@ def _write_inputs(tmp_path, events, batch_rows):
     batch_path = tmp_path / "batch.csv"
     fields = ["record_date", "workshop_code", "energy_code", "consumption", "unit",
               "unit_price", "cost"]
+    if any("updated_at" in row for row in batch_rows):
+        fields.append("updated_at")
     with batch_path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
@@ -84,6 +86,40 @@ def test_reconciliation_accepts_same_version_same_state_with_new_event_id(tmp_pa
     report = reconcile(*_write_inputs(tmp_path, events, batch))
     assert report["success"] is True
     assert report["counts"]["version_conflicts"] == 0
+
+
+def test_explicit_batch_timezone_catches_stale_version_even_when_values_match(tmp_path):
+    event = _event("one", "2026-09-01T01:00:00Z")
+    batch = [{"record_date": "2026-09-01", "workshop_code": "W04", "energy_code": "E01",
+              "consumption": "12.5", "unit": "kWh", "unit_price": "2", "cost": "25",
+              "updated_at": "2026-09-01 09:00:00"}]
+    paths = _write_inputs(tmp_path, [event], batch)
+    assert reconcile(*paths, batch_timezone="Asia/Shanghai")["success"] is True
+
+    batch[0]["updated_at"] = "2026-09-01 08:59:00"
+    paths = _write_inputs(tmp_path, [event], batch)
+    report = reconcile(*paths, batch_timezone="Asia/Shanghai")
+    assert report["success"] is False
+    assert report["counts"]["value_mismatches"] == 0
+    assert report["counts"]["version_mismatches"] == 1
+    assert report["samples"]["version_mismatches"][0]["stream_updated_at_utc"] == (
+        "2026-09-01T01:00:00+00:00"
+    )
+
+
+def test_explicit_batch_timezone_requires_valid_updated_at(tmp_path):
+    event = _event("one", "2026-09-01T01:00:00Z")
+    batch = [{"record_date": "2026-09-01", "workshop_code": "W04", "energy_code": "E01",
+              "consumption": "12.5", "unit": "kWh", "unit_price": "2", "cost": "25"}]
+    report = reconcile(*_write_inputs(tmp_path, [event], batch),
+                       batch_timezone="Asia/Shanghai")
+    assert report["success"] is False
+    assert report["counts"]["batch_invalid_rows"] == 1
+
+
+def test_naive_batch_timestamp_rejects_ambiguous_or_nonexistent_dst_time():
+    assert _batch_timestamp("2024-11-03 01:30:00", "America/New_York") is None
+    assert _batch_timestamp("2024-03-10 02:30:00", "America/New_York") is None
 
 
 def test_reconciliation_rejects_duplicate_batch_keys(tmp_path):
