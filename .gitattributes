@@ -32,6 +32,7 @@ tests/baseline/*.csv  -text
 *.ini   text eol=lf
 *.md    text eol=lf
 *.txt   text eol=lf
+output/kafka_snapshot_smoke_20260926.jsonl text eol=lf
 
 # Dockerfile 与 .env 模板同上
 Dockerfile  text eol=lf
