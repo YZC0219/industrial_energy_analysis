@@ -9,6 +9,7 @@ SET 'execution.checkpointing.mode' = 'EXACTLY_ONCE';
 SET 'execution.attached' = 'false';
 
 CREATE TABLE late_energy_events (
+    schema_version INT,
     event_id STRING,
     event_time TIMESTAMP_LTZ(3),
     updated_at TIMESTAMP_LTZ(3),
@@ -65,9 +66,11 @@ SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
        is_production_day, CURRENT_WATERMARK(event_time)
 FROM late_energy_events
 WHERE CURRENT_WATERMARK(event_time) IS NOT NULL
-  AND event_time <= CURRENT_WATERMARK(event_time);
+  AND event_time <= CURRENT_WATERMARK(event_time)
+  AND schema_version = 1;
 
 CREATE TABLE delete_energy_events (
+    schema_version INT,
     event_id STRING,
     event_time TIMESTAMP_LTZ(3),
     updated_at TIMESTAMP_LTZ(3),
@@ -122,9 +125,10 @@ SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
        energy_code, consumption, unit, unit_price, cost, record_status,
        is_production_day
 FROM delete_energy_events
-WHERE op = 'DELETE';
+WHERE op = 'DELETE' AND schema_version = 1;
 
 CREATE TABLE invalid_energy_events (
+    schema_version INT,
     event_id STRING,
     event_time TIMESTAMP_LTZ(3),
     updated_at TIMESTAMP_LTZ(3),
@@ -181,6 +185,7 @@ SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
        energy_code, consumption, unit, unit_price, cost, record_status,
        is_production_day,
        CASE
+         WHEN schema_version IS NULL OR schema_version <> 1 THEN 'unsupported_schema_version'
          WHEN op NOT IN ('UPSERT', 'DELETE') OR op IS NULL THEN 'invalid_op'
          WHEN op = 'UPSERT' AND (consumption IS NULL OR consumption < 0) THEN 'invalid_consumption'
          WHEN op = 'UPSERT' AND (unit_price IS NULL OR unit_price <= 0) THEN 'invalid_unit_price'
@@ -189,7 +194,8 @@ SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
          WHEN event_id IS NULL OR updated_at IS NULL THEN 'missing_event_metadata'
        END
 FROM invalid_energy_events
-WHERE op NOT IN ('UPSERT', 'DELETE') OR op IS NULL
+WHERE schema_version IS NULL OR schema_version <> 1
+   OR op NOT IN ('UPSERT', 'DELETE') OR op IS NULL
    OR (op = 'UPSERT' AND (consumption IS NULL OR consumption < 0))
    OR (op = 'UPSERT' AND (unit_price IS NULL OR unit_price <= 0))
    OR (op = 'UPSERT' AND (cost IS NULL OR cost < 0))

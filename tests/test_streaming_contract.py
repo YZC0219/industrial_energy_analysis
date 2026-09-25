@@ -1,4 +1,5 @@
 """阶段三实时事件契约的无依赖守卫。"""
+import base64
 import json
 import re
 from pathlib import Path
@@ -106,6 +107,35 @@ def test_raw_quarantine_keeps_kafka_offsets_and_original_bytes():
     assert "strict_utf8(payload)" in RAW_SQL
     assert "raw_base64(payload)" in RAW_SQL
     assert "json_text IS JSON OBJECT" in RAW_SQL
+    assert "unsupported_schema_version" in RAW_SQL
+    assert "invalid_numeric_field" in RAW_SQL
     assert "'sink.delivery-guarantee' = 'exactly-once'" in RAW_SQL
+    assert "WHERE op = 'UPSERT' AND schema_version = 1" in FLINK_SQL
+    assert QUALITY_SQL.count("schema_version INT") == 3
     assert FLINK_SQL.count("'json.ignore-parse-errors' = 'true'") == 1
     assert QUALITY_SQL.count("'json.ignore-parse-errors' = 'true'") == 3
+
+
+def test_checked_in_four_fault_runtime_evidence_has_recoverable_payloads():
+    report=json.loads((ROOT/"output/streaming_experiment_schema_20260926.json")
+                      .read_text(encoding="utf-8"))
+    assert report["success"] is True
+    assert report["taskmanager_restart_tested"] is True
+    assert all(report[key] for key in (
+        "malformed_json_quarantine_tested", "invalid_utf8_quarantine_tested",
+        "unsupported_schema_quarantine_tested", "invalid_numeric_quarantine_tested",
+        "late_side_output_tested", "delete_event_route_tested",
+        "invalid_event_quarantine_tested",
+    ))
+    evidence={item["quality_error"]: base64.b64decode(item["payload_base64"], validate=True)
+              for item in report["malformed_events"]}
+    assert set(evidence)=={"invalid_json", "invalid_utf8",
+                           "unsupported_schema_version", "invalid_numeric_field"}
+    assert json.loads(evidence["unsupported_schema_version"])["schema_version"] == 2
+    assert json.loads(evidence["invalid_numeric_field"])["consumption"] == "not-a-number"
+    try:
+        evidence["invalid_utf8"].decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    else:
+        raise AssertionError("invalid_utf8 evidence unexpectedly decodes")

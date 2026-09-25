@@ -5,6 +5,7 @@ SET 'execution.checkpointing.mode' = 'EXACTLY_ONCE';
 SET 'execution.attached' = 'false';
 
 CREATE TABLE energy_events (
+    schema_version INT,
     event_id STRING,
     event_time TIMESTAMP_LTZ(3),
     updated_at TIMESTAMP_LTZ(3),
@@ -55,7 +56,7 @@ FROM (
     FROM TABLE(
         TUMBLE(TABLE energy_events, DESCRIPTOR(event_time), INTERVAL '10' SECOND)
     )
-    WHERE op = 'UPSERT'
+    WHERE op = 'UPSERT' AND schema_version = 1
     GROUP BY workshop_code, window_start, window_end
 )
 WHERE total_cost >= 100.00;

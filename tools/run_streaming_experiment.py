@@ -169,6 +169,8 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         "invalid_event_quarantine_tested": False,
         "malformed_json_quarantine_tested": False,
         "invalid_utf8_quarantine_tested": False,
+        "unsupported_schema_quarantine_tested": False,
+        "invalid_numeric_quarantine_tested": False,
         "taskmanager_restart_tested": False,
         "success": False,
     }
@@ -372,9 +374,18 @@ def run_experiment(*, keep_running: bool = False) -> dict:
 
         malformed_json = b'{"event_id":"' + run_id.encode("ascii") + b'-broken-json"'
         invalid_utf8 = b'{"event_id":"' + run_id.encode("ascii") + b'-bad-utf8","text":"\xff"}'
+        unsupported_schema = json.dumps({
+            **fresh_events[0], "event_id": f"{run_id}-schema-v2", "schema_version": 2,
+        }, separators=(",", ":")).encode("utf-8")
+        invalid_numeric = json.dumps({
+            **fresh_events[0], "event_id": f"{run_id}-bad-numeric",
+            "consumption": "not-a-number",
+        }, separators=(",", ":")).encode("utf-8")
         expected_malformed = {
             _publish_raw(malformed_json): ("invalid_json", malformed_json),
             _publish_raw(invalid_utf8): ("invalid_utf8", invalid_utf8),
+            _publish_raw(unsupported_schema): ("unsupported_schema_version", unsupported_schema),
+            _publish_raw(invalid_numeric): ("invalid_numeric_field", invalid_numeric),
         }
         observed_malformed = {}
         malformed_process, malformed_messages = consumers["energy-malformed-events"]
@@ -397,8 +408,12 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                       and item.get("payload_base64") == base64.b64encode(payload).decode("ascii"))
             if reason == "invalid_json":
                 report["malformed_json_quarantine_tested"] = passed
-            else:
+            elif reason == "invalid_utf8":
                 report["invalid_utf8_quarantine_tested"] = passed
+            elif reason == "unsupported_schema_version":
+                report["unsupported_schema_quarantine_tested"] = passed
+            else:
+                report["invalid_numeric_quarantine_tested"] = passed
 
         deadline = alert_started + 15
         matched = None
@@ -436,7 +451,9 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                                   and report["delete_event_route_tested"]
                                   and report["invalid_event_quarantine_tested"]
                                   and report["malformed_json_quarantine_tested"]
-                                  and report["invalid_utf8_quarantine_tested"])
+                                  and report["invalid_utf8_quarantine_tested"]
+                                  and report["unsupported_schema_quarantine_tested"]
+                                  and report["invalid_numeric_quarantine_tested"])
         if not report["success"]:
             report["error"] = "One or more window, recovery, late-event, delete-route, or quality-route checks failed"
         return report

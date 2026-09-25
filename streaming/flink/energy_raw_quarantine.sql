@@ -40,12 +40,30 @@ CREATE TABLE energy_malformed_events (
 
 INSERT INTO energy_malformed_events
 SELECT 'energy-events', kafka_partition, kafka_offset,
-       CASE WHEN NOT utf8_ok THEN 'invalid_utf8' ELSE 'invalid_json' END,
+       quality_error,
        raw_base64(payload)
 FROM (
     SELECT payload, kafka_partition, kafka_offset,
-           strict_utf8(payload) AS utf8_ok,
-           TRY_CAST(payload AS STRING) AS json_text
-    FROM raw_energy_events
+           CASE
+             WHEN NOT utf8_ok THEN 'invalid_utf8'
+             WHEN NOT (json_text IS JSON OBJECT) THEN 'invalid_json'
+             WHEN schema_version IS NULL OR schema_version <> 1 THEN 'unsupported_schema_version'
+             WHEN op = 'UPSERT' AND (consumption_value IS NULL
+                  OR unit_price_value IS NULL OR cost_value IS NULL) THEN 'invalid_numeric_field'
+           END AS quality_error
+    FROM (
+        SELECT payload, kafka_partition, kafka_offset, utf8_ok, json_text,
+               TRY_CAST(JSON_VALUE(json_text, '$.schema_version') AS INT) AS schema_version,
+               JSON_VALUE(json_text, '$.op') AS op,
+               TRY_CAST(JSON_VALUE(json_text, '$.consumption') AS DECIMAL(18, 3)) AS consumption_value,
+               TRY_CAST(JSON_VALUE(json_text, '$.unit_price') AS DECIMAL(18, 4)) AS unit_price_value,
+               TRY_CAST(JSON_VALUE(json_text, '$.cost') AS DECIMAL(18, 2)) AS cost_value
+        FROM (
+            SELECT payload, kafka_partition, kafka_offset,
+                   strict_utf8(payload) AS utf8_ok,
+                   TRY_CAST(payload AS STRING) AS json_text
+            FROM raw_energy_events
+        )
+    )
 )
-WHERE NOT utf8_ok OR NOT (json_text IS JSON OBJECT);
+WHERE quality_error IS NOT NULL;
