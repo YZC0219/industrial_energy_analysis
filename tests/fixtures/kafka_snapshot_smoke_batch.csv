@@ -1,0 +1,2 @@
+record_date,workshop_code,energy_code,consumption,unit,unit_price,cost,updated_at
+2026-09-01,W04,E01,12.5,kWh,2,25,2026-09-01 09:00:00

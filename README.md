@@ -577,6 +577,7 @@ python tests/update_baseline.py
 - [x] 增加 Kafka 迟到/显式 DELETE/无效业务值隔离路径；2026-09-25 已通过容器端到端验证。事件 JSONL 对账器仍是离线审计入口，物理删除 CDC 未实现。
 - [x] 日期维表按能耗与产量数据范围自动扩展，并在增量装载时校验日期上下界。
 - [x] 对坏 UTF-8 与坏 JSON 增加 Flink 原始字节隔离 topic，保留分区、offset 和可还原的 Base64；与离线对账器的坏行报告分别验收。
+- [x] 增加一次性 Kafka offset 冻结/导出/流批对账入口，强制显式批次时区和 `updated_at` 版本一致；独立测试 topic 的[实机报告](output/kafka_snapshot_smoke_20260926.json)通过，不把单行演示冒充全量 CDC 对账。
 - [ ] 完成多节点 Kafka/Flink 高可用、MySQL 物理硬删除 CDC、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
 ### 阶段四：服务化与可视化交付

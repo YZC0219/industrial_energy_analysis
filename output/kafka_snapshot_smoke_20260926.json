@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-09-25T21:29:03.758580+00:00",
+  "success": true,
+  "inputs": {
+    "events_jsonl": "D:\\industrial_energy_analysis\\output\\kafka_snapshot_smoke_20260926.jsonl",
+    "events_sha256": "558535ad5e336a9b69c18630393e59b1b46603d3b9ff4922407ece0637b680f4",
+    "batch_csv": "D:\\industrial_energy_analysis\\tests\\fixtures\\kafka_snapshot_smoke_batch.csv",
+    "batch_sha256": "5b2d1da33ae4e35bd855c89fc73d04159ce219f3f817fe212b240ca2f4765703",
+    "batch_timezone": "Asia/Shanghai"
+  },
+  "counts": {
+    "event_rows": 1,
+    "event_invalid_rows": 0,
+    "event_id_conflicts": 0,
+    "version_conflicts": 0,
+    "stream_business_keys": 1,
+    "batch_rows": 1,
+    "batch_invalid_rows": 0,
+    "batch_duplicate_keys": 0,
+    "only_in_batch": 0,
+    "only_in_stream": 0,
+    "value_mismatches": 0,
+    "version_mismatches": 0,
+    "delete_events_applied": 0
+  },
+  "samples": {
+    "invalid_events": [],
+    "event_id_conflicts": [],
+    "version_conflicts": [],
+    "batch_invalid_rows": [],
+    "batch_duplicate_keys": [],
+    "only_in_batch": [],
+    "only_in_stream": [],
+    "value_mismatches": [],
+    "version_mismatches": []
+  },
+  "scope_note": "Compares an exported event log to a batch snapshot at record_date × workshop_code × energy_code grain. It does not itself consume Kafka or capture source-database hard deletes. Batch updated_at is checked using the explicit batch timezone.",
+  "kafka_snapshot": {
+    "topic": "energy-reconcile-smoke-20260926",
+    "captured_at": "2026-09-25T21:29:03.706212+00:00",
+    "partitions": [
+      {
+        "partition": 0,
+        "start_offset": 0,
+        "end_offset_exclusive": 1,
+        "exported_records": 1
+      }
+    ],
+    "events_export": "D:\\industrial_energy_analysis\\output\\kafka_snapshot_smoke_20260926.jsonl",
+    "events_sha256": "558535ad5e336a9b69c18630393e59b1b46603d3b9ff4922407ece0637b680f4",
+    "history_note": "Offset 0 and a bounded end prove only retained Kafka history was read. They do not prove that this topic contains every source-database change."
+  }
+}
