@@ -63,7 +63,8 @@ FROM (
         TUMBLE(TABLE energy_events, DESCRIPTOR(event_time_safe), INTERVAL '10' SECOND)
     )
     WHERE op = 'UPSERT' AND schema_version = 1
-      AND event_id IS NOT NULL AND iso_epoch_millis(event_time) IS NOT NULL
+      AND event_id IS NOT NULL AND event_id <> ''
+      AND iso_epoch_millis(event_time) IS NOT NULL
       AND valid_iso_datetime(updated_at) AND valid_iso_date(record_date)
       AND REGEXP(workshop_code, '^W[0-9]{2}$')
       AND REGEXP(energy_code, '^E[0-9]{2}$')

@@ -1,0 +1,206 @@
+{
+  "run_id": "c9625407",
+  "runtime": "local Docker Compose; single Kafka broker, one Flink TaskManager",
+  "window_seconds": 10,
+  "watermark_lateness_seconds": 5,
+  "arrival_event_time_offsets_seconds": [
+    1,
+    5,
+    3
+  ],
+  "expected_alert": {
+    "workshop_code": "W04",
+    "event_count": 3,
+    "total_cost": 155.0
+  },
+  "alert_latency_reference": "watermark_publish_started",
+  "late_side_output_tested": true,
+  "delete_event_route_tested": true,
+  "invalid_event_quarantine_tested": true,
+  "malformed_json_quarantine_tested": true,
+  "invalid_utf8_quarantine_tested": true,
+  "unsupported_schema_quarantine_tested": true,
+  "invalid_numeric_quarantine_tested": true,
+  "invalid_event_time_quarantine_tested": true,
+  "invalid_updated_at_quarantine_tested": true,
+  "invalid_record_date_quarantine_tested": true,
+  "invalid_business_key_quarantine_tested": true,
+  "invalid_op_quarantine_tested": true,
+  "invalid_event_id_quarantine_tested": true,
+  "invalid_unit_quarantine_tested": true,
+  "invalid_late_op_blocked": true,
+  "invalid_temporal_delete_blocked": true,
+  "taskmanager_restart_tested": true,
+  "success": true,
+  "sql_client_stopped_after_job_running": true,
+  "sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 26, 2026 7:12:01 AM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "flink_job_id": "483dc7252827b6920b4f657d42deaa80",
+  "quality_route_jobs_started": 3,
+  "quality_route_sql_client_stopped_after_jobs_running": true,
+  "quality_route_sql_client_exit_code": null,
+  "quality_route_sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 26, 2026 7:12:13 AM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "raw_quarantine_job_id": "588754efc98ae4a244042f3f13b73626",
+  "raw_quarantine_sql_client_stderr": "WARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nWARNING: Unknown module: jdk.compiler specified to --add-exports\nSep 26, 2026 7:12:26 AM org.jline.utils.Log logr\nWARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\n",
+  "completed_checkpoint_before_restart": "14",
+  "restored_checkpoint_id": "14",
+  "restored_checkpoint_path": "file:/opt/flink/checkpoints/483dc7252827b6920b4f657d42deaa80/chk-14",
+  "post_restart_window_start": "2026-09-26T07:13:40+00:00",
+  "faults_sent_before_watermark": true,
+  "late_event": {
+    "event_id": "c9625407-late",
+    "event_time": "2026-09-26T07:13:41Z",
+    "updated_at": "2026-09-26T07:12:47.536Z",
+    "op": "UPSERT",
+    "record_date": "2026-09-26",
+    "workshop_code": "W04",
+    "energy_code": "E01",
+    "consumption": 9,
+    "unit": "kWh",
+    "unit_price": 1,
+    "cost": 9,
+    "record_status": "正常",
+    "is_production_day": 1,
+    "observed_watermark": "2026-09-26T07:13:52Z"
+  },
+  "delete_event": {
+    "event_id": "c9625407-delete",
+    "event_time": "2026-09-26T07:13:57Z",
+    "updated_at": "2026-09-26T07:12:47.536Z",
+    "op": "DELETE",
+    "record_date": "2026-09-26",
+    "workshop_code": "W02",
+    "energy_code": "E01",
+    "consumption": null,
+    "unit": "kWh",
+    "unit_price": null,
+    "cost": null,
+    "record_status": "正常",
+    "is_production_day": 1
+  },
+  "invalid_event": {
+    "event_id": "c9625407-invalid",
+    "event_time": "2026-09-26T07:13:57Z",
+    "updated_at": "2026-09-26T07:12:47.536Z",
+    "op": "UPSERT",
+    "record_date": "2026-09-26",
+    "workshop_code": "W04",
+    "energy_code": "E01",
+    "consumption": -1,
+    "unit": "kWh",
+    "unit_price": 1,
+    "cost": -1,
+    "record_status": "正常",
+    "is_production_day": 1,
+    "quality_error": "invalid_consumption"
+  },
+  "malformed_events": [
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 207,
+      "quality_error": "invalid_json",
+      "payload_base64": "eyJldmVudF9pZCI6ImM5NjI1NDA3LWJyb2tlbi1qc29uIg=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 208,
+      "quality_error": "invalid_utf8",
+      "payload_base64": "eyJldmVudF9pZCI6ImM5NjI1NDA3LWJhZC11dGY4IiwidGV4dCI6Iv8ifQ=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 209,
+      "quality_error": "unsupported_schema_version",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MiwiZXZlbnRfaWQiOiJjOTYyNTQwNy1zY2hlbWEtdjIiLCJldmVudF90aW1lIjoiMjAyNi0wOS0yNlQwNzoxMzo0MS4wMDBaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDktMjZUMDc6MTI6NDcuNTM2WiIsIm9wIjoiVVBTRVJUIiwicmVjb3JkX2RhdGUiOiIyMDI2LTA5LTI2Iiwid29ya3Nob3BfY29kZSI6IlcwNCIsImVuZXJneV9jb2RlIjoiRTAxIiwiY29uc3VtcHRpb24iOjYwLjAsInVuaXQiOiJrV2giLCJ1bml0X3ByaWNlIjoxLjAsImNvc3QiOjUwMCwicmVjb3JkX3N0YXR1cyI6Ilx1NmI2M1x1NWUzOCIsImlzX3Byb2R1Y3Rpb25fZGF5IjoxfQ=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 210,
+      "quality_error": "invalid_numeric_field",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtbnVtZXJpYyIsImV2ZW50X3RpbWUiOiIyMDI2LTA5LTI2VDA3OjEzOjQxLjAwMFoiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wOS0yNlQwNzoxMjo0Ny41MzZaIiwib3AiOiJVUFNFUlQiLCJyZWNvcmRfZGF0ZSI6IjIwMjYtMDktMjYiLCJ3b3Jrc2hvcF9jb2RlIjoiVzA0IiwiZW5lcmd5X2NvZGUiOiJFMDEiLCJjb25zdW1wdGlvbiI6Im5vdC1hLW51bWJlciIsInVuaXQiOiJrV2giLCJ1bml0X3ByaWNlIjoxLjAsImNvc3QiOjUwMCwicmVjb3JkX3N0YXR1cyI6Ilx1NmI2M1x1NWUzOCIsImlzX3Byb2R1Y3Rpb25fZGF5IjoxfQ=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 211,
+      "quality_error": "invalid_event_time",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtZXZlbnQtdGltZSIsImV2ZW50X3RpbWUiOiIyMDI2LTEzLTk5VDAwOjAwOjAwWiIsInVwZGF0ZWRfYXQiOiIyMDI2LTA5LTI2VDA3OjEyOjQ3LjUzNloiLCJvcCI6IlVQU0VSVCIsInJlY29yZF9kYXRlIjoiMjAyNi0wOS0yNiIsIndvcmtzaG9wX2NvZGUiOiJXMDQiLCJlbmVyZ3lfY29kZSI6IkUwMSIsImNvbnN1bXB0aW9uIjo2MC4wLCJ1bml0Ijoia1doIiwidW5pdF9wcmljZSI6MS4wLCJjb3N0Ijo1MDAsInJlY29yZF9zdGF0dXMiOiJcdTZiNjNcdTVlMzgiLCJpc19wcm9kdWN0aW9uX2RheSI6MX0="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 212,
+      "quality_error": "invalid_updated_at",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtdXBkYXRlZC1hdCIsImV2ZW50X3RpbWUiOiIyMDI2LTA5LTI2VDA3OjEzOjQxLjAwMFoiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wMi0zMFQwMDowMDowMFoiLCJvcCI6IlVQU0VSVCIsInJlY29yZF9kYXRlIjoiMjAyNi0wOS0yNiIsIndvcmtzaG9wX2NvZGUiOiJXMDQiLCJlbmVyZ3lfY29kZSI6IkUwMSIsImNvbnN1bXB0aW9uIjo2MC4wLCJ1bml0Ijoia1doIiwidW5pdF9wcmljZSI6MS4wLCJjb3N0Ijo1MDAsInJlY29yZF9zdGF0dXMiOiJcdTZiNjNcdTVlMzgiLCJpc19wcm9kdWN0aW9uX2RheSI6MX0="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 213,
+      "quality_error": "invalid_record_date",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtcmVjb3JkLWRhdGUiLCJldmVudF90aW1lIjoiMjAyNi0wOS0yNlQwNzoxMzo0MS4wMDBaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDktMjZUMDc6MTI6NDcuNTM2WiIsIm9wIjoiVVBTRVJUIiwicmVjb3JkX2RhdGUiOiIyMDI2LTAyLTMwIiwid29ya3Nob3BfY29kZSI6IlcwNCIsImVuZXJneV9jb2RlIjoiRTAxIiwiY29uc3VtcHRpb24iOjYwLjAsInVuaXQiOiJrV2giLCJ1bml0X3ByaWNlIjoxLjAsImNvc3QiOjUwMCwicmVjb3JkX3N0YXR1cyI6Ilx1NmI2M1x1NWUzOCIsImlzX3Byb2R1Y3Rpb25fZGF5IjoxfQ=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 214,
+      "quality_error": "invalid_business_key",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtd29ya3Nob3AtY29kZSIsImV2ZW50X3RpbWUiOiIyMDI2LTA5LTI2VDA3OjEzOjQxLjAwMFoiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wOS0yNlQwNzoxMjo0Ny41MzZaIiwib3AiOiJVUFNFUlQiLCJyZWNvcmRfZGF0ZSI6IjIwMjYtMDktMjYiLCJ3b3Jrc2hvcF9jb2RlIjoiV1hYIiwiZW5lcmd5X2NvZGUiOiJFMDEiLCJjb25zdW1wdGlvbiI6NjAuMCwidW5pdCI6ImtXaCIsInVuaXRfcHJpY2UiOjEuMCwiY29zdCI6NTAwLCJyZWNvcmRfc3RhdHVzIjoiXHU2YjYzXHU1ZTM4IiwiaXNfcHJvZHVjdGlvbl9kYXkiOjF9"
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 215,
+      "quality_error": "invalid_business_key",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtZW5lcmd5LWNvZGUiLCJldmVudF90aW1lIjoiMjAyNi0wOS0yNlQwNzoxMzo0MS4wMDBaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDktMjZUMDc6MTI6NDcuNTM2WiIsIm9wIjoiVVBTRVJUIiwicmVjb3JkX2RhdGUiOiIyMDI2LTA5LTI2Iiwid29ya3Nob3BfY29kZSI6IlcwNCIsImVuZXJneV9jb2RlIjoiRVhYIiwiY29uc3VtcHRpb24iOjYwLjAsInVuaXQiOiJrV2giLCJ1bml0X3ByaWNlIjoxLjAsImNvc3QiOjUwMCwicmVjb3JkX3N0YXR1cyI6Ilx1NmI2M1x1NWUzOCIsImlzX3Byb2R1Y3Rpb25fZGF5IjoxfQ=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 216,
+      "quality_error": "invalid_op",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtb3AiLCJldmVudF90aW1lIjoiMjAyNi0wOS0yNlQwNzoxMzo0MS4wMDBaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDktMjZUMDc6MTI6NDcuNTM2WiIsIm9wIjoiTUVSR0UiLCJyZWNvcmRfZGF0ZSI6IjIwMjYtMDktMjYiLCJ3b3Jrc2hvcF9jb2RlIjoiVzA0IiwiZW5lcmd5X2NvZGUiOiJFMDEiLCJjb25zdW1wdGlvbiI6NjAuMCwidW5pdCI6ImtXaCIsInVuaXRfcHJpY2UiOjEuMCwiY29zdCI6NTAwLCJyZWNvcmRfc3RhdHVzIjoiXHU2YjYzXHU1ZTM4IiwiaXNfcHJvZHVjdGlvbl9kYXkiOjF9"
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 217,
+      "quality_error": "invalid_event_id",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiIiLCJldmVudF90aW1lIjoiMjAyNi0wOS0yNlQwNzoxMzo0MS4wMDBaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDktMjZUMDc6MTI6NDcuNTM2WiIsIm9wIjoiVVBTRVJUIiwicmVjb3JkX2RhdGUiOiIyMDI2LTA5LTI2Iiwid29ya3Nob3BfY29kZSI6IlcwNCIsImVuZXJneV9jb2RlIjoiRTAxIiwiY29uc3VtcHRpb24iOjYwLjAsInVuaXQiOiJrV2giLCJ1bml0X3ByaWNlIjoxLjAsImNvc3QiOjUwMCwicmVjb3JkX3N0YXR1cyI6Ilx1NmI2M1x1NWUzOCIsImlzX3Byb2R1Y3Rpb25fZGF5IjoxfQ=="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 218,
+      "quality_error": "invalid_unit",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtdW5pdCIsImV2ZW50X3RpbWUiOiIyMDI2LTA5LTI2VDA3OjEzOjQxLjAwMFoiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wOS0yNlQwNzoxMjo0Ny41MzZaIiwib3AiOiJVUFNFUlQiLCJyZWNvcmRfZGF0ZSI6IjIwMjYtMDktMjYiLCJ3b3Jrc2hvcF9jb2RlIjoiVzA0IiwiZW5lcmd5X2NvZGUiOiJFMDEiLCJjb25zdW1wdGlvbiI6NjAuMCwidW5pdCI6IiIsInVuaXRfcHJpY2UiOjEuMCwiY29zdCI6NTAwLCJyZWNvcmRfc3RhdHVzIjoiXHU2YjYzXHU1ZTM4IiwiaXNfcHJvZHVjdGlvbl9kYXkiOjF9"
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 223,
+      "quality_error": "invalid_updated_at",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtZGVsZXRlLXRpbWUiLCJldmVudF90aW1lIjoiMjAyNi0wOS0yNlQwNzoxMzo0MS4wMDBaIiwidXBkYXRlZF9hdCI6IjIwMjYtMDItMzBUMDA6MDA6MDBaIiwib3AiOiJERUxFVEUiLCJyZWNvcmRfZGF0ZSI6IjIwMjYtMDktMjYiLCJ3b3Jrc2hvcF9jb2RlIjoiVzAyIiwiZW5lcmd5X2NvZGUiOiJFMDEiLCJjb25zdW1wdGlvbiI6bnVsbCwidW5pdCI6ImtXaCIsInVuaXRfcHJpY2UiOm51bGwsImNvc3QiOm51bGwsInJlY29yZF9zdGF0dXMiOiJcdTZiNjNcdTVlMzgiLCJpc19wcm9kdWN0aW9uX2RheSI6MX0="
+    },
+    {
+      "source_topic": "energy-events",
+      "source_partition": 0,
+      "source_offset": 224,
+      "quality_error": "invalid_op",
+      "payload_base64": "eyJzY2hlbWFfdmVyc2lvbiI6MSwiZXZlbnRfaWQiOiJjOTYyNTQwNy1iYWQtbGF0ZS1vcCIsImV2ZW50X3RpbWUiOiIyMDI2LTA5LTI2VDA3OjEzOjQxLjAwMFoiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wOS0yNlQwNzoxMjo0Ny41MzZaIiwib3AiOiJNRVJHRSIsInJlY29yZF9kYXRlIjoiMjAyNi0wOS0yNiIsIndvcmtzaG9wX2NvZGUiOiJXMDQiLCJlbmVyZ3lfY29kZSI6IkUwMSIsImNvbnN1bXB0aW9uIjo5LjAsInVuaXQiOiJrV2giLCJ1bml0X3ByaWNlIjoxLjAsImNvc3QiOjkuMCwicmVjb3JkX3N0YXR1cyI6Ilx1NmI2M1x1NWUzOCIsImlzX3Byb2R1Y3Rpb25fZGF5IjoxfQ=="
+    }
+  ],
+  "alert_latency_seconds": 1.543,
+  "alert": {
+    "workshop_code": "W04",
+    "window_start": "2026-09-26T07:13:40Z",
+    "window_end": "2026-09-26T07:13:50Z",
+    "event_count": 3,
+    "total_cost": 155,
+    "alert_level": "HIGH_COST"
+  },
+  "seconds_level_alert": true
+}

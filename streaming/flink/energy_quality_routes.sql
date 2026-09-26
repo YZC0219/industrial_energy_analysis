@@ -77,6 +77,13 @@ WHERE CURRENT_WATERMARK(event_time_safe) IS NOT NULL
   AND valid_iso_date(record_date)
   AND REGEXP(workshop_code, '^W[0-9]{2}$')
   AND REGEXP(energy_code, '^E[0-9]{2}$')
+  AND event_id IS NOT NULL AND event_id <> ''
+  AND op IN ('UPSERT', 'DELETE')
+  AND (op = 'DELETE' OR (
+       consumption IS NOT NULL AND consumption >= 0
+       AND unit IS NOT NULL AND TRIM(unit) <> ''
+       AND unit_price IS NOT NULL AND unit_price > 0
+       AND cost IS NOT NULL AND cost >= 0))
   AND event_time_safe <= CURRENT_WATERMARK(event_time_safe)
   AND schema_version = 1;
 
@@ -142,7 +149,8 @@ WHERE op = 'DELETE' AND schema_version = 1
   AND iso_epoch_millis(updated_at) IS NOT NULL
   AND valid_iso_date(record_date)
   AND REGEXP(workshop_code, '^W[0-9]{2}$')
-  AND REGEXP(energy_code, '^E[0-9]{2}$');
+  AND REGEXP(energy_code, '^E[0-9]{2}$')
+  AND event_id IS NOT NULL AND event_id <> '';
 
 CREATE TABLE invalid_energy_events (
     schema_version INT,
@@ -211,7 +219,8 @@ SELECT event_id, event_time, updated_at, op, record_date, workshop_code,
          WHEN NOT COALESCE(REGEXP(workshop_code, '^W[0-9]{2}$'), FALSE)
            OR NOT COALESCE(REGEXP(energy_code, '^E[0-9]{2}$'), FALSE)
            THEN 'invalid_business_key'
-         WHEN event_id IS NULL OR event_time IS NULL OR updated_at IS NULL THEN 'missing_event_metadata'
+         WHEN event_id IS NULL OR event_id = ''
+           OR event_time IS NULL OR updated_at IS NULL THEN 'missing_event_metadata'
        END
 FROM invalid_energy_events
 WHERE schema_version IS NULL OR schema_version <> 1
@@ -223,4 +232,5 @@ WHERE schema_version IS NULL OR schema_version <> 1
    OR record_date IS NULL
    OR NOT COALESCE(REGEXP(workshop_code, '^W[0-9]{2}$'), FALSE)
    OR NOT COALESCE(REGEXP(energy_code, '^E[0-9]{2}$'), FALSE)
-   OR event_id IS NULL OR event_time IS NULL OR updated_at IS NULL;
+   OR event_id IS NULL OR event_id = ''
+   OR event_time IS NULL OR updated_at IS NULL;

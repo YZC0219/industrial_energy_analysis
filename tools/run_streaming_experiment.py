@@ -123,6 +123,9 @@ def build_fault_samples(run_id: str, template: dict) -> dict[str, bytes]:
         "invalid_record_date": encoded("bad-record-date", record_date="2026-02-30"),
         "invalid_business_key_workshop": encoded("bad-workshop-code", workshop_code="WXX"),
         "invalid_business_key_energy": encoded("bad-energy-code", energy_code="EXX"),
+        "invalid_op": encoded("bad-op", op="MERGE"),
+        "invalid_event_id": encoded("bad-event-id", event_id=""),
+        "invalid_unit": encoded("bad-unit", unit=""),
     }
 
 
@@ -195,6 +198,10 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         "invalid_updated_at_quarantine_tested": False,
         "invalid_record_date_quarantine_tested": False,
         "invalid_business_key_quarantine_tested": False,
+        "invalid_op_quarantine_tested": False,
+        "invalid_event_id_quarantine_tested": False,
+        "invalid_unit_quarantine_tested": False,
+        "invalid_late_op_blocked": False,
         "invalid_temporal_delete_blocked": False,
         "taskmanager_restart_tested": False,
         "success": False,
@@ -420,6 +427,14 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             wait_for_event("energy-delete-events", invalid_delete["event_id"], timeout=8) is None
             and wait_for_event("energy-late-events", invalid_delete["event_id"], timeout=8) is None
         )
+        invalid_late = {
+            **late_event, "event_id": f"{run_id}-bad-late-op", "op": "MERGE",
+        }
+        invalid_late_raw = json.dumps(invalid_late, separators=(",", ":")).encode("utf-8")
+        expected_malformed[_publish_raw(invalid_late_raw)] = ("invalid_op", invalid_late_raw)
+        report["invalid_late_op_blocked"] = (
+            wait_for_event("energy-late-events", invalid_late["event_id"], timeout=8) is None
+        )
 
         observed_malformed = {}
         malformed_process, malformed_messages = consumers["energy-malformed-events"]
@@ -444,6 +459,9 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             "invalid_updated_at": "invalid_updated_at_quarantine_tested",
             "invalid_record_date": "invalid_record_date_quarantine_tested",
             "invalid_business_key": "invalid_business_key_quarantine_tested",
+            "invalid_op": "invalid_op_quarantine_tested",
+            "invalid_event_id": "invalid_event_id_quarantine_tested",
+            "invalid_unit": "invalid_unit_quarantine_tested",
         }
         raw_passed_by_reason = {}
         for key, (reason, payload) in expected_malformed.items():
@@ -501,6 +519,10 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                                   and report["invalid_updated_at_quarantine_tested"]
                                   and report["invalid_record_date_quarantine_tested"]
                                   and report["invalid_business_key_quarantine_tested"]
+                                  and report["invalid_op_quarantine_tested"]
+                                  and report["invalid_event_id_quarantine_tested"]
+                                  and report["invalid_unit_quarantine_tested"]
+                                  and report["invalid_late_op_blocked"]
                                   and report["invalid_temporal_delete_blocked"])
         if not report["success"]:
             report["error"] = "One or more window, recovery, late-event, delete-route, or quality-route checks failed"

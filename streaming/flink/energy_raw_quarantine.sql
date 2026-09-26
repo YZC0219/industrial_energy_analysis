@@ -50,8 +50,11 @@ FROM (
              WHEN NOT utf8_ok THEN 'invalid_utf8'
              WHEN NOT (json_text IS JSON OBJECT) THEN 'invalid_json'
              WHEN schema_version IS NULL OR schema_version <> 1 THEN 'unsupported_schema_version'
+             WHEN op IS NULL OR op NOT IN ('UPSERT', 'DELETE') THEN 'invalid_op'
+             WHEN event_id IS NULL OR event_id = '' THEN 'invalid_event_id'
              WHEN op = 'UPSERT' AND (consumption_value IS NULL
                   OR unit_price_value IS NULL OR cost_value IS NULL) THEN 'invalid_numeric_field'
+             WHEN op = 'UPSERT' AND (unit IS NULL OR TRIM(unit) = '') THEN 'invalid_unit'
              WHEN NOT valid_iso_datetime(JSON_VALUE(json_text, '$.event_time')) THEN 'invalid_event_time'
              WHEN NOT valid_iso_datetime(JSON_VALUE(json_text, '$.updated_at')) THEN 'invalid_updated_at'
              WHEN NOT valid_iso_date(JSON_VALUE(json_text, '$.record_date')) THEN 'invalid_record_date'
@@ -62,7 +65,9 @@ FROM (
     FROM (
         SELECT payload, kafka_partition, kafka_offset, utf8_ok, json_text,
                TRY_CAST(JSON_VALUE(json_text, '$.schema_version') AS INT) AS schema_version,
+               JSON_VALUE(json_text, '$.event_id') AS event_id,
                JSON_VALUE(json_text, '$.op') AS op,
+               JSON_VALUE(json_text, '$.unit') AS unit,
                TRY_CAST(JSON_VALUE(json_text, '$.consumption') AS DECIMAL(18, 3)) AS consumption_value,
                TRY_CAST(JSON_VALUE(json_text, '$.unit_price') AS DECIMAL(18, 4)) AS unit_price_value,
                TRY_CAST(JSON_VALUE(json_text, '$.cost') AS DECIMAL(18, 2)) AS cost_value

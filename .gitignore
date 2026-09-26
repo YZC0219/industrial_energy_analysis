@@ -17,6 +17,7 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.pip-cache/
 .coverage
 htmlcov/
 
@@ -70,6 +71,7 @@ output/*
 !output/kafka_snapshot_v1_20260926.json
 !output/kafka_snapshot_v1_20260926.jsonl
 !output/streaming_experiment_keys_20260926.json
+!output/streaming_experiment_metadata_20260926.json
 !output/kafka_snapshot_smoke_20260926.json
 !output/kafka_snapshot_smoke_20260926.jsonl
 

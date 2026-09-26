@@ -118,9 +118,15 @@ def test_raw_quarantine_keeps_kafka_offsets_and_original_bytes():
     assert "invalid_updated_at" in RAW_SQL
     assert "invalid_record_date" in RAW_SQL
     assert "invalid_business_key" in RAW_SQL
+    assert "invalid_op" in RAW_SQL
+    assert "invalid_event_id" in RAW_SQL
+    assert "invalid_unit" in RAW_SQL
     assert "REGEXP(workshop_code, '^W[0-9]{2}$')" in FLINK_SQL
     assert "REGEXP(energy_code, '^E[0-9]{2}$')" in FLINK_SQL
     assert QUALITY_SQL.count("REGEXP(workshop_code, '^W[0-9]{2}$')") >= 3
+    assert "AND op IN ('UPSERT', 'DELETE')" in QUALITY_SQL
+    assert QUALITY_SQL.count("event_id <> ''") >= 2
+    assert "AND event_id <> ''" in FLINK_SQL
     assert "valid_iso_datetime(JSON_VALUE(json_text, '$.event_time'))" in RAW_SQL
     assert "valid_iso_datetime(JSON_VALUE(json_text, '$.updated_at'))" in RAW_SQL
     assert "valid_iso_date(JSON_VALUE(json_text, '$.record_date'))" in RAW_SQL
@@ -194,10 +200,11 @@ def test_poison_before_watermark_does_not_contaminate_alert():
                 "updated_at": "2026-09-25T22:11:00Z", "record_date": "2026-09-25",
                 "op": "UPSERT", "consumption": 60, "unit_price": 1, "cost": 60}
     faults = build_fault_samples("unit-run", template)
-    assert len(faults) == 9
+    assert len(faults) == 12
     for reason in ("unsupported_schema_version", "invalid_numeric_field",
                    "invalid_event_time", "invalid_updated_at", "invalid_record_date",
-                   "invalid_business_key_workshop", "invalid_business_key_energy"):
+                   "invalid_business_key_workshop", "invalid_business_key_energy",
+                   "invalid_op", "invalid_event_id", "invalid_unit"):
         assert json.loads(faults[reason])["cost"] == 500
 
     report = json.loads((ROOT / "output/streaming_experiment_poison_20260926.json")
@@ -208,9 +215,11 @@ def test_poison_before_watermark_does_not_contaminate_alert():
     assert report["alert"]["event_count"] == 3
     assert report["alert"]["total_cost"] == 155
     assert len(report["malformed_events"]) == 7
-    assert {item["quality_error"] for item in report["malformed_events"]} == (
-        set(faults) - {"invalid_business_key_workshop", "invalid_business_key_energy"}
-    )
+    assert {item["quality_error"] for item in report["malformed_events"]} == {
+        "invalid_json", "invalid_utf8", "unsupported_schema_version",
+        "invalid_numeric_field", "invalid_event_time", "invalid_updated_at",
+        "invalid_record_date",
+    }
 
 
 def test_invalid_temporal_delete_is_quarantined_but_not_routed():
@@ -250,3 +259,31 @@ def test_invalid_business_keys_are_isolated_before_window_aggregation():
     assert len(bad_keys) == 2
     assert {item["workshop_code"] for item in bad_keys} == {"W04", "WXX"}
     assert {item["energy_code"] for item in bad_keys} == {"E01", "EXX"}
+
+
+def test_invalid_metadata_is_quarantined_without_alert_or_late_leakage():
+    report = json.loads((ROOT / "output/streaming_experiment_metadata_20260926.json")
+                        .read_text(encoding="utf-8"))
+    assert report["success"] is True
+    assert report["completed_checkpoint_before_restart"] == report["restored_checkpoint_id"]
+    assert all(report[key] for key in (
+        "invalid_op_quarantine_tested", "invalid_event_id_quarantine_tested",
+        "invalid_unit_quarantine_tested", "invalid_late_op_blocked",
+        "invalid_temporal_delete_blocked", "seconds_level_alert",
+    ))
+    assert report["alert"]["event_count"] == 3
+    assert report["alert"]["total_cost"] == 155
+    events = report["malformed_events"]
+    assert len(events) == 14
+    assert len({(item["source_partition"], item["source_offset"]) for item in events}) == 14
+    decoded = [(item["quality_error"], json.loads(base64.b64decode(
+        item["payload_base64"], validate=True))) for item in events
+        if item["quality_error"] in {"invalid_op", "invalid_event_id", "invalid_unit"}]
+    assert len(decoded) == 4
+    assert sum(reason == "invalid_op" for reason, _ in decoded) == 2
+    assert any(reason == "invalid_op" and value["event_id"].endswith("bad-late-op")
+               for reason, value in decoded)
+    assert any(reason == "invalid_event_id" and value["event_id"] == ""
+               for reason, value in decoded)
+    assert any(reason == "invalid_unit" and value["unit"] == ""
+               for reason, value in decoded)
