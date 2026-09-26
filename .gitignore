@@ -50,6 +50,7 @@ data/raw_energy_data.csv
 # 大部分 output/ 仍是可重建产物；阶段一真集群验收证据例外，随代码版本留存。
 output/*
 !output/spark_performance.jsonl
+!output/spark_scale_benchmark_20260926.jsonl
 !output/engine_comparison.json
 !output/lakehouse_validation.json
 !output/pandas_daily.csv
