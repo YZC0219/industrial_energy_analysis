@@ -1,0 +1,100 @@
+{
+  "checked_at_utc": "2026-09-26T16:29:13.063141+00:00",
+  "spark_version": "3.5.1",
+  "master": "local[2]",
+  "tables": {
+    "energy_ods.ods_energy_consumption": {
+      "columns": [
+        "id",
+        "record_date",
+        "workshop_code",
+        "energy_code",
+        "consumption",
+        "unit",
+        "unit_price",
+        "cost",
+        "record_status",
+        "avg_temperature",
+        "data_source",
+        "is_production_day",
+        "updated_at",
+        "is_deleted",
+        "dt"
+      ],
+      "is_deleted_type": "tinyint"
+    },
+    "energy_dwd.dwd_energy_consumption_detail": {
+      "columns": [
+        "energy_detail_key",
+        "record_date",
+        "workshop_code",
+        "workshop_name",
+        "process_type",
+        "energy_code",
+        "energy_name",
+        "consumption",
+        "unit",
+        "unit_price",
+        "cost",
+        "record_status",
+        "avg_temperature",
+        "is_production_day",
+        "is_weekend",
+        "is_holiday",
+        "year_month",
+        "std_coal_kgce",
+        "co2_kg",
+        "source_updated_at",
+        "etl_time",
+        "is_deleted",
+        "dt"
+      ],
+      "is_deleted_type": "tinyint"
+    },
+    "energy_dwd.dwd_energy_consumption_merge_stage": {
+      "columns": [
+        "energy_detail_key",
+        "record_date",
+        "workshop_code",
+        "workshop_name",
+        "process_type",
+        "energy_code",
+        "energy_name",
+        "consumption",
+        "unit",
+        "unit_price",
+        "cost",
+        "record_status",
+        "avg_temperature",
+        "is_production_day",
+        "is_weekend",
+        "is_holiday",
+        "year_month",
+        "std_coal_kgce",
+        "co2_kg",
+        "source_updated_at",
+        "etl_time",
+        "target_dt",
+        "is_deleted",
+        "run_dt",
+        "batch_id"
+      ],
+      "is_deleted_type": "tinyint"
+    }
+  },
+  "stage_schema_variant": "legacy_append_is_deleted",
+  "dwd": {
+    "rows": 19006,
+    "cost": "215364002.57",
+    "deleted_sum": 0
+  },
+  "stage": {
+    "rows": 19032,
+    "target_dt_nonnull": 19032,
+    "deleted_sum": 0
+  },
+  "expected_dwd_rows": 19006,
+  "expected_dwd_cost": "215364002.57",
+  "success": true,
+  "scope": "read-only schema and aggregate check; no partition writes"
+}

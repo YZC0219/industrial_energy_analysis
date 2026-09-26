@@ -51,6 +51,7 @@ data/raw_energy_data.csv
 output/*
 !output/spark_performance.jsonl
 !output/spark_scale_benchmark_20260926.jsonl
+!output/hive_soft_delete_runtime_20260927.json
 !output/engine_comparison.json
 !output/lakehouse_validation.json
 !output/pandas_daily.csv

@@ -54,8 +54,15 @@ latest AS (
   ) version_rank
   FROM candidates x
 )
+-- 旧表通过 ADD COLUMNS 迁移时 is_deleted 会追加在 target_dt 后；新建表的列序相反。
+-- 显式目标列名由 Spark 按表 schema 重排，避免位置写入污染 target_dt/is_deleted。
 INSERT OVERWRITE TABLE energy_dwd.dwd_energy_consumption_merge_stage
 PARTITION (run_dt,batch_id)
+(energy_detail_key,record_date,workshop_code,workshop_name,process_type,
+ energy_code,energy_name,consumption,unit,unit_price,cost,record_status,
+ avg_temperature,is_production_day,is_weekend,is_holiday,year_month,
+ std_coal_kgce,co2_kg,source_updated_at,etl_time,is_deleted,target_dt,
+ run_dt,batch_id)
 SELECT energy_detail_key,record_date,workshop_code,workshop_name,process_type,
        energy_code,energy_name,consumption,unit,unit_price,cost,record_status,
        avg_temperature,is_production_day,is_weekend,is_holiday,year_month,

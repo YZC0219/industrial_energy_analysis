@@ -89,7 +89,7 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 
 配置 OpenAI Chat Completions 兼容服务的 `LLM_API_URL`、`LLM_API_KEY`、`LLM_MODEL` 后，可运行 `python -m ml.evaluate_attribution --use-llm --output output/attribution_eval_online.json`。该入口会把逐用例耗时、模型/契约错误、引用数和关键陈述命中写入报告；仓库也提供需手工触发的 `Online LLM attribution evaluation` 工作流，避免在没有模型密钥时宣称在线效果已验证。
 
-阶段一证据来自 Ubuntu VM（2 vCPU、8 GB、Spark 3.5.1、Hive 3.1.3、Hadoop 单节点）：19,006 条能耗事实覆盖 731 天，构建出 5,848 条车间日汇总和 731 个全厂日分区。首次全量 DWD/DWS/ADS 墙钟时间分别为 353.690、206.166、160.278 秒；pandas、MySQL、Spark 各导出 5,848 行，四项指标在绝对误差 `0.01` 内全部一致。另以 2024-03-15 的记录执行 2026-09-23 迟到修正，DWD、DWS、ADS 均联动更新，恢复源值后再次回归原结果。原始证据见 `output/spark_performance.jsonl`、`output/engine_comparison.json`、`output/lakehouse_validation.json` 与三份日粒度 CSV。另有[只读 Spark 计算扩容探针](output/spark_scale_benchmark_20260926.jsonl)：1×/10×/100× 逻辑工作量各三轮，逐轮校验费用和行数；它不写 Hive，也不能代替完整分层链路的扩容验收。细节见[阶段一说明](docs/阶段一_分层数仓与分布式计算.md)。
+阶段一证据来自 Ubuntu VM（2 vCPU、8 GB、Spark 3.5.1、Hive 3.1.3、Hadoop 单节点）：19,006 条能耗事实覆盖 731 天，构建出 5,848 条车间日汇总和 731 个全厂日分区。首次全量 DWD/DWS/ADS 墙钟时间分别为 353.690、206.166、160.278 秒；pandas、MySQL、Spark 各导出 5,848 行，四项指标在绝对误差 `0.01` 内全部一致。另以 2024-03-15 的记录执行 2026-09-23 迟到修正，DWD、DWS、ADS 均联动更新，恢复源值后再次回归原结果。原始证据见 `output/spark_performance.jsonl`、`output/engine_comparison.json`、`output/lakehouse_validation.json` 与三份日粒度 CSV。另有[只读 Spark 计算扩容探针](output/spark_scale_benchmark_20260926.jsonl)：1×/10×/100× 逻辑工作量各三轮，逐轮校验费用和行数；它不写 Hive，也不能代替完整分层链路的扩容验收。2026-09-27 已[验收 VM 的软删除列迁移](output/hive_soft_delete_runtime_20260927.json)，旧数据行数与费用未变；DWD 合并工作表使用显式目标列名，兼容新建表和追加列旧表的不同列序。细节见[阶段一说明](docs/阶段一_分层数仓与分布式计算.md)。
 
 ### 阶段三：数据质量与实时管道（单机实时验收完成，工程化增强进行中）
 

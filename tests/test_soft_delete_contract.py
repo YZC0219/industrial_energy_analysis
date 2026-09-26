@@ -1,6 +1,7 @@
 """离线契约：删除标记须贯通 MySQL → DataX/ODS → DWD → DWS/ADS。"""
 from pathlib import Path
 from subprocess import CompletedProcess
+import re
 
 from tools.ensure_hive_soft_delete_schema import TABLES, ensure_column
 
@@ -49,6 +50,20 @@ def test_spark_keeps_tombstone_for_lineage_but_excludes_it_from_aggregates():
     ads = read("spark/sql/30_ads.sql")
     assert "count(DISTINCT a.workshop_code)" in ads
     assert "WHERE coalesce(is_deleted,0)=0" in ads
+
+
+def test_merge_stage_insert_names_all_columns_instead_of_relying_on_schema_order():
+    sql = read("spark/sql/10_dwd_energy.sql")
+    insert = re.search(
+        r"INSERT OVERWRITE TABLE energy_dwd\.dwd_energy_consumption_merge_stage\s*"
+        r"PARTITION\s*\(run_dt,batch_id\)\s*\(([^)]*)\)\s*SELECT",
+        sql, re.IGNORECASE | re.DOTALL,
+    )
+    assert insert is not None
+    columns = [column.strip().lower() for column in insert.group(1).split(",")]
+    assert len(columns) == len(set(columns)) == 25
+    assert columns[-4:] == ["is_deleted", "target_dt", "run_dt", "batch_id"]
+    assert columns[:2] == ["energy_detail_key", "record_date"]
 
 
 def test_airflow_runs_both_schema_migrations_before_syncing_tombstones():
