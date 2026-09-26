@@ -93,7 +93,7 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 
 ### 阶段三：数据质量与实时管道（单机实时验收完成，工程化增强进行中）
 
-阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 的 Docker 实机复跑验证了正常告警、checkpoint 恢复、迟到/DELETE/无效业务值路由和中文字段；[当次报告](output/streaming_experiment_20260925_utf8.json)保留原始证据。2026-09-26 增加原始 Kafka 字节隔离链路，验证坏 UTF-8/JSON、未知 `schema_version`、不可解析的 UPSERT 数值及三个非法时间/日期字段；把七类坏样本放在同一窗口的水位线推进前，确认告警仍是 3 条／155 元，并验证非法时间的 DELETE 只进原始隔离、不泄漏到 DELETE/迟到旁路；见[最新复跑报告](output/streaming_experiment_delete_20260926.json)。这不覆盖所有字段类型转换和 schema 演进。流批对账仍须同范围完整事件历史；MySQL 物理硬删 CDC、多节点高可用和自动回补仍未实现，不能把单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
+阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 的 Docker 实机复跑验证了正常告警、checkpoint 恢复、迟到/DELETE/无效业务值路由和中文字段；[当次报告](output/streaming_experiment_20260925_utf8.json)保留原始证据。2026-09-26 增加原始 Kafka 字节隔离链路，验证坏 UTF-8/JSON、未知 `schema_version`、不可解析的 UPSERT 数值、三个非法时间/日期字段，以及不符合 `Wnn`/`Enn` 格式的车间/能源业务键；同窗口故障注入确认坏样本不会污染正常费用聚合，非法时间的 DELETE 只进原始隔离、不泄漏到 DELETE/迟到旁路。最新代码验收见[阶段三运行脚本](tools/run_streaming_experiment.py)，此前运行证据见[复跑报告](output/streaming_experiment_delete_20260926.json)。这些检查不覆盖所有字段类型转换和 schema 演进。流批对账仍须同范围完整事件历史；MySQL 物理硬删 CDC、多节点高可用和自动回补仍未实现，不能把单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
 
 ```mermaid
 flowchart LR

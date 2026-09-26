@@ -121,6 +121,8 @@ def build_fault_samples(run_id: str, template: dict) -> dict[str, bytes]:
         "invalid_event_time": encoded("bad-event-time", event_time="2026-13-99T00:00:00Z"),
         "invalid_updated_at": encoded("bad-updated-at", updated_at="2026-02-30T00:00:00Z"),
         "invalid_record_date": encoded("bad-record-date", record_date="2026-02-30"),
+        "invalid_business_key_workshop": encoded("bad-workshop-code", workshop_code="WXX"),
+        "invalid_business_key_energy": encoded("bad-energy-code", energy_code="EXX"),
     }
 
 
@@ -192,6 +194,7 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         "invalid_event_time_quarantine_tested": False,
         "invalid_updated_at_quarantine_tested": False,
         "invalid_record_date_quarantine_tested": False,
+        "invalid_business_key_quarantine_tested": False,
         "invalid_temporal_delete_blocked": False,
         "taskmanager_restart_tested": False,
         "success": False,
@@ -346,7 +349,10 @@ def run_experiment(*, keep_running: bool = False) -> dict:
         _publish(fresh_events)
         fault_payloads = build_fault_samples(run_id, fresh_events[0])
         expected_malformed = {
-            _publish_raw(payload): (reason, payload)
+            _publish_raw(payload): (
+                "invalid_business_key" if reason.startswith("invalid_business_key_") else reason,
+                payload,
+            )
             for reason, payload in fault_payloads.items()
         }
         report["faults_sent_before_watermark"] = True
@@ -437,6 +443,7 @@ def run_experiment(*, keep_running: bool = False) -> dict:
             "invalid_event_time": "invalid_event_time_quarantine_tested",
             "invalid_updated_at": "invalid_updated_at_quarantine_tested",
             "invalid_record_date": "invalid_record_date_quarantine_tested",
+            "invalid_business_key": "invalid_business_key_quarantine_tested",
         }
         raw_passed_by_reason = {}
         for key, (reason, payload) in expected_malformed.items():
@@ -493,6 +500,7 @@ def run_experiment(*, keep_running: bool = False) -> dict:
                                   and report["invalid_event_time_quarantine_tested"]
                                   and report["invalid_updated_at_quarantine_tested"]
                                   and report["invalid_record_date_quarantine_tested"]
+                                  and report["invalid_business_key_quarantine_tested"]
                                   and report["invalid_temporal_delete_blocked"])
         if not report["success"]:
             report["error"] = "One or more window, recovery, late-event, delete-route, or quality-route checks failed"

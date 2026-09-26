@@ -65,7 +65,8 @@ FROM (
     WHERE op = 'UPSERT' AND schema_version = 1
       AND event_id IS NOT NULL AND iso_epoch_millis(event_time) IS NOT NULL
       AND valid_iso_datetime(updated_at) AND valid_iso_date(record_date)
-      AND workshop_code IS NOT NULL AND energy_code IS NOT NULL
+      AND REGEXP(workshop_code, '^W[0-9]{2}$')
+      AND REGEXP(energy_code, '^E[0-9]{2}$')
       AND consumption IS NOT NULL AND consumption >= 0
       AND unit IS NOT NULL AND TRIM(unit) <> ''
       AND unit_price IS NOT NULL AND unit_price > 0

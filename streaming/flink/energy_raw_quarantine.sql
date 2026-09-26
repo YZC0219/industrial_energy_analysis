@@ -55,6 +55,9 @@ FROM (
              WHEN NOT valid_iso_datetime(JSON_VALUE(json_text, '$.event_time')) THEN 'invalid_event_time'
              WHEN NOT valid_iso_datetime(JSON_VALUE(json_text, '$.updated_at')) THEN 'invalid_updated_at'
              WHEN NOT valid_iso_date(JSON_VALUE(json_text, '$.record_date')) THEN 'invalid_record_date'
+             WHEN NOT COALESCE(REGEXP(JSON_VALUE(json_text, '$.workshop_code'), '^W[0-9]{2}$'), FALSE)
+               OR NOT COALESCE(REGEXP(JSON_VALUE(json_text, '$.energy_code'), '^E[0-9]{2}$'), FALSE)
+               THEN 'invalid_business_key'
            END AS quality_error
     FROM (
         SELECT payload, kafka_partition, kafka_offset, utf8_ok, json_text,

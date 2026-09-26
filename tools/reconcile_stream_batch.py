@@ -5,8 +5,9 @@ import argparse
 import csv
 import hashlib
 import json
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable
@@ -16,6 +17,21 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPORT = ROOT / "output" / "stream_batch_reconciliation.json"
 KEY_FIELDS = ("record_date", "workshop_code", "energy_code")
 VALUE_FIELDS = ("consumption", "unit", "unit_price", "cost")
+
+
+def _valid_business_key(parts: tuple[object, object, object]) -> bool:
+    record_date, workshop_code, energy_code = parts
+    if not isinstance(record_date, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", record_date):
+        return False
+    try:
+        if date.fromisoformat(record_date).isoformat() != record_date:
+            return False
+    except ValueError:
+        return False
+    return (isinstance(workshop_code, str)
+            and re.fullmatch(r"W[0-9]{2}", workshop_code) is not None
+            and isinstance(energy_code, str)
+            and re.fullmatch(r"E[0-9]{2}", energy_code) is not None)
 
 
 def _number(value: object) -> Decimal | None:
@@ -108,6 +124,9 @@ def read_events(path: Path, *, required_schema_version: int | None = None
             if missing:
                 invalid.append({"line": line_number, "reason": "missing_fields", "fields": missing})
                 continue
+            if not _valid_business_key(tuple(event[field] for field in KEY_FIELDS)):
+                invalid.append({"line": line_number, "reason": "invalid_business_key"})
+                continue
             if event["op"] not in {"UPSERT", "DELETE"}:
                 invalid.append({"line": line_number, "reason": "invalid_op"})
                 continue
@@ -176,8 +195,8 @@ def reconcile(events_path: Path, batch_path: Path, *, batch_timezone: str | None
     batch: dict[tuple[str, str, str], dict] = {}
     batch_duplicates, batch_invalid = [], []
     for row_number, row in enumerate(batch_rows, start=2):
-        key = tuple(str(row.get(field, "")).strip() for field in KEY_FIELDS)
-        if any(not part for part in key) or not row.get("unit") or any(
+        key = tuple(row.get(field) for field in KEY_FIELDS)
+        if not _valid_business_key(key) or not row.get("unit") or any(
             _number(row.get(field)) is None for field in ("consumption", "unit_price", "cost")
         ) or _number(row.get("consumption")) < 0 or _number(row.get("unit_price")) <= 0 \
                 or _number(row.get("cost")) < 0 or (batch_timezone is not None
