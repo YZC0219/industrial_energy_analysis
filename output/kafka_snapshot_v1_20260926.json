@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-09-25T22:36:35.389734+00:00",
+  "success": true,
+  "inputs": {
+    "events_jsonl": "output\\kafka_snapshot_v1_20260926.jsonl",
+    "events_sha256": "8a4520300c8f1b18d30088f5b069a36a40236b800e2c4ed68aea575829e49c4d",
+    "batch_csv": "tests\\fixtures\\kafka_snapshot_smoke_batch.csv",
+    "batch_sha256": "5b2d1da33ae4e35bd855c89fc73d04159ce219f3f817fe212b240ca2f4765703",
+    "batch_timezone": "Asia/Shanghai",
+    "required_schema_version": 1
+  },
+  "counts": {
+    "event_rows": 1,
+    "event_invalid_rows": 0,
+    "event_id_conflicts": 0,
+    "version_conflicts": 0,
+    "stream_business_keys": 1,
+    "batch_rows": 1,
+    "batch_invalid_rows": 0,
+    "batch_duplicate_keys": 0,
+    "only_in_batch": 0,
+    "only_in_stream": 0,
+    "value_mismatches": 0,
+    "version_mismatches": 0,
+    "delete_events_applied": 0
+  },
+  "samples": {
+    "invalid_events": [],
+    "event_id_conflicts": [],
+    "version_conflicts": [],
+    "batch_invalid_rows": [],
+    "batch_duplicate_keys": [],
+    "only_in_batch": [],
+    "only_in_stream": [],
+    "value_mismatches": [],
+    "version_mismatches": []
+  },
+  "scope_note": "Compares an exported event log to a batch snapshot at record_date × workshop_code × energy_code grain. It does not itself consume Kafka or capture source-database hard deletes. Batch updated_at is checked using the explicit batch timezone.",
+  "kafka_snapshot": {
+    "topic": "energy-reconcile-smoke-v1-20260926",
+    "captured_at": "2026-09-25T22:36:35.344610+00:00",
+    "partitions": [
+      {
+        "partition": 0,
+        "start_offset": 0,
+        "end_offset_exclusive": 1,
+        "exported_records": 1
+      }
+    ],
+    "events_export": "output\\kafka_snapshot_v1_20260926.jsonl",
+    "events_sha256": "8a4520300c8f1b18d30088f5b069a36a40236b800e2c4ed68aea575829e49c4d",
+    "history_note": "Offset 0 and a bounded end prove only retained Kafka history was read. They do not prove that this topic contains every source-database change."
+  }
+}

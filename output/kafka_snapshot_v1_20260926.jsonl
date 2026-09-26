@@ -1,0 +1,1 @@
+{"event_id":"smoke-version-1","event_time":"2026-09-01T01:00:00Z","updated_at":"2026-09-01T01:00:00Z","op":"UPSERT","record_date":"2026-09-01","workshop_code":"W04","energy_code":"E01","consumption":12.5,"unit":"kWh","unit_price":2,"cost":25,"schema_version":1}
