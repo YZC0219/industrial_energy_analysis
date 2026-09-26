@@ -117,6 +117,10 @@ def test_raw_quarantine_keeps_kafka_offsets_and_original_bytes():
     assert "invalid_event_time" in RAW_SQL
     assert "invalid_updated_at" in RAW_SQL
     assert "invalid_record_date" in RAW_SQL
+    assert "invalid_business_key" in RAW_SQL
+    assert "REGEXP(workshop_code, '^W[0-9]{2}$')" in FLINK_SQL
+    assert "REGEXP(energy_code, '^E[0-9]{2}$')" in FLINK_SQL
+    assert QUALITY_SQL.count("REGEXP(workshop_code, '^W[0-9]{2}$')") >= 3
     assert "valid_iso_datetime(JSON_VALUE(json_text, '$.event_time'))" in RAW_SQL
     assert "valid_iso_datetime(JSON_VALUE(json_text, '$.updated_at'))" in RAW_SQL
     assert "valid_iso_date(JSON_VALUE(json_text, '$.record_date'))" in RAW_SQL
@@ -190,9 +194,10 @@ def test_poison_before_watermark_does_not_contaminate_alert():
                 "updated_at": "2026-09-25T22:11:00Z", "record_date": "2026-09-25",
                 "op": "UPSERT", "consumption": 60, "unit_price": 1, "cost": 60}
     faults = build_fault_samples("unit-run", template)
-    assert len(faults) == 7
+    assert len(faults) == 9
     for reason in ("unsupported_schema_version", "invalid_numeric_field",
-                   "invalid_event_time", "invalid_updated_at", "invalid_record_date"):
+                   "invalid_event_time", "invalid_updated_at", "invalid_record_date",
+                   "invalid_business_key_workshop", "invalid_business_key_energy"):
         assert json.loads(faults[reason])["cost"] == 500
 
     report = json.loads((ROOT / "output/streaming_experiment_poison_20260926.json")
@@ -203,7 +208,9 @@ def test_poison_before_watermark_does_not_contaminate_alert():
     assert report["alert"]["event_count"] == 3
     assert report["alert"]["total_cost"] == 155
     assert len(report["malformed_events"]) == 7
-    assert {item["quality_error"] for item in report["malformed_events"]} == set(faults)
+    assert {item["quality_error"] for item in report["malformed_events"]} == (
+        set(faults) - {"invalid_business_key_workshop", "invalid_business_key_energy"}
+    )
 
 
 def test_invalid_temporal_delete_is_quarantined_but_not_routed():
@@ -225,3 +232,21 @@ def test_invalid_temporal_delete_is_quarantined_but_not_routed():
     assert any(item["op"] == "DELETE" and item["event_id"].endswith("bad-delete-time")
                and item["updated_at"] == "2026-02-30T00:00:00Z"
                for item in invalid_deletes)
+
+
+def test_invalid_business_keys_are_isolated_before_window_aggregation():
+    report = json.loads((ROOT / "output/streaming_experiment_keys_20260926.json")
+                        .read_text(encoding="utf-8"))
+    assert report["success"] is True
+    assert report["invalid_business_key_quarantine_tested"] is True
+    assert report["invalid_temporal_delete_blocked"] is True
+    assert report["faults_sent_before_watermark"] is True
+    assert report["alert"]["event_count"] == 3
+    assert report["alert"]["total_cost"] == 155
+    assert len(report["malformed_events"]) == 10
+    bad_keys = [json.loads(base64.b64decode(item["payload_base64"], validate=True))
+                for item in report["malformed_events"]
+                if item["quality_error"] == "invalid_business_key"]
+    assert len(bad_keys) == 2
+    assert {item["workshop_code"] for item in bad_keys} == {"W04", "WXX"}
+    assert {item["energy_code"] for item in bad_keys} == {"E01", "EXX"}

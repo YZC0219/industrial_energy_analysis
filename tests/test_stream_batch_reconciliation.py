@@ -62,6 +62,23 @@ def test_schema_version_gate_rejects_legacy_and_boolean_versions(tmp_path):
     assert report["inputs"]["required_schema_version"] == 1
 
 
+def test_reconciliation_rejects_invalid_calendar_dates_and_codes(tmp_path):
+    event = _event("one", "2026-09-01T01:00:00Z")
+    row = {"record_date": "2026-09-01", "workshop_code": "W04", "energy_code": "E01",
+           "consumption": "12.5", "unit": "kWh", "unit_price": "2", "cost": "25"}
+    for changes in ({"record_date": "2026-02-30"}, {"workshop_code": "WXX"},
+                    {"energy_code": "EXX"}):
+        candidate = {**event, **changes}
+        report = reconcile(*_write_inputs(tmp_path, [candidate], [row]))
+        assert report["success"] is False
+        assert report["samples"]["invalid_events"][0]["reason"] == "invalid_business_key"
+
+        invalid_row = {**row, **changes}
+        report = reconcile(*_write_inputs(tmp_path, [event], [invalid_row]))
+        assert report["success"] is False
+        assert report["counts"]["batch_invalid_rows"] == 1
+
+
 def test_reconciliation_applies_delete_and_fails_on_batch_key_left_behind(tmp_path):
     events = [_event("old", "2026-09-01T01:00:00Z"),
               _event("deleted", "2026-09-03T01:00:00Z", op="DELETE", consumption=None, cost=None)]
