@@ -97,14 +97,25 @@ def _publish(records: list[dict]) -> None:
 
 def _publish_raw(payload: bytes) -> tuple[int, int]:
     """Use the byte-oriented Kafka producer; console-producer transcodes UTF-8."""
-    from kafka import KafkaProducer
-
+    KafkaProducer = _require_kafka_producer()
     producer = KafkaProducer(bootstrap_servers=["127.0.0.1:29092"], acks="all")
     try:
         record = producer.send("energy-events", value=payload).get(timeout=30)
         return record.partition, record.offset
     finally:
         producer.close(timeout=10)
+
+
+def _require_kafka_producer():
+    try:
+        from kafka import KafkaProducer
+    except ImportError as exc:
+        raise RuntimeError(
+            "kafka-python is required before starting Docker/Flink; "
+            "install requirements.txt in the project Python environment "
+            "(on Windows, keep it on D:)"
+        ) from exc
+    return KafkaProducer
 
 
 def build_fault_samples(run_id: str, template: dict) -> dict[str, bytes]:
@@ -175,6 +186,8 @@ def _wait_for_new_jobs(previous_ids: set[str], *, minimum: int, timeout: int) ->
 
 
 def run_experiment(*, keep_running: bool = False) -> dict:
+    # Fail before touching containers or checkpoint state if the raw producer is absent.
+    _require_kafka_producer()
     run_id = uuid.uuid4().hex[:8]
     now = int(datetime.now(timezone.utc).timestamp()) - 10
     window_start = datetime.fromtimestamp(now - now % 10, tz=timezone.utc)

@@ -2,8 +2,11 @@
 import base64
 import json
 import re
+import sys
 from pathlib import Path
 from datetime import datetime, timezone
+
+import pytest
 
 ROOT=Path(__file__).resolve().parents[1]
 SCHEMA=json.loads((ROOT/"streaming/schemas/energy_event.schema.json").read_text(encoding="utf-8"))
@@ -82,6 +85,26 @@ def test_docker_console_transport_explicitly_uses_utf8(monkeypatch):
     experiment._compose("ps")
     assert captured["encoding"] == "utf-8"
     assert captured["text"] is True
+
+
+def test_missing_raw_producer_fails_before_any_docker_start(monkeypatch):
+    from tools import run_streaming_experiment as experiment
+
+    with monkeypatch.context() as patch:
+        patch.setitem(sys.modules, "kafka", None)
+        with pytest.raises(RuntimeError, match="kafka-python is required"):
+            experiment._require_kafka_producer()
+
+    def missing_producer():
+        raise RuntimeError("missing producer")
+
+    def unexpected_docker(*_args, **_kwargs):
+        raise AssertionError("Docker started before dependency preflight")
+
+    monkeypatch.setattr(experiment, "_require_kafka_producer", missing_producer)
+    monkeypatch.setattr(experiment, "_compose", unexpected_docker)
+    with pytest.raises(RuntimeError, match="missing producer"):
+        experiment.run_experiment()
 
 
 def test_flink_routes_late_delete_and_invalid_events_to_durable_topics():
