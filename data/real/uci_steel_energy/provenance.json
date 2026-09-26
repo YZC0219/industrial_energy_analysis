@@ -1,0 +1,44 @@
+{
+  "dataset": "Steel Industry Energy Consumption",
+  "dataset_page": "https://archive.ics.uci.edu/dataset/851/steel%2Bindustry%2Benergy%2Bconsumption",
+  "download_url": "https://archive.ics.uci.edu/static/public/851/steel+industry+energy+consumption.zip",
+  "doi": "https://doi.org/10.24432/C52G8C",
+  "license": "CC BY 4.0",
+  "publisher": "UCI Machine Learning Repository",
+  "original_context": "DAEWOO Steel Co. Ltd, Gwangyang, South Korea",
+  "retrieved_at_utc": "2026-09-24T10:20:18.699443+00:00",
+  "user_agent": "industrial-energy-analysis-research/1.0",
+  "robots": {
+    "url": "https://archive.ics.uci.edu/robots.txt",
+    "http_status": 404,
+    "allowed": true,
+    "interpretation": "robots.txt unavailable; no crawl rules published",
+    "sha256": null
+  },
+  "archive_sha256": "d82d28b33780ff1582507fcf08ae764ff648af459d58234370c551e62aadeaef",
+  "csv_sha256": "9b1cee6f9cb9cd9df2b95814ca90a9a2ff15b7f5f1fba0fae3c643e82072eacc",
+  "profile": {
+    "rows": 35040,
+    "columns": 11,
+    "fieldnames": [
+      "date",
+      "Usage_kWh",
+      "Lagging_Current_Reactive.Power_kVarh",
+      "Leading_Current_Reactive_Power_kVarh",
+      "CO2(tCO2)",
+      "Lagging_Current_Power_Factor",
+      "Leading_Current_Power_Factor",
+      "NSM",
+      "WeekStatus",
+      "Day_of_week",
+      "Load_Type"
+    ],
+    "first_timestamp": "01/01/2018 00:00",
+    "last_timestamp": "31/12/2018 23:45",
+    "load_types": [
+      "Light_Load",
+      "Maximum_Load",
+      "Medium_Load"
+    ]
+  }
+}
