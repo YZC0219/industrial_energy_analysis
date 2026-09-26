@@ -157,6 +157,7 @@ def optional_stream_reconcile_task() -> BashOperator:
             "python -m tools.reconcile_kafka_snapshot "
             "--batch output/clean_batch_energy.csv "
             "--batch-timezone \"$STREAM_RECON_BATCH_TIMEZONE\" "
+            "--required-schema-version 1 "
             "--bootstrap \"${STREAM_RECON_BOOTSTRAP:-kafka:9092}\" "
             "--topic \"${STREAM_RECON_TOPIC:-energy-events}\" "
             "--report output/stream_batch_reconciliation_{{ ds_nodash }}.json"

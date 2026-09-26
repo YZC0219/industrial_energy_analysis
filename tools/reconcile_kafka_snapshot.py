@@ -83,6 +83,7 @@ def export_bounded_snapshot(consumer, topic: str, path: Path,
 
 def capture_and_reconcile(batch: Path, export_path: Path, *, topic: str,
                           bootstrap: str, batch_timezone: str,
+                          required_schema_version: int = 1,
                           timeout_seconds: int = 60) -> dict:
     from kafka import KafkaConsumer, TopicPartition
 
@@ -94,7 +95,8 @@ def capture_and_reconcile(batch: Path, export_path: Path, *, topic: str,
                                            timeout_seconds=timeout_seconds)
     finally:
         consumer.close()
-    report = reconcile(export_path, batch, batch_timezone=batch_timezone)
+    report = reconcile(export_path, batch, batch_timezone=batch_timezone,
+                       required_schema_version=required_schema_version)
     report["kafka_snapshot"] = snapshot
     if report["inputs"]["batch_sha256"] != batch_sha_before:
         report["success"] = False
@@ -108,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch-timezone", required=True,
                         help="IANA zone for naive MySQL updated_at, e.g. Asia/Shanghai")
     parser.add_argument("--topic", default="energy-events")
+    parser.add_argument("--required-schema-version", type=int, default=1,
+                        help="reject Kafka events without this exact integer version")
     parser.add_argument("--bootstrap", default="127.0.0.1:29092")
     parser.add_argument("--events-export", type=Path)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
@@ -124,6 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         report = capture_and_reconcile(args.batch, export_path, topic=args.topic,
                                        bootstrap=args.bootstrap,
                                        batch_timezone=args.batch_timezone,
+                                       required_schema_version=args.required_schema_version,
                                        timeout_seconds=args.timeout_seconds)
     except Exception as exc:
         report = {"success": False, "error": f"{type(exc).__name__}: {exc}",

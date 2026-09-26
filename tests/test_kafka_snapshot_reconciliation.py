@@ -89,3 +89,21 @@ def test_committed_smoke_evidence_reconciles_with_its_exact_inputs():
          "exported_records": 1}
     ]
     assert report["counts"]["version_mismatches"] == 0
+
+
+def test_schema_v1_smoke_evidence_matches_flink_event_contract():
+    root = Path(__file__).resolve().parents[1]
+    report = json.loads((root / "output/kafka_snapshot_v1_20260926.json")
+                        .read_text(encoding="utf-8"))
+    events = root / "output/kafka_snapshot_v1_20260926.jsonl"
+    batch = root / "tests/fixtures/kafka_snapshot_smoke_batch.csv"
+    payload = json.loads(events.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 1
+    assert report["success"] is True
+    assert report["inputs"]["required_schema_version"] == 1
+    assert report["kafka_snapshot"]["events_sha256"] == _fingerprint(events)
+    assert report["inputs"]["batch_sha256"] == _fingerprint(batch)
+    assert report["kafka_snapshot"]["partitions"] == [
+        {"partition": 0, "start_offset": 0, "end_offset_exclusive": 1,
+         "exported_records": 1}
+    ]

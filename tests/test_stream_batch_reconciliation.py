@@ -43,6 +43,25 @@ def test_reconciliation_uses_latest_correction_and_ignores_identical_event_repla
     assert report["counts"]["value_mismatches"] == 0
 
 
+def test_schema_version_gate_rejects_legacy_and_boolean_versions(tmp_path):
+    event = _event("v1", "2026-09-01T01:00:00Z")
+    batch = [{"record_date": "2026-09-01", "workshop_code": "W04", "energy_code": "E01",
+              "consumption": "12.5", "unit": "kWh", "unit_price": "2", "cost": "25"}]
+    for version in (None, True, 2):
+        candidate = {**event}
+        if version is not None:
+            candidate["schema_version"] = version
+        report = reconcile(*_write_inputs(tmp_path, [candidate], batch),
+                           required_schema_version=1)
+        assert report["success"] is False
+        assert report["samples"]["invalid_events"][0]["reason"] == "unsupported_schema_version"
+    event["schema_version"] = 1
+    report = reconcile(*_write_inputs(tmp_path, [event], batch),
+                       required_schema_version=1)
+    assert report["success"] is True
+    assert report["inputs"]["required_schema_version"] == 1
+
+
 def test_reconciliation_applies_delete_and_fails_on_batch_key_left_behind(tmp_path):
     events = [_event("old", "2026-09-01T01:00:00Z"),
               _event("deleted", "2026-09-03T01:00:00Z", op="DELETE", consumption=None, cost=None)]

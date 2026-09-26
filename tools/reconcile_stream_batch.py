@@ -64,7 +64,8 @@ def _batch_timestamp(value: object, timezone_name: str) -> datetime | None:
         return None
 
 
-def read_events(path: Path) -> tuple[list[dict], list[dict]]:
+def read_events(path: Path, *, required_schema_version: int | None = None
+                ) -> tuple[list[dict], list[dict]]:
     events, invalid = [], []
     byte_offset = 0
     with path.open("rb") as stream:
@@ -93,6 +94,14 @@ def read_events(path: Path) -> tuple[list[dict], list[dict]]:
                 continue
             if not isinstance(event, dict):
                 invalid.append({"line": line_number, "reason": "event_must_be_object"})
+                continue
+            if required_schema_version is not None and (
+                type(event.get("schema_version")) is not int
+                or event["schema_version"] != required_schema_version
+            ):
+                invalid.append({"line": line_number, "reason": "unsupported_schema_version",
+                                "expected": required_schema_version,
+                                "actual": event.get("schema_version")})
                 continue
             missing = [field for field in (*KEY_FIELDS, "event_id", "updated_at", "op")
                        if event.get(field) in (None, "")]
@@ -155,10 +164,12 @@ def _latest_events(events: Iterable[dict]) -> tuple[dict, list[dict], list[dict]
     return latest, id_conflicts, version_conflicts
 
 
-def reconcile(events_path: Path, batch_path: Path, *, batch_timezone: str | None = None) -> dict:
+def reconcile(events_path: Path, batch_path: Path, *, batch_timezone: str | None = None,
+              required_schema_version: int | None = None) -> dict:
     if batch_timezone is not None:
         ZoneInfo(batch_timezone)  # Reject unknown zones before reading inputs.
-    events, invalid = read_events(events_path)
+    events, invalid = read_events(events_path,
+                                  required_schema_version=required_schema_version)
     latest, conflicts, version_conflicts = _latest_events(events)
     with batch_path.open(encoding="utf-8-sig", newline="") as stream:
         batch_rows = list(csv.DictReader(stream))
@@ -219,6 +230,7 @@ def reconcile(events_path: Path, batch_path: Path, *, batch_timezone: str | None
             "events_jsonl": str(events_path), "events_sha256": _fingerprint(events_path),
             "batch_csv": str(batch_path), "batch_sha256": _fingerprint(batch_path),
             "batch_timezone": batch_timezone,
+            "required_schema_version": required_schema_version,
         },
         "counts": {
             "event_rows": len(events), "event_invalid_rows": len(invalid),
@@ -252,9 +264,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--events", type=Path, required=True, help="Kafka JSONL export")
     parser.add_argument("--batch", type=Path, required=True, help="Batch energy CSV snapshot")
     parser.add_argument("--batch-timezone", help="IANA zone for naive batch updated_at; enables source-version comparison")
+    parser.add_argument("--required-schema-version", type=int,
+                        help="reject events without this exact integer schema_version")
     parser.add_argument("--output", type=Path, default=DEFAULT_REPORT)
     args = parser.parse_args(argv)
-    report = reconcile(args.events, args.batch, batch_timezone=args.batch_timezone)
+    report = reconcile(args.events, args.batch, batch_timezone=args.batch_timezone,
+                       required_schema_version=args.required_schema_version)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"STREAM_BATCH_RECONCILIATION {'PASS' if report['success'] else 'FAIL'} "

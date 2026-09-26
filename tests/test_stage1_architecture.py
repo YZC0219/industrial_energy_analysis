@@ -175,6 +175,7 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
     dag_source=text("dags/energy_pipeline_dag.py")
     assert "STREAM_RECON_ENABLED" in dag_source
     assert "--batch-timezone \\\"$STREAM_RECON_BATCH_TIMEZONE\\\"" in dag_source
+    assert "--required-schema-version 1" in dag_source
     assert "--report output/stream_batch_reconciliation_{{ ds_nodash }}.json" in dag_source
 
 def test_full_snapshots_use_one_stable_partition():
