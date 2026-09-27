@@ -20,8 +20,8 @@ BUSINESS_DATE = "2024-03-15"
 
 
 def validate_database(name: str) -> str:
-    if not re.fullmatch(r"energy_contract_probe_[0-9]{8}", name):
-        raise ValueError("database must match energy_contract_probe_YYYYMMDD")
+    if not re.fullmatch(r"energy_(?:contract|datax)_probe_[0-9]{8}", name):
+        raise ValueError("database must be a dated contract/datax probe namespace")
     return name
 
 

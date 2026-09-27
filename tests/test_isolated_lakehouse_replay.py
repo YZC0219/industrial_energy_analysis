@@ -15,6 +15,7 @@ REPORT = Path(__file__).resolve().parents[1] / "output" / "isolated_lakehouse_re
 
 def test_probe_database_must_be_new_narrowly_named_namespace():
     assert validate_database(DB) == DB
+    assert validate_database("energy_datax_probe_20260927") == "energy_datax_probe_20260927"
     for name in ("energy_dwd", "energy_contract_probe", "energy_contract_probe_2026-09-27",
                  "energy_contract_probe_20260927.other", "energy_contract_probe_20260927;DROP"):
         with pytest.raises(ValueError):
