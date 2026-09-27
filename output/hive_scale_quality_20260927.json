@@ -1,0 +1,86 @@
+{
+  "checked_at_utc": "2026-09-26T16:58:26.539678+00:00",
+  "database": "energy_scale_probe_20260927",
+  "spark_version": "3.5.1",
+  "master": "local[2]",
+  "scales": {
+    "10": {
+      "layers": {
+        "ods": {
+          "rows": 190060,
+          "cost": "2153640025.70",
+          "plant_count": 10,
+          "duplicate_groups_found": false,
+          "null_key_rows_found": false
+        },
+        "dwd": {
+          "rows": 190060,
+          "cost": "2153640025.70",
+          "plant_count": 10,
+          "duplicate_groups_found": false,
+          "null_key_rows_found": false,
+          "std_coal_kgce": "637596314.600"
+        },
+        "dws": {
+          "rows": 58480,
+          "cost": "2153640025.70",
+          "plant_count": 10,
+          "duplicate_groups_found": false,
+          "null_key_rows_found": false,
+          "std_coal_kgce": "637596314.600",
+          "fact_count_sum": 190060
+        },
+        "ads": {
+          "rows": 7310,
+          "cost": "2153640025.70",
+          "plant_count": 10,
+          "duplicate_groups_found": false,
+          "null_key_rows_found": false,
+          "std_coal_kgce": "637596314.600",
+          "workshop_count_sum": 58480
+        }
+      },
+      "success": true
+    },
+    "100": {
+      "layers": {
+        "ods": {
+          "rows": 1900600,
+          "cost": "21536400257.00",
+          "plant_count": 100,
+          "duplicate_groups_found": false,
+          "null_key_rows_found": false
+        },
+        "dwd": {
+          "rows": 1900600,
+          "cost": "21536400257.00",
+          "plant_count": 100,
+          "duplicate_groups_found": false,
+          "null_key_rows_found": false,
+          "std_coal_kgce": "6375963146.000"
+        },
+        "dws": {
+          "rows": 584800,
+          "cost": "21536400257.00",
+          "plant_count": 100,
+          "duplicate_groups_found": false,
+          "null_key_rows_found": false,
+          "std_coal_kgce": "6375963146.000",
+          "fact_count_sum": 1900600
+        },
+        "ads": {
+          "rows": 73100,
+          "cost": "21536400257.00",
+          "plant_count": 100,
+          "duplicate_groups_found": false,
+          "null_key_rows_found": false,
+          "std_coal_kgce": "6375963146.000",
+          "workshop_count_sum": 584800
+        }
+      },
+      "success": true
+    }
+  },
+  "success": true,
+  "scope": "read-only audit of isolated probe tables; production tables untouched"
+}

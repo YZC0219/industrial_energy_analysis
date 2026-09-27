@@ -1,0 +1,45 @@
+{
+  "checked_at_utc": "2026-09-26T16:49:28.064933+00:00",
+  "database": "energy_scale_probe_20260927",
+  "database_location": "hdfs://localhost:9000/warehouse/energy_scale_probe_20260927",
+  "source_table": "energy_ods.ods_energy_consumption",
+  "source_dt": "2025-12-31",
+  "scale": 100,
+  "spark_version": "3.5.1",
+  "master": "local[2]",
+  "shuffle_partitions": "8",
+  "source_rows": 19006,
+  "source_cost": "215364002.57",
+  "layers": {
+    "ods": {
+      "table": "energy_scale_probe_20260927.ods_energy_scaled",
+      "rows": 1900600,
+      "cost": "21536400257.00",
+      "write_seconds": 10.697,
+      "validation_seconds": 1.45
+    },
+    "dwd": {
+      "table": "energy_scale_probe_20260927.dwd_energy_scaled",
+      "rows": 1900600,
+      "cost": "21536400257.00",
+      "write_seconds": 18.267,
+      "validation_seconds": 1.101
+    },
+    "dws": {
+      "table": "energy_scale_probe_20260927.dws_workshop_day_scaled",
+      "rows": 584800,
+      "cost": "21536400257.00",
+      "write_seconds": 5.224,
+      "validation_seconds": 0.738
+    },
+    "ads": {
+      "table": "energy_scale_probe_20260927.ads_plant_day_scaled",
+      "rows": 73100,
+      "cost": "21536400257.00",
+      "write_seconds": 4.231,
+      "validation_seconds": 0.616
+    }
+  },
+  "success": true,
+  "scope": "isolated four-layer materialization; omits production and non-cost metrics; no production table writes"
+}

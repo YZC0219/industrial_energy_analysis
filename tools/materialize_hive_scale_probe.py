@@ -152,12 +152,15 @@ def run(database: str, *, source_dt: str, scale: int, resume: bool,
         window = Window.partitionBy(
             "plant_id", "record_date", "workshop_code", "energy_code"
         ).orderBy(F.col("updated_at").desc(), F.col("source_id").desc())
-        clean = ods_read.where(
+        # Resolve the latest version before removing tombstones: filtering first
+        # would resurrect an older live row after a newer delete event.
+        latest = ods_read.withColumn(
+            "version_rank", F.row_number().over(window)
+        ).where(F.col("version_rank") == 1)
+        clean = latest.where(
             (F.col("is_deleted") == 0)
             & (F.col("consumption").cast("decimal(16,3)") >= 0)
             & (F.col("cost").cast("decimal(16,2)") >= 0)
-        ).withColumn("version_rank", F.row_number().over(window)).where(
-            F.col("version_rank") == 1
         )
         dwd = clean.join(F.broadcast(dim), "energy_code", "inner").select(
             "plant_id", "record_date", "workshop_code", "energy_code",
