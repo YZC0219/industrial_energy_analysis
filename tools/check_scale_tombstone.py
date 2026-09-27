@@ -3,7 +3,7 @@
 import argparse
 import json
 import sys
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -14,40 +14,41 @@ from tools.materialize_hive_scale_probe import latest_valid_live_rows
 
 
 def run(output: Path) -> dict:
-    from pyspark.sql import Row, SparkSession
+    from pyspark.sql import SparkSession
 
     spark = SparkSession.builder.appName("scale-probe-tombstone-regression").getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
     try:
-        def version(workshop: str, source_id: int, hour: int,
-                    is_deleted: int, cost: str) -> Row:
-            return Row(
-                plant_id=0, record_date=date(2024, 3, 15),
-                workshop_code=workshop, energy_code="E01", source_id=source_id,
-                updated_at=datetime(2026, 9, 27, hour), is_deleted=is_deleted,
-                consumption=Decimal("1.000"), cost=Decimal(cost),
-            )
-
-        cases = [
-            version("W01", 1, 9, 0, "10.00"),
-            version("W01", 2, 10, 1, "0.00"),  # delete hides older live row
-            version("W02", 3, 9, 0, "5.00"),
-            version("W02", 4, 10, 0, "7.00"),  # same-day update wins
-            version("W03", 5, 9, 0, "5.00"),
-            version("W03", 6, 10, 0, "-1.00"),  # invalid newest row is not bypassed
-            version("W04", 7, 11, 0, "1.00"),
-            version("W04", 8, 11, 0, "2.00"),  # source ID breaks timestamp tie
-        ]
+        # SQL VALUES avoids serializing Python Rows on this VM's newer Python
+        # while still exercising the same Spark DataFrame transformation.
+        cases = spark.sql("""
+            SELECT plant_id, CAST(record_date AS DATE) AS record_date,
+                   workshop_code, energy_code, source_id,
+                   CAST(updated_at AS TIMESTAMP) AS updated_at, is_deleted,
+                   CAST(consumption AS DECIMAL(16,3)) AS consumption,
+                   CAST(cost AS DECIMAL(16,2)) AS cost
+            FROM VALUES
+              (0, '2024-03-15', 'W01', 'E01', 1, '2026-09-27 09:00:00', 0, 1.000, 10.00),
+              (0, '2024-03-15', 'W01', 'E01', 2, '2026-09-27 10:00:00', 1, 1.000,  0.00),
+              (0, '2024-03-15', 'W02', 'E01', 3, '2026-09-27 09:00:00', 0, 1.000,  5.00),
+              (0, '2024-03-15', 'W02', 'E01', 4, '2026-09-27 10:00:00', 0, 1.000,  7.00),
+              (0, '2024-03-15', 'W03', 'E01', 5, '2026-09-27 09:00:00', 0, 1.000,  5.00),
+              (0, '2024-03-15', 'W03', 'E01', 6, '2026-09-27 10:00:00', 0, 1.000, -1.00),
+              (0, '2024-03-15', 'W04', 'E01', 7, '2026-09-27 11:00:00', 0, 1.000,  1.00),
+              (0, '2024-03-15', 'W04', 'E01', 8, '2026-09-27 11:00:00', 0, 1.000,  2.00)
+            AS t(plant_id, record_date, workshop_code, energy_code, source_id,
+                 updated_at, is_deleted, consumption, cost)
+        """)
         observed = {
             row.workshop_code: f"{Decimal(str(row.cost)):.2f}"
-            for row in latest_valid_live_rows(spark.createDataFrame(cases)).collect()
+            for row in latest_valid_live_rows(cases).collect()
         }
         expected = {"W02": "7.00", "W04": "2.00"}
         report = {
             "checked_at_utc": datetime.now(timezone.utc).isoformat(),
             "spark_version": spark.version,
             "master": spark.sparkContext.master,
-            "input_versions": len(cases),
+            "input_versions": 8,
             "expected": expected,
             "observed": observed,
             "success": observed == expected,
