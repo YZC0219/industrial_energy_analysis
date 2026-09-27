@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -21,6 +22,20 @@ TABLES = {
     "dim_energy_type": ("ods_energy_type", "full", [("energy_code","string"),("energy_name","string"),("unit","string"),("std_coal_factor","string"),("co2_factor","string"),("reference_price","string")]),
     "dim_calendar": ("ods_calendar", "full", [("calendar_date","date"),("year","smallint"),("quarter","tinyint"),("month","tinyint"),("year_month","string"),("day_of_week","tinyint"),("weekday_name","string"),("is_weekend","tinyint"),("holiday_name","string"),("is_holiday","tinyint")]),
 }
+
+
+def validate_probe_destination(database: str, jdbc_url: str, stage_path: str) -> str:
+    """Require matching isolated MySQL and HDFS destinations for a probe run."""
+    match = re.fullmatch(r"energy_datax_probe_([0-9]{8})", database)
+    if not match:
+        raise ValueError("probe database must match energy_datax_probe_YYYYMMDD")
+    expected_source = f"industrial_energy_datax_probe_{match[1]}"
+    source = jdbc_url.split("?", 1)[0].rsplit("/", 1)[-1]
+    if source != expected_source:
+        raise ValueError(f"probe JDBC URL must point to {expected_source}")
+    if stage_path.rstrip("/") != f"/warehouse/{database}":
+        raise ValueError(f"probe HDFS stage path must be /warehouse/{database}")
+    return database
 
 
 def render(text: str, values: dict[str, str]) -> str:
@@ -41,6 +56,7 @@ def main() -> None:
     p.add_argument("--window-end")
     p.add_argument("--full", action="store_true", help="能耗事实首次初始化时使用全量抽取")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--probe-database", help="仅向同名隔离 Hive 库同步，禁止复用生产 HDFS 路径")
     args = p.parse_args()
     target, default_mode, columns = TABLES[args.table]
     mode = "full" if args.full else default_mode
@@ -63,12 +79,17 @@ def main() -> None:
         "SOURCE_COLUMNS": json.dumps([f"`{n}`" for n, _ in columns]),
         "SOURCE_COLUMN_SQL": ",".join(f"`{n}`" for n, _ in columns),
     }
+    database = "energy_ods"
+    if args.probe_database:
+        database = validate_probe_destination(
+            args.probe_database, vals["MYSQL_JDBC_URL"], vals["HIVE_STAGE_PATH"]
+        )
     template = ROOT / "datax" / "jobs" / f"mysql_to_hive_{mode}.json"
     payload = render(template.read_text(encoding="utf-8"), vals)
     if args.dry_run:
         print(json.dumps(json.loads(payload), ensure_ascii=False, indent=2).replace(vals["MYSQL_PASSWORD"], "***"))
         return
-    table = f"energy_ods.{target}"
+    table = f"{database}.{target}"
     partition = vals["TARGET_PARTITION"]
     location = f"{vals['HIVE_STAGE_PATH']}/{target}/dt={partition}"
     with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as f:
