@@ -347,7 +347,10 @@ with DAG(
     generate_raw_data >> clean_data >> reconcile_stream_batch
     reconcile_stream_batch >> ensure_mysql_soft_delete_schema >> load_warehouse >> run_analysis >> build_report
     reconcile_stream_batch >> run_phase2 >> run_deep_validation
-    reconcile_stream_batch >> [ensure_hive_soft_delete_schema, sync_ods_dimensions]
-    [ensure_mysql_soft_delete_schema, ensure_hive_soft_delete_schema] >> sync_ods_energy
+    reconcile_stream_batch >> ensure_hive_soft_delete_schema
+    # Both DataX readers must see this run's committed MySQL load, not a stale
+    # snapshot from a parallel branch of the DAG.
+    load_warehouse >> [sync_ods_dimensions, sync_ods_energy]
+    ensure_hive_soft_delete_schema >> sync_ods_energy
     [ensure_hive_soft_delete_schema, sync_ods_dimensions, sync_ods_energy] >> build_dwd >> quality_dwd
     quality_dwd >> build_dws >> quality_dws >> build_ads

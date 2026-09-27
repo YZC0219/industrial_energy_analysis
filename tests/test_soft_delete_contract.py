@@ -64,9 +64,3 @@ def test_merge_stage_insert_names_all_columns_instead_of_relying_on_schema_order
     assert len(columns) == len(set(columns)) == 25
     assert columns[-4:] == ["is_deleted", "target_dt", "run_dt", "batch_id"]
     assert columns[:2] == ["energy_detail_key", "record_date"]
-
-
-def test_airflow_runs_both_schema_migrations_before_syncing_tombstones():
-    dag = read("dags/energy_pipeline_dag.py")
-    assert "[ensure_mysql_soft_delete_schema, ensure_hive_soft_delete_schema] >> sync_ods_energy" in dag
-    assert "ensure_hive_soft_delete_schema, sync_ods_dimensions, sync_ods_energy" in dag

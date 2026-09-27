@@ -161,16 +161,30 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
     expected={
       "generate_raw_data":{"clean_data"},
       "clean_data":{"reconcile_stream_batch"},
-      "reconcile_stream_batch":{"ensure_mysql_soft_delete_schema","sync_ods_dimensions","ensure_hive_soft_delete_schema","run_phase2"},
-      "ensure_mysql_soft_delete_schema":{"load_warehouse","sync_ods_energy_incremental"},
+      "reconcile_stream_batch":{"ensure_mysql_soft_delete_schema","ensure_hive_soft_delete_schema","run_phase2"},
+      "ensure_mysql_soft_delete_schema":{"load_warehouse"},
       "ensure_hive_soft_delete_schema":{"sync_ods_energy_incremental","build_dwd"},
-      "load_warehouse":{"run_analysis"}, "run_analysis":{"build_report"},
+      "load_warehouse":{"run_analysis","sync_ods_dimensions","sync_ods_energy_incremental"},
+      "run_analysis":{"build_report"},
       "sync_ods_dimensions":{"build_dwd"}, "sync_ods_energy_incremental":{"build_dwd"},
       "build_dwd":{"quality_dwd"}, "quality_dwd":{"build_dws"},
       "build_dws":{"quality_dws"}, "quality_dws":{"build_ads"},
       "run_phase2":{"run_deep_validation"},
     }
     assert {k:v.downstream for k,v in registry.items() if v.downstream}==expected
+    assert {"sync_ods_dimensions", "sync_ods_energy_incremental"} <= registry["load_warehouse"].downstream
+    def reaches(start, destination):
+        seen=set()
+        pending=[start]
+        while pending:
+            current=pending.pop()
+            if current==destination: return True
+            if current not in seen:
+                seen.add(current)
+                pending.extend(registry[current].downstream)
+        return False
+    assert reaches("ensure_mysql_soft_delete_schema", "sync_ods_energy_incremental")
+    assert reaches("ensure_hive_soft_delete_schema", "sync_ods_energy_incremental")
     assert "ENERGY_ALERT_WEBHOOK" in text("dags/energy_pipeline_dag.py")
     dag_source=text("dags/energy_pipeline_dag.py")
     assert "STREAM_RECON_ENABLED" in dag_source
