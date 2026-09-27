@@ -85,7 +85,7 @@ def sync(env: dict[str, str], hive_db: str, *, batch: str,
          window_start: str = "", window_end: str = "", full: bool = False) -> None:
     command = [sys.executable, str(ROOT / "datax/run_sync.py"), "--table",
                "fact_energy_consumption", "--biz-date", batch,
-               "--probe-database", hive_db]
+               "--probe-database", hive_db, "--skip-recover"]
     if full:
         command.append("--full")
     else:
@@ -120,12 +120,13 @@ def inspect_with_spark(hive_db: str, batch: str,
     spark = SparkSession.builder.appName("verify-isolated-datax-sync").enableHiveSupport().getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
     try:
+        spark.sql(f"ALTER TABLE {hive_db}.ods_energy_consumption RECOVER PARTITIONS")
         return inspect_partition(spark, hive_db, batch, expected)
     finally:
         spark.stop()
 
 
-def run(suffix: str, output: Path) -> dict:
+def run(suffix: str, output: Path, *, resume_after_full: bool = False) -> dict:
     from pyspark.sql import SparkSession
 
     mysql_db, hive_db = probe_names(suffix)
@@ -147,15 +148,29 @@ def run(suffix: str, output: Path) -> dict:
         f"SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='{mysql_db}';",
         env,
     )
-    if exists:
-        raise ValueError(f"refusing existing MySQL database: {mysql_db}")
+    if bool(exists) != resume_after_full:
+        raise ValueError(f"MySQL probe existence does not match resume mode: {mysql_db}")
     spark = SparkSession.builder.appName("create-isolated-datax-target").enableHiveSupport().getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
     try:
-        create_hive_target(spark, hive_db)
+        if resume_after_full:
+            if not spark.catalog.databaseExists(hive_db):
+                raise ValueError(f"missing Hive probe database: {hive_db}")
+            if not spark.catalog.tableExists(f"{hive_db}.ods_energy_consumption"):
+                raise ValueError("missing ODS probe table")
+        else:
+            create_hive_target(spark, hive_db)
     finally:
         spark.stop()
-    mysql_query(source_ddl(mysql_db), env)
+    if resume_after_full:
+        state = mysql_query(f"""SELECT COUNT(*), SUM(is_deleted),
+            SUM(CASE WHEN id=1 AND cost=10.00 AND
+                updated_at='2025-12-30 09:00:00' THEN 1 ELSE 0 END)
+            FROM {mysql_db}.fact_energy_consumption;""", env)
+        if state != "2\t0\t1":
+            raise ValueError(f"refusing unexpected MySQL resume state: {state}")
+    else:
+        mysql_query(source_ddl(mysql_db), env)
 
     full_expected = {
         "1": ("10.00", 0, "2025-12-30 09:00:00"),
@@ -203,8 +218,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suffix", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--resume-after-full", action="store_true",
+                        help="仅在第一次全量 DataX 已写入、分区恢复失败且源仍为初始态时使用")
     args = parser.parse_args()
-    report = run(args.suffix, args.output)
+    report = run(args.suffix, args.output, resume_after_full=args.resume_after_full)
     print(f"DATAX_ISOLATED_SYNC PASS report={args.output} phases={len(report['phases'])}")
 
 

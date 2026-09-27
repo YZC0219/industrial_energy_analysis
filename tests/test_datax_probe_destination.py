@@ -45,3 +45,14 @@ def test_probe_dry_run_renders_isolated_fact_sync(monkeypatch, capsys):
     assert job["writer"]["parameter"]["path"] == (
         f"{STAGE}/ods_energy_consumption/dt=2026-09-27"
     )
+
+
+def test_skip_recover_cannot_disable_production_partition_registration(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [
+        "run_sync.py", "--table", "fact_energy_consumption",
+        "--biz-date", "2026-09-27", "--window-start", "2026-09-27 10:00:00",
+        "--window-end", "2026-09-27 12:00:00", "--skip-recover", "--dry-run",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 2

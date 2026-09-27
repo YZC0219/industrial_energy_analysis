@@ -57,6 +57,8 @@ def main() -> None:
     p.add_argument("--full", action="store_true", help="能耗事实首次初始化时使用全量抽取")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--probe-database", help="仅向同名隔离 Hive 库同步，禁止复用生产 HDFS 路径")
+    p.add_argument("--skip-recover", action="store_true",
+                   help="隔离探针由同一 Spark 进程恢复分区，避免嵌入式 metastore 锁冲突")
     args = p.parse_args()
     target, default_mode, columns = TABLES[args.table]
     mode = "full" if args.full else default_mode
@@ -64,6 +66,8 @@ def main() -> None:
         p.error("--full 只用于能耗事实首次初始化；其他表本身已是全量快照")
     if mode == "incremental" and (not args.window_start or not args.window_end):
         p.error("增量同步必须同时提供 --window-start 与 --window-end")
+    if args.skip_recover and not args.probe_database:
+        p.error("--skip-recover 只能与 --probe-database 同用")
     vals = {
         "MYSQL_USER": os.environ["MYSQL_USER"],
         "MYSQL_PASSWORD": os.environ["MYSQL_PASSWORD"],
@@ -99,8 +103,9 @@ def main() -> None:
         subprocess.run([os.getenv("HDFS_BIN", "hdfs"), "dfs", "-fs", vals["HDFS_DEFAULT_FS"],
                         "-mkdir", "-p", location], check=True, cwd=ROOT)
         subprocess.run([os.getenv("DATAX_PYTHON", "python"), os.getenv("DATAX_ENTRY", "/opt/datax/bin/datax.py"), job_path], check=True)
-        subprocess.run([os.getenv("SPARK_SQL", "spark-sql"), "-e",
-                        f"ALTER TABLE {table} RECOVER PARTITIONS"], check=True, cwd=ROOT)
+        if not args.skip_recover:
+            subprocess.run([os.getenv("SPARK_SQL", "spark-sql"), "-e",
+                            f"ALTER TABLE {table} RECOVER PARTITIONS"], check=True, cwd=ROOT)
     finally:
         Path(job_path).unlink(missing_ok=True)
 
