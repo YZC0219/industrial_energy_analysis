@@ -107,9 +107,26 @@ def _write_and_check(frame, spark, table: str, *, scale: int,
             "validation_seconds": round(time.perf_counter() - check_started, 3)}
 
 
+def latest_valid_live_rows(frame):
+    """Select the latest version per logical key, then discard deletes/invalid rows."""
+    from pyspark.sql import Window, functions as F
+
+    window = Window.partitionBy(
+        "plant_id", "record_date", "workshop_code", "energy_code"
+    ).orderBy(F.col("updated_at").desc(), F.col("source_id").desc())
+    latest = frame.withColumn(
+        "version_rank", F.row_number().over(window)
+    ).where(F.col("version_rank") == 1)
+    return latest.where(
+        (F.col("is_deleted") == 0)
+        & (F.col("consumption").cast("decimal(16,3)") >= 0)
+        & (F.col("cost").cast("decimal(16,2)") >= 0)
+    )
+
+
 def run(database: str, *, source_dt: str, scale: int, resume: bool,
         output: Path) -> dict:
-    from pyspark.sql import SparkSession, Window, functions as F
+    from pyspark.sql import SparkSession, functions as F
 
     validate_database_name(database)
     date.fromisoformat(source_dt)
@@ -149,19 +166,7 @@ def run(database: str, *, source_dt: str, scale: int, resume: bool,
             expected_rows=expected["ods"], expected_cost=expected_cost,
         )
         ods_read = spark.table(_table(database, "ods")).where(F.col("scale") == scale)
-        window = Window.partitionBy(
-            "plant_id", "record_date", "workshop_code", "energy_code"
-        ).orderBy(F.col("updated_at").desc(), F.col("source_id").desc())
-        # Resolve the latest version before removing tombstones: filtering first
-        # would resurrect an older live row after a newer delete event.
-        latest = ods_read.withColumn(
-            "version_rank", F.row_number().over(window)
-        ).where(F.col("version_rank") == 1)
-        clean = latest.where(
-            (F.col("is_deleted") == 0)
-            & (F.col("consumption").cast("decimal(16,3)") >= 0)
-            & (F.col("cost").cast("decimal(16,2)") >= 0)
-        )
+        clean = latest_valid_live_rows(ods_read)
         dwd = clean.join(F.broadcast(dim), "energy_code", "inner").select(
             "plant_id", "record_date", "workshop_code", "energy_code",
             F.col("consumption").cast("decimal(16,3)").alias("consumption"),
