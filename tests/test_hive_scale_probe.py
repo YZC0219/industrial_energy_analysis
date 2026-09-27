@@ -79,3 +79,14 @@ def test_committed_quality_evidence_checks_all_scales_and_layers():
         coal = Decimal(result["layers"]["dwd"]["std_coal_kgce"])
         assert Decimal(result["layers"]["dws"]["std_coal_kgce"]) == coal
         assert Decimal(result["layers"]["ads"]["std_coal_kgce"]) == coal
+
+
+def test_committed_spark_tombstone_regression_evidence():
+    report = json.loads((EVIDENCE / "hive_scale_tombstone_20260927.json").read_text())
+    assert report["success"] is True
+    assert report["spark_version"] == "3.5.1"
+    assert report["master"] == "local[2]"
+    assert report["input_versions"] == 8
+    assert report["expected"] == report["observed"] == {
+        "W02": "7.00", "W04": "2.00",
+    }

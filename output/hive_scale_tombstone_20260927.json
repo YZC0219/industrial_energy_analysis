@@ -1,0 +1,16 @@
+{
+  "checked_at_utc": "2026-09-27T12:57:31.905163+00:00",
+  "spark_version": "3.5.1",
+  "master": "local[2]",
+  "input_versions": 8,
+  "expected": {
+    "W02": "7.00",
+    "W04": "2.00"
+  },
+  "observed": {
+    "W02": "7.00",
+    "W04": "2.00"
+  },
+  "success": true,
+  "scope": "synthetic read-only Spark DataFrame regression; no Hive writes"
+}
