@@ -7,10 +7,12 @@ the SSH channel's stdin, never through a shell command argument or log line.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shlex
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -133,8 +135,24 @@ def run(command: str) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--command", required=True)
+    parser.add_argument("--report", type=Path,
+                        help="optional non-secret JSON outcome for a read-only smoke check")
     args = parser.parse_args()
-    raise SystemExit(run(args.command))
+    exit_code = run(args.command)
+    if args.report:
+        report = {
+            "checked_at_utc": datetime.now(timezone.utc).isoformat(),
+            "ssh_host": os.environ["LAKEHOUSE_SSH_HOST"],
+            "ssh_user": os.environ["LAKEHOUSE_SSH_USER"],
+            "expected_sha": checkout_sha(),
+            "exit_code": exit_code,
+            "success": exit_code == 0,
+            "scope": "pinned SSH adapter smoke; command output is not stored",
+        }
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+                               encoding="utf-8")
+    raise SystemExit(exit_code)
 
 
 if __name__ == "__main__":
