@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+
+# spark-submit runs a script from tools/ without necessarily adding the repo root.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.materialize_hive_scale_probe import (
     BASE_COST, TABLES, expected_counts, validate_database_name,

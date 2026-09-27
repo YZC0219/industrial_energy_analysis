@@ -2,9 +2,13 @@
 
 import argparse
 import json
+import sys
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+
+# Keep the documented spark-submit entrypoint independent of PYTHONPATH.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.materialize_hive_scale_probe import latest_valid_live_rows
 
