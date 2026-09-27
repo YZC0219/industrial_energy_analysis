@@ -555,7 +555,7 @@ python tests/update_baseline.py
 - [x] 使用 DataX 构建 MySQL 与 Hive 的离线同步链路，记录全量、增量和失败重跑策略；
 - [x] 扩展现有 Airflow DAG，加入分层依赖、质量门禁、失败告警和补数流程。
 
-> 全量与增量链路已在 Ubuntu 单节点集群实跑，三引擎对照和迟到修正回归证据已保存；另有只读 SQL 聚合 1×/10×/100× 探针，以及隔离 Hive 库的 10×/100× 四层核心指标物化。完整生产指标、MySQL/DataX 扩容和多 executor 曲线仍待实验。
+> 全量与增量链路已在 Ubuntu 单节点集群实跑，三引擎对照和迟到修正回归证据已保存；另有只读 SQL 聚合 1×/10×/100× 探针、隔离 Hive 库的 10×/100× 四层核心指标物化，以及[原分层 SQL 的四批软删除/旧版本重放验收](output/isolated_lakehouse_replay_20260927.json)。完整生产指标、MySQL/DataX 扩容和多 executor 曲线仍待实验。
 
 ### 阶段二：预测与智能归因
 

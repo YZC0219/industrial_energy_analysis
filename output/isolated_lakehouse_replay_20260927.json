@@ -1,0 +1,64 @@
+{
+  "checked_at_utc": "2026-09-27T13:10:49.933451+00:00",
+  "database": "energy_contract_probe_20260927",
+  "location": "hdfs://localhost:9000/warehouse/energy_contract_probe_20260927",
+  "spark_version": "3.5.1",
+  "master": "local[2]",
+  "stage_column_order": "target_dt,is_deleted",
+  "phases": {
+    "full": {
+      "batch": "2025-12-31",
+      "business_date": "2024-03-15",
+      "dwd_rows": 2,
+      "stage_rows": 2,
+      "e01_cost": "10.00",
+      "e01_is_deleted": 0,
+      "e01_source_updated_at": "2025-12-30 09:00:00",
+      "dws_day_cost": "30.00",
+      "dws_month_cost": "30.00",
+      "ads_day_cost": "30.00",
+      "success": true
+    },
+    "corrected": {
+      "batch": "2026-09-27",
+      "business_date": "2024-03-15",
+      "dwd_rows": 2,
+      "stage_rows": 2,
+      "e01_cost": "17.00",
+      "e01_is_deleted": 0,
+      "e01_source_updated_at": "2026-09-27 11:00:00",
+      "dws_day_cost": "37.00",
+      "dws_month_cost": "37.00",
+      "ads_day_cost": "37.00",
+      "success": true
+    },
+    "deleted": {
+      "batch": "2026-09-28",
+      "business_date": "2024-03-15",
+      "dwd_rows": 2,
+      "stage_rows": 2,
+      "e01_cost": "0.00",
+      "e01_is_deleted": 1,
+      "e01_source_updated_at": "2026-09-28 09:00:00",
+      "dws_day_cost": "20.00",
+      "dws_month_cost": "20.00",
+      "ads_day_cost": "20.00",
+      "success": true
+    },
+    "stale_replay": {
+      "batch": "2026-09-29",
+      "business_date": "2024-03-15",
+      "dwd_rows": 2,
+      "stage_rows": 2,
+      "e01_cost": "0.00",
+      "e01_is_deleted": 1,
+      "e01_source_updated_at": "2026-09-28 09:00:00",
+      "dws_day_cost": "20.00",
+      "dws_month_cost": "20.00",
+      "ads_day_cost": "20.00",
+      "success": true
+    }
+  },
+  "success": true,
+  "scope": "production SQL rewritten only to isolated database; synthetic ODS fixtures; no DataX or production writes"
+}

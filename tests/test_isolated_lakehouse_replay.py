@@ -1,11 +1,16 @@
 """Guard the isolated execution boundary for production lakehouse SQL."""
 
+import json
+from decimal import Decimal
+from pathlib import Path
+
 import pytest
 
 from tools.check_isolated_lakehouse_replay import isolated_sql, validate_database
 
 
 DB = "energy_contract_probe_20260927"
+REPORT = Path(__file__).resolve().parents[1] / "output" / "isolated_lakehouse_replay_20260927.json"
 
 
 def test_probe_database_must_be_new_narrowly_named_namespace():
@@ -37,3 +42,32 @@ def test_sql_rewrites_all_production_schemas_and_storage_locations():
 def test_sql_refuses_unmapped_table_locations(sql):
     with pytest.raises(ValueError, match="non-isolated"):
         isolated_sql(sql, DB)
+
+
+def test_committed_four_phase_replay_evidence():
+    report = json.loads(REPORT.read_text(encoding="utf-8"))
+    assert report["success"] is True
+    assert report["database"] == DB
+    assert report["location"].endswith(f"/warehouse/{DB}")
+    assert report["stage_column_order"] == "target_dt,is_deleted"
+    assert report["master"] == "local[2]"
+    phases = report["phases"]
+    assert list(phases) == ["full", "corrected", "deleted", "stale_replay"]
+    for name, expected_cost, deleted, e01_cost in (
+        ("full", "30.00", 0, "10.00"),
+        ("corrected", "37.00", 0, "17.00"),
+        ("deleted", "20.00", 1, "0.00"),
+        ("stale_replay", "20.00", 1, "0.00"),
+    ):
+        phase = phases[name]
+        assert phase["success"] is True
+        assert phase["business_date"] == "2024-03-15"
+        assert phase["dwd_rows"] == phase["stage_rows"] == 2
+        assert phase["e01_is_deleted"] == deleted
+        assert Decimal(phase["e01_cost"]) == Decimal(e01_cost)
+        for layer in ("dws_day_cost", "dws_month_cost", "ads_day_cost"):
+            assert Decimal(phase[layer]) == Decimal(expected_cost)
+    assert phases["corrected"]["e01_source_updated_at"] == "2026-09-27 11:00:00"
+    assert phases["stale_replay"]["e01_source_updated_at"] == (
+        phases["deleted"]["e01_source_updated_at"]
+    )
