@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import os
 import json
+import shlex
 import urllib.request
 from datetime import datetime, timedelta
 
@@ -119,12 +120,15 @@ def project_task(task_id: str, command: str, doc: str, **kwargs) -> BashOperator
 
 def lakehouse_task(task_id: str, command: str, doc: str, **kwargs) -> BashOperator:
     """按部署开关运行 Hadoop 侧任务；本地开发默认只跑原 MySQL 基线。"""
+    remote = "python tools/run_remote_lakehouse.py --command " + shlex.quote(command)
     return BashOperator(
         task_id=task_id,
         bash_command=(
             f"cd {PROJECT_DIR} && "
             "if [ \"${LAKEHOUSE_ENABLED:-0}\" != \"1\" ]; then "
-            "echo '[SKIP] LAKEHOUSE_ENABLED!=1'; exit 0; fi && " + command
+            "echo '[SKIP] LAKEHOUSE_ENABLED!=1'; exit 0; fi && "
+            "if [ \"${LAKEHOUSE_EXECUTION_MODE:-local}\" = \"ssh\" ]; then "
+            + remote + "; else " + command + "; fi"
         ),
         doc_md=doc,
         **kwargs,

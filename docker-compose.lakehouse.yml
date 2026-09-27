@@ -1,0 +1,23 @@
+# Optional VM backend for the Airflow lakehouse branch. Use together with
+# docker-compose.yml; the default local deployment remains unchanged.
+services:
+  airflow-scheduler:
+    environment:
+      LAKEHOUSE_ENABLED: "1"
+      LAKEHOUSE_EXECUTION_MODE: ssh
+      LAKEHOUSE_SSH_HOST: ${LAKEHOUSE_SSH_HOST:?set VM SSH host}
+      LAKEHOUSE_SSH_USER: ${LAKEHOUSE_SSH_USER:?set VM SSH user}
+      LAKEHOUSE_SSH_KEY: /run/secrets/lakehouse_ssh_key
+      LAKEHOUSE_SSH_KNOWN_HOSTS: /run/secrets/lakehouse_known_hosts
+      LAKEHOUSE_REMOTE_PROJECT: ${LAKEHOUSE_REMOTE_PROJECT:?set VM repo checkout}
+      LAKEHOUSE_REMOTE_MYSQL_HOST: ${LAKEHOUSE_REMOTE_MYSQL_HOST:?set host address seen from VM}
+      LAKEHOUSE_REMOTE_MYSQL_PORT: ${LAKEHOUSE_REMOTE_MYSQL_PORT:-3307}
+    volumes:
+      - type: bind
+        source: ${LAKEHOUSE_SSH_KEY_HOST:?set host path to existing private key}
+        target: /run/secrets/lakehouse_ssh_key
+        read_only: true
+      - type: bind
+        source: ${LAKEHOUSE_KNOWN_HOSTS_HOST:?set host path to existing known_hosts}
+        target: /run/secrets/lakehouse_known_hosts
+        read_only: true

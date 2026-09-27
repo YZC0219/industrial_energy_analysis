@@ -1,0 +1,141 @@
+"""Execute one trusted DAG lakehouse command on a pinned SSH VM.
+
+The private key and known_hosts are mounted read-only. Credentials travel via
+the SSH channel's stdin, never through a shell command argument or log line.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import shlex
+import time
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def checkout_sha(root: Path = ROOT) -> str:
+    head = (root / ".git" / "HEAD").read_text(encoding="utf-8").strip()
+    if head.startswith("ref: "):
+        ref = head[5:]
+        if not re.fullmatch(r"refs/heads/[A-Za-z0-9_./-]+", ref) or ".." in ref:
+            raise ValueError("unsafe Git HEAD ref")
+        ref_file = root / ".git" / ref
+        if not ref_file.is_file():
+            raise ValueError("Git HEAD ref is not a loose ref; set up a full checkout")
+        head = ref_file.read_text(encoding="utf-8").strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        raise ValueError("cannot resolve local Git commit")
+    return head
+
+
+def remote_environment(environ: dict[str, str]) -> dict[str, str]:
+    mysql_host = environ["LAKEHOUSE_REMOTE_MYSQL_HOST"]
+    mysql_port = environ.get("LAKEHOUSE_REMOTE_MYSQL_PORT", "3307")
+    mysql_db = environ.get("MYSQL_DB", "industrial_energy")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", mysql_host):
+        raise ValueError("invalid remote MySQL host")
+    if not mysql_port.isdigit() or not 1 <= int(mysql_port) <= 65535:
+        raise ValueError("invalid remote MySQL port")
+    if not re.fullmatch(r"[A-Za-z0-9_]+", mysql_db):
+        raise ValueError("invalid MySQL database")
+    return {
+        "MYSQL_HOST": mysql_host,
+        "MYSQL_PORT": mysql_port,
+        "MYSQL_USER": environ["MYSQL_USER"],
+        "MYSQL_PASSWORD": environ["MYSQL_PASSWORD"],
+        "MYSQL_DB": mysql_db,
+        "MYSQL_JDBC_URL": f"jdbc:mysql://{mysql_host}:{mysql_port}/{mysql_db}",
+        "HADOOP_CONF_DIR": "/usr/local/hadoop/etc/hadoop",
+        "HDFS_DEFAULT_FS": "hdfs://localhost:9000",
+        "HIVE_STAGE_PATH": "/warehouse/energy_ods",
+        "HDFS_BIN": "/usr/local/hadoop/bin/hdfs",
+        "SPARK_SQL": "/usr/local/spark/bin/spark-sql",
+        "DATAX_ENTRY": "/home/yzc/apps/datax/bin/datax.py",
+        "DATAX_PYTHON": "/usr/bin/python3",
+    }
+
+
+def remote_script(command: str, *, project: str, expected_sha: str,
+                  variables: dict[str, str]) -> str:
+    if not project.startswith("/home/") or "\n" in project:
+        raise ValueError("remote project must be a /home/... checkout")
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_sha):
+        raise ValueError("invalid expected commit")
+    if not command.strip() or "\x00" in command:
+        raise ValueError("empty or invalid remote command")
+    lines = [
+        "set -euo pipefail",
+        f"cd {shlex.quote(project)}",
+        f"test \"$(git rev-parse HEAD)\" = {shlex.quote(expected_sha)} || "
+        "{ echo 'VM checkout differs from Airflow checkout'; exit 73; }",
+    ]
+    lines.extend(f"export {key}={shlex.quote(value)}" for key, value in variables.items())
+    lines.append(command)
+    return "\n".join(lines) + "\n"
+
+
+def redact(line: str, secrets: tuple[str, ...]) -> str:
+    for secret in secrets:
+        if secret:
+            line = line.replace(secret, "***")
+    return line
+
+
+def run(command: str) -> int:
+    import paramiko
+
+    host = os.environ["LAKEHOUSE_SSH_HOST"]
+    user = os.environ["LAKEHOUSE_SSH_USER"]
+    key = Path(os.environ["LAKEHOUSE_SSH_KEY"])
+    known_hosts = Path(os.environ["LAKEHOUSE_SSH_KNOWN_HOSTS"])
+    project = os.environ["LAKEHOUSE_REMOTE_PROJECT"]
+    if not key.is_file() or not known_hosts.is_file():
+        raise ValueError("mounted SSH key and known_hosts must exist")
+    variables = remote_environment(os.environ)
+    script = remote_script(command, project=project,
+                           expected_sha=checkout_sha(), variables=variables)
+    client = paramiko.SSHClient()
+    client.load_host_keys(str(known_hosts))
+    client.set_missing_host_key_policy(paramiko.RejectPolicy())
+    try:
+        client.connect(host, username=user, key_filename=str(key),
+                       look_for_keys=False, allow_agent=False, timeout=10,
+                       auth_timeout=10, banner_timeout=10)
+        channel = client.get_transport().open_session()
+        channel.set_combine_stderr(True)
+        channel.exec_command("bash -se")
+        channel.sendall(script.encode("utf-8"))
+        channel.shutdown_write()
+        pending = ""
+        secrets = (variables["MYSQL_PASSWORD"],)
+        try:
+            while not channel.exit_status_ready() or channel.recv_ready():
+                if channel.recv_ready():
+                    pending += channel.recv(65536).decode("utf-8", errors="replace")
+                    while "\n" in pending:
+                        line, pending = pending.split("\n", 1)
+                        print(redact(line, secrets), flush=True)
+                else:
+                    time.sleep(0.05)
+            if pending:
+                print(redact(pending, secrets), flush=True)
+            return channel.recv_exit_status()
+        finally:
+            channel.close()
+    finally:
+        client.close()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--command", required=True)
+    args = parser.parse_args()
+    raise SystemExit(run(args.command))
+
+
+if __name__ == "__main__":
+    main()

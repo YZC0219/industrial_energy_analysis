@@ -5,6 +5,7 @@ lightgbm>=4.5.0
 shap>=0.46.0
 PyMySQL>=1.1.0
 cryptography>=42.0.0
+paramiko==3.5.0        # 可选 Airflow→Ubuntu VM SSH 数仓执行后端
 great_expectations==1.23.1
 fastapi>=0.115,<1
 starlette>=0.46,<1

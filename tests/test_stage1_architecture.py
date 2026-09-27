@@ -138,7 +138,7 @@ def test_datax_quotes_mysql_identifiers_including_reserved_words():
 def test_airflow_dependency_graph_is_complete(monkeypatch):
     registry={}
     class Node:
-        def __init__(self,task_id,**kwargs): self.task_id=task_id; self.downstream=set(); registry[task_id]=self
+        def __init__(self,task_id,**kwargs): self.task_id=task_id; self.downstream=set(); self.kwargs=kwargs; registry[task_id]=self
         def link(self,other):
             targets=other if isinstance(other,list) else [other]
             for target in targets: self.downstream.add(target.task_id)
@@ -185,6 +185,12 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
         return False
     assert reaches("ensure_mysql_soft_delete_schema", "sync_ods_energy_incremental")
     assert reaches("ensure_hive_soft_delete_schema", "sync_ods_energy_incremental")
+    for task_id in ("sync_ods_dimensions", "sync_ods_energy_incremental", "build_dwd",
+                    "quality_dwd", "build_dws", "quality_dws", "build_ads"):
+        command = registry[task_id].kwargs["bash_command"]
+        assert "LAKEHOUSE_ENABLED" in command
+        assert "LAKEHOUSE_EXECUTION_MODE" in command
+        assert "tools/run_remote_lakehouse.py --command" in command
     assert "ENERGY_ALERT_WEBHOOK" in text("dags/energy_pipeline_dag.py")
     dag_source=text("dags/energy_pipeline_dag.py")
     assert "STREAM_RECON_ENABLED" in dag_source
