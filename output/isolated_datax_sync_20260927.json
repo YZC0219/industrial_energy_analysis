@@ -1,0 +1,65 @@
+{
+  "checked_at_utc": "2026-09-27T13:42:43.247029+00:00",
+  "mysql_database": "industrial_energy_datax_probe_20260927",
+  "hive_database": "energy_datax_probe_20260927",
+  "mysql_host": "192.168.21.1",
+  "mysql_port": "3307",
+  "hdfs_location": "hdfs://localhost:9000/warehouse/energy_datax_probe_20260927",
+  "phases": {
+    "full": {
+      "partition": "2025-12-31",
+      "rows": 2,
+      "versions": {
+        "1": {
+          "cost": "10.00",
+          "is_deleted": 0,
+          "updated_at": "2025-12-30 09:00:00"
+        },
+        "2": {
+          "cost": "20.00",
+          "is_deleted": 0,
+          "updated_at": "2025-12-30 09:00:00"
+        }
+      },
+      "success": true
+    },
+    "corrected": {
+      "partition": "2026-09-27",
+      "rows": 1,
+      "versions": {
+        "1": {
+          "cost": "17.00",
+          "is_deleted": 0,
+          "updated_at": "2026-09-27 11:00:00"
+        }
+      },
+      "success": true
+    },
+    "deleted": {
+      "partition": "2026-09-28",
+      "rows": 1,
+      "versions": {
+        "1": {
+          "cost": "17.00",
+          "is_deleted": 1,
+          "updated_at": "2026-09-28 09:00:00"
+        }
+      },
+      "success": true
+    },
+    "retry": {
+      "partition": "2026-09-28",
+      "rows": 1,
+      "versions": {
+        "1": {
+          "cost": "17.00",
+          "is_deleted": 1,
+          "updated_at": "2026-09-28 09:00:00"
+        }
+      },
+      "success": true
+    }
+  },
+  "success": true,
+  "scope": "real DataX MySQL-to-HDFS/Hive sync in isolated source and target DBs; Airflow and production tables untouched"
+}

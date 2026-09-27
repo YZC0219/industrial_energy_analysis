@@ -57,6 +57,7 @@ output/*
 !output/hive_scale_quality_20260927.json
 !output/hive_scale_tombstone_20260927.json
 !output/isolated_lakehouse_replay_20260927.json
+!output/isolated_datax_sync_20260927.json
 !output/engine_comparison.json
 !output/lakehouse_validation.json
 !output/pandas_daily.csv
