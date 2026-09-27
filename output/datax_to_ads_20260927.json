@@ -1,0 +1,51 @@
+{
+  "checked_at_utc": "2026-09-27T13:48:30.933696+00:00",
+  "database": "energy_datax_probe_20260927",
+  "spark_version": "3.5.1",
+  "master": "local[2]",
+  "ods_source": "real DataX sync from isolated MySQL database",
+  "sql_mode": "incremental by ODS partition, including initial snapshot",
+  "phases": {
+    "snapshot": {
+      "batch": "2025-12-31",
+      "business_date": "2024-03-15",
+      "dwd_rows": 2,
+      "stage_rows": 2,
+      "e01_cost": "10.00",
+      "e01_is_deleted": 0,
+      "e01_source_updated_at": "2025-12-30 09:00:00",
+      "dws_day_cost": "30.00",
+      "dws_month_cost": "30.00",
+      "ads_day_cost": "30.00",
+      "success": true
+    },
+    "corrected": {
+      "batch": "2026-09-27",
+      "business_date": "2024-03-15",
+      "dwd_rows": 2,
+      "stage_rows": 2,
+      "e01_cost": "17.00",
+      "e01_is_deleted": 0,
+      "e01_source_updated_at": "2026-09-27 11:00:00",
+      "dws_day_cost": "37.00",
+      "dws_month_cost": "37.00",
+      "ads_day_cost": "37.00",
+      "success": true
+    },
+    "deleted": {
+      "batch": "2026-09-28",
+      "business_date": "2024-03-15",
+      "dwd_rows": 2,
+      "stage_rows": 2,
+      "e01_cost": "17.00",
+      "e01_is_deleted": 1,
+      "e01_source_updated_at": "2026-09-28 09:00:00",
+      "dws_day_cost": "20.00",
+      "dws_month_cost": "20.00",
+      "ads_day_cost": "20.00",
+      "success": true
+    }
+  },
+  "success": true,
+  "scope": "isolated MySQL→DataX→HDFS/Hive ODS→DWD→DWS→ADS; no Airflow or production writes"
+}
