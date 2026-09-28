@@ -1,0 +1,50 @@
+{
+  "source_page": "https://huggingface.co/datasets/renumics/industrial-asset-level-electrical-energy-dataset",
+  "source_doi": "https://doi.org/10.5281/zenodo.19180972",
+  "license": "CC BY 4.0 (as stated in source data card and article)",
+  "retrieved_at_utc": "2026-09-28T08:05:20.388815+00:00",
+  "robots_checks": [
+    {
+      "url": "https://huggingface.co/robots.txt",
+      "http_status": 200,
+      "allowed": true,
+      "interpretation": "allowed by published robots.txt",
+      "sha256": "045c12bc2b5f1820752a5c149d2c96030ecfb8f32c42dd034cead715be277193"
+    },
+    {
+      "url": "https://us.aws.cdn.hf.co/robots.txt",
+      "http_status": 404,
+      "allowed": true,
+      "interpretation": "robots.txt unavailable; no crawl rules published",
+      "sha256": null
+    }
+  ],
+  "files": [
+    {
+      "file": "dim/dim_asset.parquet",
+      "size_bytes": 2623,
+      "sha256": "b0474d422ad117b39b251ac81165562529e67f70f31156e9ccf79d8436293574"
+    },
+    {
+      "file": "dim/dim_signal_info.parquet",
+      "size_bytes": 1234,
+      "sha256": "f7ac757c2c1c50a0295eaea831d8c9cdfa8d41e212d1dacd49d13bb04b8a8144"
+    },
+    {
+      "file": "dim/dim_observation_window.parquet",
+      "size_bytes": 14006,
+      "sha256": "2cdab0ed3a3aebfa4a6ad871ed0fa824b08bdcc8659420f4d88a21aacd288b23"
+    },
+    {
+      "file": "fact/fact_data_quality_event.parquet",
+      "size_bytes": 2444,
+      "sha256": "942da42a7d46efcb622bd39a33e6d3e4eeb116c06e548adc18294e51b31097ec"
+    },
+    {
+      "file": "fact/fact_energy_15m.parquet",
+      "size_bytes": 79461031,
+      "sha256": "c4946cd9909cbce5d215e261ce27a702b131b6337dfac69bae7ee9ff4148d19a"
+    }
+  ],
+  "note": "Mirror of Flynn et al. 2026 Gold-layer measured electricity data; no production volume, intervention, or measured post-project savings."
+}

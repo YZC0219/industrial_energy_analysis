@@ -1,0 +1,22 @@
+{
+  "source_url": "https://itac.university/storage/ITAC_Database.zip",
+  "source_page": "https://itac.university/download",
+  "retrieved_at_utc": "2026-09-28T07:52:45.878361+00:00",
+  "robots": {
+    "url": "https://itac.university/robots.txt",
+    "http_status": 200,
+    "allowed": true,
+    "interpretation": "allowed by published robots.txt",
+    "sha256": "e5c4b84484ee4216e9373be99380320c25dd94805f99f0a805846f087636553f"
+  },
+  "archive_sha256": "96aa83c44c9b7f2ac369be358b713f6778289e1afcfb51099a600dec17197214",
+  "archive_size_bytes": 16379516,
+  "members": [
+    {
+      "name": "ITAC_Database_20260927.xlsx",
+      "size_bytes": 16859414
+    }
+  ],
+  "note": "Official public ITAC assessment/recommendation download; source estimates and implementation status are not metered post-intervention outcomes.",
+  "workbook_sha256": "3ece8fc9ba8675c981613c1d4649666c9a35268e4228782ac8e5e563141bb06b"
+}
