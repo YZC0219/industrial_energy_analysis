@@ -255,7 +255,7 @@ docker compose up -d --build
 
 启动后打开 `http://localhost:8080`，使用 `admin / admin` 登录，在 DAG 列表中启用并触发 `energy_pipeline`。
 
-Airflow 镜像安装项目依赖时固定保留官方 2.10.5 镜像的 pandas/NumPy/cloudpickle 兼容组合，并安装 LightGBM 所需的 OpenMP 运行库；构建时同时执行 `pip check` 与模型库导入检查。2026-09-28 本机镜像重建及调度器/Web 服务健康检查已通过，但当前 MySQL 演示库只剩维表和水位线、缺少两张事实表及分析视图，因此**不能把容器健康等同于整条 DAG 可运行**。恢复前先核对数据卷和水位线；`--init --full` 会重建现有表，不能作为无检查的日常修复命令。
+Airflow 镜像安装项目依赖时固定保留官方 2.10.5 镜像的 pandas/NumPy/cloudpickle 兼容组合，并安装 LightGBM 所需的 OpenMP 运行库；构建时同时执行 `pip check` 与模型库导入检查。2026-09-28 本机先备份了缺少事实表的 MySQL 演示库，再以 `--init --full` 恢复 19,006 条能耗、5,848 条产量和 731 天日期维；29 条分析查询及 31 项快照/契约测试通过。Airflow 手工运行 `manual__mysql_recovery_20260928` 的 17 个 task 均成功，阶段二产物新鲜度验证通过。此次 `LAKEHOUSE_ENABLED=0`，Spark/Hive/DataX 任务仅走跳过路径，不能视为数仓 DAG 全链路验收。恢复前仍须核对数据卷和水位线，不能把会重建现有表的 `--init --full` 当作日常修复命令。
 
 编排环境包含 5 个服务：
 
