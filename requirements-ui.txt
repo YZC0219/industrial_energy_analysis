@@ -1,0 +1,2 @@
+# Optional Windows browser acceptance run; the core API/BI verifiers do not need it.
+playwright==1.63.0

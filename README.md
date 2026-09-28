@@ -584,13 +584,13 @@ python tests/update_baseline.py
 - [x] 增加只读 MySQL binlog CDC 前提检查；2026-09-26 当前 Compose 实例的 ROW/FULL binlog 可用，但事实表缺失，故[预检报告](output/mysql_cdc_readiness_20260926.json)明确为 FAIL，不把前提检查冒充物理删除 CDC。
 - [ ] 完成多节点 Kafka/Flink 高可用、MySQL 物理硬删除 CDC、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
-### 阶段四：服务化与可视化交付
+### 阶段四：服务化与可视化交付（本地核心交付已归档）
 
 **目标：** 降低项目复现成本，让分析结果可以被其他系统和业务用户直接使用。
 
 - [x] 为新增的大数据组件补充 Docker Compose 开发环境和分步启动文档；Kafka/Flink 使用可选 `streaming` profile。
 - [x] 使用 FastAPI 提供指标查询、异常明细和报告摘要接口，并补充接口测试与 OpenAPI 文档；接口只读消费最近一次成功生成的 Q 查询文件，不冒充实时查询。
-- [x] 接入开源 Metabase，使用 MySQL 最小权限只读账号访问分析视图；2026-09-25 已实测日期/车间联合筛选、94 行下钻与权限边界，复验命令为 `python -m tools.verify_bi_runtime`，脱敏验收快照见[运行报告](output/metabase_runtime_20260925.json)和[筛选截图](output/metabase_dashboard_filtered_20260925.png)；
+- [x] 接入开源 Metabase，使用 MySQL 最小权限只读账号访问分析视图；2026-09-28 数据库恢复后复验日期/车间联合筛选、93 行下钻与权限边界，Metabase 与 MySQL 均为 ¥375,635.34。归档证据见[运行报告](output/metabase_runtime_20260928.json)、[浏览器报告](output/metabase_browser_20260928.json)、[筛选截图](output/metabase_dashboard_filtered_20260928.png)和[下钻截图](output/metabase_drillthrough_20260928.png)；9 月 25 日的 94 行截图只代表当时的数据版本。
 - [x] 完善 Windows、Docker 两种运行方式的故障排查与答辩演示 runbook；论文/答辩引用的指标仍须与对应版本证据核对。
 
 FastAPI 本地启动、端点口径与错误语义见[阶段四服务说明](docs/阶段四_服务化与可视化交付.md)；Windows/Docker 故障排查、现场检查及 7 分钟演示顺序见[答辩演示 runbook](docs/Windows_Docker_故障排查与答辩演示.md)。服务启动后可在 `http://127.0.0.1:8000/docs` 查看交互式 OpenAPI 文档；认证、HTTPS 和实时数据库读取仍属于部署阶段工作。

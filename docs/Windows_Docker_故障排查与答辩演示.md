@@ -1,6 +1,6 @@
 # Windows / Docker 故障排查与答辩演示
 
-本文是本地复现和答辩现场 runbook。Metabase 已于 2026-09-25 在本机完成浏览器与权限验收；重新部署或换数据后仍需复验，Docker 命令是否成功以现场容器状态为准。
+本文是本地复现和答辩现场 runbook。Metabase 已于 2026-09-28 在 MySQL 恢复后重新完成浏览器与权限验收；重新部署或换数据后仍需复验，Docker 命令是否成功以现场容器状态为准。
 
 ## 演示前准备
 
@@ -85,6 +85,6 @@ docker compose stop
 
 - 本文中的命令是仓库配置对应的操作路径；`docker compose config --quiet` 通过只证明配置可解析，不代表当前机器上的镜像、容器或端口运行正常。
 - 2026-09-28 本机先将缺表演示库备份至 `D:\industrial_energy_backups\2026-09-28\pre_recovery_industrial_energy.sql`（SHA-256 `13A0F050C26549E0D89759763895BCD3F6A107A442BB37245FB7CAF465738836`），再恢复数据库。Airflow 新镜像的依赖/导入检查、29 条 SQL 查询、31 项快照/契约测试，以及手工 DAG run `manual__mysql_recovery_20260928` 的 17 个 task 均通过。此 run 的 `LAKEHOUSE_ENABLED=0`，数仓任务是显式跳过，不代表 Spark/Hive/DataX 全链路通过，也不代表之后每夜调度必定成功。
-- Metabase 的 UI、筛选、钻取和真实权限边界已在 2026-09-25 本机验收；仓库保留脱敏的 `output/metabase_runtime_20260925.json` 与筛选截图。答辩现场仍应重新运行验收脚本，自动化契约测试或旧截图不能证明当前实例仍正常。
+- Metabase 的 UI、筛选、93 行钻取和真实权限边界已在 2026-09-28 本机复验；仓库保留脱敏的 `output/metabase_runtime_20260928.json`、`output/metabase_browser_20260928.json` 与两张当日截图。9 月 25 日的 94 行截图仅为旧数据版本的历史记录；答辩现场仍应重新运行验收脚本，历史截图不能证明未来实例仍正常。
 - FastAPI 是只读文件服务，`/health` 只确认关键文件存在；它不证明 CSV 同批次、足够新或实时。
 - 模拟数据上的预测、异常和经济估算不能被表述为生产现场实测收益或已确认故障根因。
