@@ -67,6 +67,8 @@ docker compose logs --tail 100 mysql postgres airflow-init airflow-webserver air
 | 服务一直 `starting` / `unhealthy` | 查看对应服务日志；MySQL 首次初始化可能需要几十秒。等健康检查完成后再触发 DAG，不要重复删除数据库卷来“重置”。 |
 | 3307 端口映射失败 | 宿主机 3307 已被占用。先识别占用进程，再将 `docker-compose.yml` 的宿主端口改为未占用端口；容器间连接仍使用 `mysql:3306`。 |
 | Airflow DAG 看不到或任务导入失败 | 检查 `docker compose logs --tail 100 airflow-scheduler airflow-webserver`；确认 `dags/` 与项目目录按 Compose 挂载，改动后等待 scheduler 扫描完成。 |
+| `run_phase2` 报 `No module named lightgbm` 或模型库导入失败 | 旧 Airflow 镜像可能未包含阶段二依赖。执行 `docker compose build airflow-scheduler`，先用 `docker run --rm --entrypoint python industrial-energy-airflow:2.10.5 -m pip check` 和模型导入检查验证新镜像；确认没有运行中的任务后，再重建 Airflow 服务。不要仅凭 `pip check` 判断本机动态库齐全。 |
+| `ensure_mysql_soft_delete_schema` 报事实表不存在 | 先只读核对 `SHOW FULL TABLES` 和 `etl_watermark`；表缺失但水位线尚存时，常规增量会跳过历史数据。不要直接清卷，也不要无检查地运行会重建表的 `--init --full`。先确定数据卷来源、备份和允许的恢复范围。 |
 | 任务报告找不到 CSV | 本项目将宿主机 `./output` 挂载为 `/opt/airflow/project/output`，MySQL 装载容器也需要该只读路径。检查命令从项目根目录执行且文件确实存在。 |
 | Metabase 页面不可用 | 检查 `docker compose --profile bi ps` 和 `docker compose --profile bi logs --tail 100 metabase metabase-db`；恢复后运行 `python -m tools.verify_bi_runtime`。镜像首次拉取依赖网络。端口仅绑定 `127.0.0.1:3000`。不要用 `down -v` 删除配置库。 |
 | MySQL 数据源连接失败 | Metabase 容器中使用主机 `mysql`、端口 `3306`，不能填 `localhost`；确认 MySQL 健康、BI 只读账号已按阶段四文档创建。 |
@@ -82,6 +84,7 @@ docker compose stop
 ## 验收边界
 
 - 本文中的命令是仓库配置对应的操作路径；`docker compose config --quiet` 通过只证明配置可解析，不代表当前机器上的镜像、容器或端口运行正常。
+- 2026-09-28 本机 Airflow 新镜像的 `pip check`、LightGBM/scikit-learn/SHAP 导入、DAG 解析和两个服务健康检查已通过；当前 MySQL 演示库缺少事实表，完整生产 DAG 仍未通过，不能据此声称夜间调度成功。
 - Metabase 的 UI、筛选、钻取和真实权限边界已在 2026-09-25 本机验收；仓库保留脱敏的 `output/metabase_runtime_20260925.json` 与筛选截图。答辩现场仍应重新运行验收脚本，自动化契约测试或旧截图不能证明当前实例仍正常。
 - FastAPI 是只读文件服务，`/health` 只确认关键文件存在；它不证明 CSV 同批次、足够新或实时。
 - 模拟数据上的预测、异常和经济估算不能被表述为生产现场实测收益或已确认故障根因。

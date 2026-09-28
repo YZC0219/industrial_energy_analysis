@@ -6,9 +6,17 @@
 FROM apache/airflow:2.10.5-python3.11
 
 USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt /tmp/requirements.txt
-RUN chown airflow:0 /tmp/requirements.txt
+COPY docker/airflow/constraints.txt /tmp/airflow-constraints.txt
+RUN chown airflow:0 /tmp/requirements.txt /tmp/airflow-constraints.txt
 
 # 官方镜像的约定: pip install 以 airflow 用户执行, 避免 site-packages 权限错乱
 USER airflow
-RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm -f /tmp/requirements.txt
+RUN pip install --no-cache-dir "apache-airflow==2.10.5" \
+      -r /tmp/requirements.txt -c /tmp/airflow-constraints.txt \
+    && pip check \
+    && python -c "import lightgbm, sklearn, shap" \
+    && rm -f /tmp/requirements.txt /tmp/airflow-constraints.txt

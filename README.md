@@ -255,6 +255,8 @@ docker compose up -d --build
 
 启动后打开 `http://localhost:8080`，使用 `admin / admin` 登录，在 DAG 列表中启用并触发 `energy_pipeline`。
 
+Airflow 镜像安装项目依赖时固定保留官方 2.10.5 镜像的 pandas/NumPy/cloudpickle 兼容组合，并安装 LightGBM 所需的 OpenMP 运行库；构建时同时执行 `pip check` 与模型库导入检查。2026-09-28 本机镜像重建及调度器/Web 服务健康检查已通过，但当前 MySQL 演示库只剩维表和水位线、缺少两张事实表及分析视图，因此**不能把容器健康等同于整条 DAG 可运行**。恢复前先核对数据卷和水位线；`--init --full` 会重建现有表，不能作为无检查的日常修复命令。
+
 编排环境包含 5 个服务：
 
 | 服务 | 作用 |
