@@ -55,6 +55,10 @@ data/real/asset_energy/**/*.parquet
 data/real/asset_energy/**/*.part
 # 大部分 output/ 仍是可重建产物；阶段一真集群验收证据例外，随代码版本留存。
 output/*
+!output/phase5_itac/
+!output/phase5_asset_energy/
+!output/phase5_asset_review/
+output/phase5_asset_review/asset_daily_comparison.csv
 !output/spark_performance.jsonl
 !output/spark_scale_benchmark_20260926.jsonl
 !output/hive_soft_delete_runtime_20260927.json

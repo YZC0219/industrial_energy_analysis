@@ -607,11 +607,11 @@ FastAPI 本地启动、端点口径与错误语义见[阶段四服务说明](doc
 - [x] **完成真实数据工况诊断与复核队列：** 前 10 个月建立负荷类别、日型和日内时段匹配 P95，仅在最后两个月筛查高用能候选事件，并列出低功率因数复核线索；已明确标注为待人工核查的信号，不作为设备故障结论。
 - [x] **交付可复现求职案例：** 提供诊断摘要、方法、优先复核事件、措施方向、情景估算和数据边界；案例结论不超出 UCI 单厂数据能够支持的范围。
 - [x] **用 ITAC 真实工厂记录核算单耗与措施经济性估算：** DL0238 的年产量为 107,000 ton，年用电 43,731,684 kWh，电耗强度 408.71 kWh/ton；7 项建议中 5 项被记录实施，相关年节省估计合计 632,237 美元，成本估计合计 1,960,700 美元。状态与金额来自不同字段，金额并非实测效果。
-- [x] **用独立设备数据做计量质量筛查：** 43 个资产的 15 分钟电力记录中，806,490 个 ALL 相资产窗口通过本项目的可靠性与质量事件筛选；按资产输出可用窗口电量，不跨计量层级累加。
+- [x] **用独立设备数据做计量质量筛查与复核队列：** 43 个资产的 15 分钟电力记录中，806,490 个 ALL 相资产窗口通过可靠性与质量事件筛选；按 2025-11-01 前后时间切分，1,808 个可比资产日中筛出 22 个设备复核候选日。进线/配电/光伏表单独标注，不跨计量层级累加；候选信号不等于设备故障。
 - [ ] **形成可追溯的设备/工序异常归因：** 将同厂的设备、班次、工序、产量和实施事件关联到候选时段，区分异常信号和已确认原因。当前 ITAC、设备级数据与 UCI 分属不同工厂。
 - [ ] **核验实际措施效果：** 获得同厂措施实施日期及前后计量数据，控制产量、天气和产品结构影响，再估算实际净收益。ITAC 的回收期仅是工程估计值。
 
-实现和口径见[阶段五说明](docs/阶段五_能效基线与节能情景.md)。模拟数据车间基线入口为 `python tools/phase5_energy_assessment.py`；UCI 预测与诊断入口分别为 `python ml/uci_steel_experiment.py`、`python tools/phase5_real_data_diagnosis.py`；ITAC 下载与案例入口为 `python -m tools.fetch_itac_data`、`python -m tools.analyze_itac_assessment`；设备数据下载与分析入口为 `python -m tools.fetch_asset_energy_data`、`python -m tools.analyze_asset_energy`。所有公开数据下载均先核查 `robots.txt`，原始文件与 SHA-256 来源记录保存在 `data/real/`。各数据集独立分析，不拼接不同工厂的记录。
+实现和口径见[阶段五说明](docs/阶段五_能效基线与节能情景.md)。模拟数据车间基线入口为 `python tools/phase5_energy_assessment.py`；UCI 预测与诊断入口分别为 `python ml/uci_steel_experiment.py`、`python tools/phase5_real_data_diagnosis.py`；ITAC 下载与案例入口为 `python -m tools.fetch_itac_data`、`python -m tools.analyze_itac_assessment`；设备数据下载、资产汇总与复核入口分别为 `python -m tools.fetch_asset_energy_data`、`python -m tools.analyze_asset_energy`、`python -m tools.phase5_asset_review`。所有公开数据下载均先核查 `robots.txt`，原始文件与 SHA-256 来源记录保存在 `data/real/`。各数据集独立分析，不拼接不同工厂的记录。
 
 **职业能力对应：** 能源管理/节能咨询侧重基线核算、措施评估与效果验证；数据分析/BI 侧重指标口径、情景分析和决策表达；工业数字化侧重后续设备数据接入、异常闭环和分析服务化。
 

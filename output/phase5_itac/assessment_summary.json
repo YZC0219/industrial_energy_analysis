@@ -1,0 +1,23 @@
+{
+  "assessment_id": "DL0238",
+  "fiscal_year": 2024,
+  "state": "DE",
+  "naics": 311423,
+  "product": "packaged dry food products",
+  "annual_production": 107000.0,
+  "production_unit_code": 3,
+  "production_unit_for_case": "ton (confirmed on official assessment page)",
+  "annual_electricity_kwh": 43731684.0,
+  "annual_electricity_usage_cost_usd": 3123752.0,
+  "electricity_kwh_per_production_unit": 408.70732710280373,
+  "recommendations": 7,
+  "known_implementation_status": 7,
+  "implemented_status_count": 5,
+  "estimated_recommended_annual_savings_usd": 885725.0,
+  "estimated_implemented_annual_savings_usd": 632237.0,
+  "estimated_implemented_cost_usd": 1960700.0,
+  "source_page": "https://itac.university/assessment/DL0238",
+  "source_workbook_sha256": "3ece8fc9ba8675c981613c1d4649666c9a35268e4228782ac8e5e563141bb06b",
+  "generated_at_utc": "2026-09-28T10:23:04.697582+00:00",
+  "limit": "Savings and costs are ITAC engineering estimates. I means the measure was reported implemented; this workbook has no metered post-intervention consumption or dated before/after series."
+}

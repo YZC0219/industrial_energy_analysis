@@ -1,0 +1,40 @@
+{
+  "source": "https://huggingface.co/datasets/renumics/industrial-asset-level-electrical-energy-dataset",
+  "source_doi": "https://doi.org/10.5281/zenodo.19180972",
+  "source_provenance_sha256": "67097e2336262031a694ce549badeed57e7b87e01c3401615d62ea4c2777437a",
+  "asset_count": 43,
+  "all_phase_windows": 1039873,
+  "usable_windows": 806490,
+  "usable_share": 0.7756,
+  "quality_flagged_windows": 214776,
+  "negative_windows": 0,
+  "compressed_air_assets": [
+    {
+      "asset_id": "comp_a",
+      "asset_type": "CompressedAir",
+      "is_submeter": true,
+      "all_phase_windows": 21197,
+      "usable_windows": 21160,
+      "quality_flagged_windows": 0,
+      "negative_windows": 0,
+      "first_observation_utc": "2025-05-22 13:15:00",
+      "last_observation_utc": "2025-12-31 23:45:00",
+      "observed_usable_kwh": 68388.22,
+      "mean_kw_usable": 12.93
+    },
+    {
+      "asset_id": "comp_b",
+      "asset_type": "CompressedAir",
+      "is_submeter": true,
+      "all_phase_windows": 21164,
+      "usable_windows": 21163,
+      "quality_flagged_windows": 0,
+      "negative_windows": 0,
+      "first_observation_utc": "2025-05-22 13:15:00",
+      "last_observation_utc": "2025-12-31 23:45:00",
+      "observed_usable_kwh": 76378.72,
+      "mean_kw_usable": 14.44
+    }
+  ],
+  "interpretation": "Independent asset meter summaries; do not sum across meters as facility total. No production, intervention dates, costs, or measured savings are present."
+}

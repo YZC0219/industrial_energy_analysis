@@ -1,0 +1,19 @@
+{
+  "source": "https://huggingface.co/datasets/renumics/industrial-asset-level-electrical-energy-dataset",
+  "source_provenance_sha256": "67097e2336262031a694ce549badeed57e7b87e01c3401615d62ea4c2777437a",
+  "generated_at_utc": "2026-09-28T10:42:38.177662+00:00",
+  "baseline_end_exclusive": "2025-11-01",
+  "review_start_inclusive": "2025-11-01",
+  "min_daily_windows": 80,
+  "min_baseline_days_per_asset_daytype": 20,
+  "relative_threshold": 1.25,
+  "absolute_threshold_kw": 2.0,
+  "eligible_baseline_groups": 63,
+  "eligible_review_asset_days": 1808,
+  "all_threshold_crossings": 25,
+  "network_meter_crossings_excluded_from_equipment_queue": 3,
+  "review_candidates": 22,
+  "reviewed_assets": 31,
+  "candidate_assets": 5,
+  "interpretation": "Candidate deviation above historical P95, not measured waste, attainable savings, or confirmed equipment failure."
+}

@@ -1,0 +1,8 @@
+﻿recommendation_id,arc_code,description,implementation_status,estimated_annual_savings_usd,estimated_implementation_cost_usd,estimated_simple_payback_years,primary_resource_code,primary_resource_conserved,primary_cost_savings_usd,secondary_resource_code,secondary_resource_conserved,secondary_cost_savings_usd,source_page
+DL023801,2.4226,Use / purchase optimum sized compressor,I,236055.0,1860000.0,7.8795196034822395,EC,1511723,107332,ED,12876,128723,https://itac.university/assessment/DL0238
+DL023802,2.4224,Upgrade controls on compressors,I,21276.0,7300.0,0.34310960706899796,EC,236400,16784,ED,449,4492,https://itac.university/assessment/DL0238
+DL023803,2.4239,Eliminate or reduce compressed air usage,I,205595.0,34400.0,0.16731924414504243,EC,2295500,162981,ED,4262,42614,https://itac.university/assessment/DL0238
+DL023804,2.2113,Repair or replace steam traps,I,112874.0,37000.0,0.32779913886280276,E11,8784,112874,,,,https://itac.university/assessment/DL0238
+DL023805,2.2437,Recover waste heat from equipment,N,40888.0,180000.0,4.402269614556838,E11,3182,40888,,,,https://itac.university/assessment/DL0238
+DL023806,2.2135,Repair and eliminate steam leaks,I,56437.0,22000.0,0.3898151921611709,E11,4392,56437,,,,https://itac.university/assessment/DL0238
+DL023807,2.1392,Replace purchased steam with other energy source,N,212600.0,900000.0,4.233301975540922,E11,87840,1128744,E2,-109800,-916144,https://itac.university/assessment/DL0238
