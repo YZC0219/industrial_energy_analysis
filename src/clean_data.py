@@ -221,6 +221,21 @@ def build_calendar(min_date: str | date | None = None,
     return df
 
 
+def _deduplicate_by_updated_at(df: pd.DataFrame,
+                               key_cols: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """按业务键去重, 每组保留更新时间最新的一行; 时间打平时保留原顺序首行。"""
+    dup_mask = df.duplicated(subset=key_cols, keep=False)
+    ordered = df.loc[dup_mask].sort_values(
+        "updated_at", ascending=False, na_position="last", kind="stable")
+    dup_rows = ordered.loc[
+        ordered.duplicated(subset=key_cols, keep="first")
+    ].copy()
+    keep_idx = ordered.drop_duplicates(subset=key_cols, keep="first").index
+    dropped_idx = ordered.index.difference(keep_idx)
+    kept = df.loc[~df.index.isin(dropped_idx)].copy()
+    return kept, dup_rows
+
+
 def main() -> None:
     """执行完整清洗流程: 读取 -> 编码标定 -> 剔除 -> 修正 -> 结构化 -> 落盘 -> 出报告"""
     ap = argparse.ArgumentParser(
@@ -338,11 +353,8 @@ def main() -> None:
     # 相等的时间戳不打乱原有相对顺序, keep="first" 于是恰好等于原版 keep="first",
     # 使这次改动对既有数据集的去重结果零影响。
     key_cols = ["record_date", "workshop_code", "energy_code"]
-    dup_mask = df.duplicated(subset=key_cols, keep=False)
-    # NaT(缺 updated_at)排在最前, 保证有时间的版本优先胜出
-    ordered = df.loc[dup_mask].sort_values(
-        "updated_at", na_position="first", kind="stable")
-    dup_rows = ordered.loc[ordered.duplicated(subset=key_cols, keep="first")].copy()
+    # 降序排列, 最新时间排最前; NaT 放最后, 不让缺时间版本胜过有效时间。
+    df, dup_rows = _deduplicate_by_updated_at(df, key_cols)
     dup_rows["reject_reason"] = "业务键重复(日期×车间×能源)"
     rejects = pd.concat([rejects, dup_rows], ignore_index=True)
     stats["重复记录剔除"] = int(len(dup_rows))
@@ -350,11 +362,6 @@ def main() -> None:
     # rejects 是**留痕**日志, 除了被删的行, 还收了第 8 步那些"只置空、没删行"的
     # 离群记录, 两者混在一起会让合计虚高, 且与上方各项对不上。
     stats["剔除-合计"] = stats["剔除-合计"] + int(len(dup_rows))
-    # 保留每个业务键的首条(时间戳相同时取 df 顺序靠前者)
-    keep_idx = ordered.drop_duplicates(subset=key_cols, keep="first").index
-    dropped_idx = ordered.index.difference(keep_idx)
-    df = df.loc[~df.index.isin(dropped_idx)].copy()
-
     # ---- 8. 离群值处理 (Q3 + 3*IQR, 按 车间×能源 分组) ---------------------
     # 按 车间×能源 分组而非全表: 熔炼车间的天然气用量天然是包装车间的几十倍,
     # 混在一起算分位数的话, 所有高耗能车间都会被误判成离群。
