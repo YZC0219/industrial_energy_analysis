@@ -67,8 +67,8 @@ python -m tools.register_mysql_cdc --status
 
 ## 完成判定与限制
 
-这个提交只提供可选的源端配置，**未执行容器启动和真实硬删除试验**。
-启用后至少需要保存以下证据，才能把“源端物理删除 CDC”标为完成：
+2026-09-30 已启动隔离连接器，并完成真实物理删除及独立 Hive/Spark 投影验证，
+报告见本文末尾。**主业务数仓 DAG 尚未接入此连接器**。完整的业务源验收仍需：
 
 - 注册后 connector/task 均为 `RUNNING`；完整快照行数与源表同一时点一致。
 - 在隔离样本上执行物理 `DELETE`，核实源主题的 `op=d`、主键、`before`
@@ -82,6 +82,29 @@ python -m tools.register_mysql_cdc --status
 生产事实表上做演示性物理删除。
 
 ## 隔离的真实硬删除探针
+
+### MySQL 插件运行方式
+
+完整 Debezium 镜像首次下载较大。可以复用本项目的 `apache/kafka:3.9.1`
+及 Java 21，只安装固定版本的官方 MySQL 插件。文件均保存在项目所在的 D 盘，
+`cdc/plugins` 中的二进制依赖不进入 Git。下面的 SHA1 来自 Maven Central 的
+同名 `.sha1` 文件；不匹配时必须停止，不能解压启动。
+
+```powershell
+New-Item -ItemType Directory -Force -Path cdc/plugins, tmp | Out-Null
+curl.exe -fL --retry 5 -o tmp/debezium-mysql-3.6.0.Final-plugin.tar.gz https://repo.maven.apache.org/maven2/io/debezium/debezium-connector-mysql/3.6.0.Final/debezium-connector-mysql-3.6.0.Final-plugin.tar.gz
+if ((Get-FileHash tmp/debezium-mysql-3.6.0.Final-plugin.tar.gz -Algorithm SHA1).Hash.ToLower() -ne '431125792651e8a4217bc769f53b72a4b291c95e') { throw 'Plugin checksum mismatch' }
+tar -xzf tmp/debezium-mysql-3.6.0.Final-plugin.tar.gz -C cdc/plugins
+docker compose -f docker-compose.yml -f docker-compose.cdc.yml -f docker-compose.cdc-plugin.yml --profile streaming --profile cdc up -d debezium-connect
+```
+
+先执行下述 `--prepare`，再启动连接器。使用插件方式后，后续启动、重启命令也
+需要保留第三个 `-f docker-compose.cdc-plugin.yml`，否则会切回完整镜像。
+两种方式复用相同的 Kafka Connect 配置、offset 和 schema history 主题，
+一次只运行一种方式。schema history 保持单分区、无限保留，禁止日志压缩；
+Connect 自身的配置、offset、状态主题使用日志压缩。
+
+参考：[Debezium 官方插件安装](https://debezium.io/documentation/reference/stable/install.html)。
 
 `tools.verify_mysql_cdc_probe` 使用单独的 `industrial_energy_cdc_probe` 库、
 `energy_cdc_probe` 账号、`energy-cdc-probe.*` 主题和本地 SQLite 投影。
@@ -107,8 +130,39 @@ python -m tools.verify_mysql_cdc_probe --run --output output/mysql_cdc_probe_YYY
 输出 JSON 和 SQLite 文件默认保存在 `D:\industrial_energy_analysis\output`；
 更换报告文件名可以重跑，脚本拒绝覆盖旧证据。
 
-仍需单独实现并验收 Debezium 事件转项目事件契约，以及 Hive/Spark DWD、DWS、
-ADS 的硬删除传播。上述探针的通过结果只覆盖所列隔离路径。
+仍需单独实现并验收 Debezium 事件转项目事件契约，以及主业务 Hive/Spark
+DWD、DWS、ADS 的硬删除传播。上述探针的通过结果只覆盖所列隔离路径。
+
+## 2026-09-30 实机证据
+
+运行方式为 Kafka 3.9.1 / Java 21 加 Debezium MySQL 3.6.0.Final 插件；
+源端是 Windows Docker 中的 MySQL 8.0，仓库端为原有 Linux VM 的 Spark 3.5.1
+和 HDFS。没有修改业务事实表或现有 Airflow DAG。
+
+| 检查 | 结果 | 证据 |
+| --- | --- | --- |
+| 真实 INSERT → 物理 DELETE → Kafka tombstone | PASS；源表 0 行，SQLite 投影 1 → 0，完整重放后 0 | [源端报告](../output/mysql_cdc_probe_20260930193749.json) |
+| 重启连接器后再次执行真实删除，并重放重启前删除的记录 | PASS；connector/task RUNNING，新旧探针删除后及完整重放后均 0 | [重启后报告](../output/mysql_cdc_probe_restart_20260930193749.json) |
+| 将捕获的真实 CDC 行镜像写入独立 Hive ODS/DWD/DWS | PASS；有效行数 1 → 0 → 0，DWD 保留删除标记 | [Hive 报告](../output/mysql_cdc_hive_projection_20260930193749.json) |
+
+Hive 校验使用 `tools/verify_cdc_hive_projection.py`，读取源端报告里的真实
+行镜像、Kafka 分区/offset 和 binlog 位点，按单分区 Kafka offset 判定最新版本。
+它不是直接订阅 Kafka 的生产消费任务；源端报告的 SHA256 写入 Hive 报告，
+用于关联证据。ODS 中保留重放事件，DWD/DWS 中删除行不会恢复为有效行。
+
+在虚拟机项目目录中，以适配 Spark 的 Python 3.11 执行：
+
+```bash
+PYSPARK_PYTHON=/path/to/python3.11 PYSPARK_DRIVER_PYTHON=/path/to/python3.11 \
+  /usr/local/spark/bin/spark-submit --master 'local[2]' tools/verify_cdc_hive_projection.py \
+  --evidence output/mysql_cdc_probe_20260930193749.json \
+  --database energy_cdc_probe_YYYYMMDDHHMMSS \
+  --output output/mysql_cdc_hive_projection_YYYYMMDDHHMMSS.json
+```
+
+数据库后缀必须替换为新的 14 位时间戳。脚本拒绝复用已有数据库、HDFS 路径
+或输出文件。全量快照一致性、断网期间的删除恢复、主业务契约转换、ADS 传播、
+schema 演进、多分区排序和多节点 HA 均未由这三份报告覆盖。
 
 参考：[Debezium MySQL connector](https://debezium.io/documentation/reference/stable/connectors/mysql.html)、
 [Kafka Connect 配置提供者](https://docs.confluent.io/platform/current/connect/userguide.html#externalizing-secrets)。

@@ -1,0 +1,83 @@
+{
+  "checked_at_utc": "2026-09-30T11:37:55.362383+00:00",
+  "success": true,
+  "scope": "isolated MySQL hard delete -> Debezium/Kafka -> SQLite projection; not Hive/Spark",
+  "source_database": "industrial_energy_cdc_probe",
+  "topic": "energy-cdc-probe.industrial_energy_cdc_probe.fact_energy_consumption",
+  "probe_id": 4328504631994973379,
+  "marker": "cdc-probe-2cff0457df85e60c5caf6647",
+  "connector_status": {
+    "name": "energy-mysql-cdc-probe",
+    "connector": {
+      "state": "RUNNING",
+      "worker_id": "debezium-connect:8083"
+    },
+    "tasks": [
+      {
+        "id": 0,
+        "state": "RUNNING",
+        "worker_id": "debezium-connect:8083"
+      }
+    ],
+    "type": "source"
+  },
+  "events": [
+    {
+      "kind": "insert",
+      "partition": 0,
+      "offset": 0,
+      "key": {
+        "id": 4328504631994973379
+      },
+      "before": null,
+      "after": {
+        "id": 4328504631994973379,
+        "marker": "cdc-probe-2cff0457df85e60c5caf6647",
+        "updated_at": 1790768274145801
+      },
+      "op": "c",
+      "source": {
+        "file": "binlog.000008",
+        "pos": 126857,
+        "row": 0
+      }
+    },
+    {
+      "kind": "delete",
+      "partition": 0,
+      "offset": 1,
+      "key": {
+        "id": 4328504631994973379
+      },
+      "before": {
+        "id": 4328504631994973379,
+        "marker": "cdc-probe-2cff0457df85e60c5caf6647",
+        "updated_at": 1790768274145801
+      },
+      "after": null,
+      "op": "d",
+      "source": {
+        "file": "binlog.000008",
+        "pos": 127226,
+        "row": 0
+      }
+    },
+    {
+      "kind": "tombstone",
+      "partition": 0,
+      "offset": 2,
+      "key": {
+        "id": 4328504631994973379
+      },
+      "before": null,
+      "after": null,
+      "op": null,
+      "source": null
+    }
+  ],
+  "source_rows_after_delete": 0,
+  "downstream_rows_before_delete": 1,
+  "downstream_rows_after_delete": 0,
+  "downstream_rows_after_full_replay": 0,
+  "downstream_state": "output\\mysql_cdc_probe_20260930193749.sqlite"
+}

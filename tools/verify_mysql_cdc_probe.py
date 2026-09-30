@@ -13,6 +13,7 @@ import sqlite3
 import subprocess
 import time
 from datetime import datetime, timezone
+from http.client import HTTPException
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 
@@ -112,13 +113,22 @@ def wait_connector(connect_url: str, timeout_seconds: int) -> dict:
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"Kafka Connect REST stayed at HTTP {exc.code}")
             time.sleep(2)
-        except URLError:
+        except (URLError, HTTPException, TimeoutError):
             if time.monotonic() >= deadline:
                 raise TimeoutError("Kafka Connect REST did not become available")
             time.sleep(2)
     last = {}
     while time.monotonic() < deadline:
-        last = request_json(base + "/status", "GET")
+        try:
+            last = request_json(base + "/status", "GET")
+        except HTTPError as exc:
+            if exc.code not in (409, 503):
+                raise
+            time.sleep(2)
+            continue
+        except (URLError, HTTPException, TimeoutError):
+            time.sleep(2)
+            continue
         if (last.get("connector", {}).get("state") == "RUNNING"
                 and last.get("tasks")
                 and all(task.get("state") == "RUNNING" for task in last["tasks"])):

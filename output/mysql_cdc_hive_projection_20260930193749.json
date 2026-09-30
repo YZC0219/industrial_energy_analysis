@@ -1,0 +1,34 @@
+{
+  "checked_at_utc": "2026-09-30T11:38:46.824819+00:00",
+  "success": true,
+  "database": "energy_cdc_probe_20260930193749",
+  "location": "hdfs://localhost:9000/warehouse/energy_cdc_probe_20260930193749",
+  "spark_version": "3.5.1",
+  "source_topic": "energy-cdc-probe.industrial_energy_cdc_probe.fact_energy_consumption",
+  "source_evidence_sha256": "36f9db0fffc3ef7ff56fa97fb1f0fef3f9539be54cb2c76252f13e5e8d0251db",
+  "phases": {
+    "insert": {
+      "active_rows": 1,
+      "deleted_rows": 0,
+      "latest_kafka_offset": 0,
+      "ods_event_rows": 1,
+      "success": true
+    },
+    "physical_delete": {
+      "active_rows": 0,
+      "deleted_rows": 1,
+      "latest_kafka_offset": 1,
+      "ods_event_rows": 2,
+      "success": true
+    },
+    "full_replay": {
+      "active_rows": 0,
+      "deleted_rows": 1,
+      "latest_kafka_offset": 1,
+      "ods_event_rows": 4,
+      "success": true
+    }
+  },
+  "scope": "actual MySQL/Debezium/Kafka evidence -> isolated Hive ODS/DWD/DWS projection; production DAG not connected",
+  "ordering": "one source topic partition; Kafka offset, not deleted row updated_at"
+}

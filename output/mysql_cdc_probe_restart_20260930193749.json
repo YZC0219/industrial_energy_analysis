@@ -1,0 +1,94 @@
+{
+  "checked_at_utc": "2026-09-30T11:38:06.753594+00:00",
+  "success": true,
+  "scope": "isolated MySQL hard delete -> Debezium/Kafka -> SQLite projection; not Hive/Spark",
+  "source_database": "industrial_energy_cdc_probe",
+  "topic": "energy-cdc-probe.industrial_energy_cdc_probe.fact_energy_consumption",
+  "probe_id": 3455604334795184513,
+  "marker": "cdc-probe-8f7d36cef79a9f671dcbe017",
+  "connector_status": {
+    "name": "energy-mysql-cdc-probe",
+    "connector": {
+      "state": "RUNNING",
+      "worker_id": "debezium-connect:8083"
+    },
+    "tasks": [
+      {
+        "id": 0,
+        "state": "RUNNING",
+        "worker_id": "debezium-connect:8083"
+      }
+    ],
+    "type": "source"
+  },
+  "events": [
+    {
+      "kind": "insert",
+      "partition": 0,
+      "offset": 3,
+      "key": {
+        "id": 3455604334795184513
+      },
+      "before": null,
+      "after": {
+        "id": 3455604334795184513,
+        "marker": "cdc-probe-8f7d36cef79a9f671dcbe017",
+        "updated_at": 1790768284227847
+      },
+      "op": "c",
+      "source": {
+        "file": "binlog.000008",
+        "pos": 127607,
+        "row": 0
+      }
+    },
+    {
+      "kind": "delete",
+      "partition": 0,
+      "offset": 4,
+      "key": {
+        "id": 3455604334795184513
+      },
+      "before": {
+        "id": 3455604334795184513,
+        "marker": "cdc-probe-8f7d36cef79a9f671dcbe017",
+        "updated_at": 1790768284227847
+      },
+      "after": null,
+      "op": "d",
+      "source": {
+        "file": "binlog.000008",
+        "pos": 127976,
+        "row": 0
+      }
+    },
+    {
+      "kind": "tombstone",
+      "partition": 0,
+      "offset": 5,
+      "key": {
+        "id": 3455604334795184513
+      },
+      "before": null,
+      "after": null,
+      "op": null,
+      "source": null
+    }
+  ],
+  "source_rows_after_delete": 0,
+  "downstream_rows_before_delete": 1,
+  "downstream_rows_after_delete": 0,
+  "downstream_rows_after_full_replay": 0,
+  "downstream_state": "output\\mysql_cdc_probe_restart_20260930193749.sqlite",
+  "prior_delete_after_connector_restart": {
+    "success": true,
+    "source_evidence_sha256": "36f9db0fffc3ef7ff56fa97fb1f0fef3f9539be54cb2c76252f13e5e8d0251db",
+    "source_rows": 0,
+    "full_replay_rows": 0,
+    "kafka_offsets": [
+      0,
+      1,
+      2
+    ]
+  }
+}

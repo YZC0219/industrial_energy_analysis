@@ -47,3 +47,23 @@ def test_insert_delete_and_tombstone_clear_downstream_state():
     assert [item["offset"] for item in seen] == [10, 11, 12]
     assert decode(b'{"payload":{"id":42}}') == {"id": 42}
     state.close()
+
+
+def test_connector_wait_retries_connection_closed_during_startup(monkeypatch):
+    from http.client import RemoteDisconnected
+    from tools import verify_mysql_cdc_probe as probe
+
+    running = {"connector": {"state": "RUNNING"},
+               "tasks": [{"state": "RUNNING"}]}
+    responses = iter([RemoteDisconnected("starting"), {},
+                      RemoteDisconnected("rebalancing"), running])
+
+    def request(*_):
+        response = next(responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(probe, "request_json", request)
+    monkeypatch.setattr(probe.time, "sleep", lambda _: None)
+    assert probe.wait_connector("http://localhost:8083", 2) == running

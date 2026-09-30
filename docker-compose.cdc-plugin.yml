@@ -1,0 +1,20 @@
+# Optional smaller alternative: existing Kafka image + MySQL-only Debezium plugin.
+# First download/extract the pinned plugin into cdc/plugins (see CDC documentation).
+services:
+  debezium-connect:
+    image: apache/kafka:3.9.1
+    entrypoint: ["/bin/sh"]
+    command: ["-c", "exec /opt/kafka/bin/connect-distributed.sh /opt/connect-worker.properties"]
+    volumes:
+      - type: bind
+        source: ./cdc/connect-worker.properties
+        target: /opt/connect-worker.properties
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./cdc/plugins
+        target: /opt/connect-plugins
+        read_only: true
+        bind:
+          create_host_path: false
