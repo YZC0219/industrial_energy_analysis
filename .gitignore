@@ -58,6 +58,14 @@ output/*
 !output/phase5_itac/
 !output/phase5_asset_energy/
 !output/phase5_asset_review/
+!output/phase5_assessment/
+!output/phase5_real_data/
+!output/paper/
+output/paper/*
+!output/paper/uci_steel/
+output/paper/uci_steel/*
+!output/paper/uci_steel/uci_steel_experiment_summary.json
+!output/paper/uci_steel/uci_steel_ablation_by_fold.csv
 output/phase5_asset_review/asset_daily_comparison.csv
 !output/spark_performance.jsonl
 !output/spark_scale_benchmark_20260926.jsonl

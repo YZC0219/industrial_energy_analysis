@@ -1,0 +1,307 @@
+{
+  "dataset": {
+    "name": "Steel Industry Energy Consumption",
+    "source": "UCI Machine Learning Repository",
+    "doi": "10.24432/C52G8C",
+    "license": "CC BY 4.0",
+    "sha256": "9b1cee6f9cb9cd9df2b95814ca90a9a2ff15b7f5f1fba0fae3c643e82072eacc",
+    "aggregation": "sum of 96 quarter-hour Usage_kWh observations per calendar day",
+    "limitations": [
+      "single steel facility",
+      "one calendar year",
+      "no measured production quantity",
+      "15-minute records are not independent plants"
+    ]
+  },
+  "integrity": {
+    "raw_rows": 35040,
+    "raw_columns": [
+      "date",
+      "Usage_kWh",
+      "Lagging_Current_Reactive.Power_kVarh",
+      "Leading_Current_Reactive_Power_kVarh",
+      "CO2(tCO2)",
+      "Lagging_Current_Power_Factor",
+      "Leading_Current_Power_Factor",
+      "NSM",
+      "WeekStatus",
+      "Day_of_week",
+      "Load_Type"
+    ],
+    "first_timestamp": "2018-01-01 00:00:00",
+    "last_timestamp": "2018-12-31 23:45:00",
+    "timestamp_duplicates": 0,
+    "non_15m_intervals": 0,
+    "daily_rows": 365,
+    "daily_interval_min": 96,
+    "daily_interval_max": 96,
+    "missing_values": 0
+  },
+  "protocol": {
+    "warmup_days": 28,
+    "initial_train_days": 120,
+    "test_days": 30,
+    "step_days": 30,
+    "folds": 7,
+    "test_samples_per_model": 210,
+    "forecast": "next-day daily energy; rolling single step",
+    "seasonal_naive": "7-day lag baseline",
+    "synthetic_protocol_directly_reused": false,
+    "inference": "daily paired loss differences; non-circular moving-block bootstrap; 20,000 replicates; exploratory",
+    "block_lengths_days": [
+      7,
+      14,
+      30
+    ]
+  },
+  "metrics": [
+    {
+      "model": "lightgbm",
+      "samples": 210,
+      "mae": 769.8517434886528,
+      "rmse": 1039.1940152879563
+    },
+    {
+      "model": "seasonal_naive_7d",
+      "samples": 210,
+      "mae": 869.6187142857143,
+      "rmse": 1167.4597927949628
+    }
+  ],
+  "fold_metrics": [
+    {
+      "model": "lightgbm",
+      "fold": 1,
+      "mae": 718.4653141968864,
+      "rmse": 944.2762318468706
+    },
+    {
+      "model": "lightgbm",
+      "fold": 2,
+      "mae": 580.3306279515708,
+      "rmse": 825.5928837740789
+    },
+    {
+      "model": "lightgbm",
+      "fold": 3,
+      "mae": 795.7586134822252,
+      "rmse": 1119.9746039140334
+    },
+    {
+      "model": "lightgbm",
+      "fold": 4,
+      "mae": 666.2396250865019,
+      "rmse": 976.0549370345958
+    },
+    {
+      "model": "lightgbm",
+      "fold": 5,
+      "mae": 784.5013150760641,
+      "rmse": 1040.8668362582562
+    },
+    {
+      "model": "lightgbm",
+      "fold": 6,
+      "mae": 622.9078380866905,
+      "rmse": 860.0649748971067
+    },
+    {
+      "model": "lightgbm",
+      "fold": 7,
+      "mae": 1220.7588705406306,
+      "rmse": 1398.5944060783934
+    },
+    {
+      "model": "seasonal_naive_7d",
+      "fold": 1,
+      "mae": 624.9803333333333,
+      "rmse": 835.7126780239724
+    },
+    {
+      "model": "seasonal_naive_7d",
+      "fold": 2,
+      "mae": 808.3096666666667,
+      "rmse": 1099.9442983609063
+    },
+    {
+      "model": "seasonal_naive_7d",
+      "fold": 3,
+      "mae": 1246.364,
+      "rmse": 1629.8631939644504
+    },
+    {
+      "model": "seasonal_naive_7d",
+      "fold": 4,
+      "mae": 798.0759999999999,
+      "rmse": 1085.8330026850354
+    },
+    {
+      "model": "seasonal_naive_7d",
+      "fold": 5,
+      "mae": 925.2043333333334,
+      "rmse": 1183.8036331771134
+    },
+    {
+      "model": "seasonal_naive_7d",
+      "fold": 6,
+      "mae": 909.8786666666667,
+      "rmse": 1200.876898870155
+    },
+    {
+      "model": "seasonal_naive_7d",
+      "fold": 7,
+      "mae": 774.518,
+      "rmse": 976.4526234897421
+    }
+  ],
+  "ablation_summary": [
+    {
+      "ablation": "full",
+      "mae_mean": 769.8517434886527,
+      "mae_sd": 214.12216678459,
+      "rmse_mean": 1023.6321248290478,
+      "rmse_sd": 193.52446916687126
+    },
+    {
+      "ablation": "without_calendar",
+      "mae_mean": 735.6691388141913,
+      "mae_sd": 123.72318701976616,
+      "rmse_mean": 971.2905153974624,
+      "rmse_sd": 181.28109053404006
+    },
+    {
+      "ablation": "without_monthly_history",
+      "mae_mean": 819.3612875873217,
+      "mae_sd": 260.57207204243866,
+      "rmse_mean": 1083.9308348000034,
+      "rmse_sd": 247.14591207735197
+    },
+    {
+      "ablation": "without_recent_history",
+      "mae_mean": 921.891811881277,
+      "mae_sd": 305.1607100120762,
+      "rmse_mean": 1175.4985482376082,
+      "rmse_sd": 257.6345672243435
+    }
+  ],
+  "paired_daily_effects": [
+    {
+      "comparison": "without_recent_history",
+      "paired_dates": 210,
+      "mean_daily_mae_delta": 152.04006839262428,
+      "moving_block_bootstrap_95ci_by_days": {
+        "7": [
+          80.81122904625708,
+          216.15930989447932
+        ],
+        "14": [
+          78.74293339547854,
+          216.63964166749537
+        ],
+        "30": [
+          70.20859715230762,
+          210.89175670469405
+        ]
+      }
+    },
+    {
+      "comparison": "without_monthly_history",
+      "paired_dates": 210,
+      "mean_daily_mae_delta": 49.509544098668954,
+      "moving_block_bootstrap_95ci_by_days": {
+        "7": [
+          19.701900211749276,
+          85.1468837694101
+        ],
+        "14": [
+          7.886670823118528,
+          91.25181727384359
+        ],
+        "30": [
+          -4.151504640481917,
+          84.16180632085172
+        ]
+      }
+    },
+    {
+      "comparison": "without_calendar",
+      "paired_dates": 210,
+      "mean_daily_mae_delta": -34.18260467446147,
+      "moving_block_bootstrap_95ci_by_days": {
+        "7": [
+          -136.29782757807294,
+          78.4602031536705
+        ],
+        "14": [
+          -145.4545977465471,
+          94.46155637436529
+        ],
+        "30": [
+          -120.52139745726919,
+          104.34940242977677
+        ]
+      }
+    }
+  ],
+  "shap": {
+    "method": "TreeSHAP",
+    "first_test_fold_sample_n": 30,
+    "global_importance": [
+      {
+        "feature": "dow_sin",
+        "mean_abs_shap": 795.4760065009408,
+        "mean_shap": -1.0888278706828032
+      },
+      {
+        "feature": "lag_1",
+        "mean_abs_shap": 296.2059801164187,
+        "mean_shap": -100.6807212733084
+      },
+      {
+        "feature": "mean_7",
+        "mean_abs_shap": 200.89330726755105,
+        "mean_shap": 180.50773863475823
+      },
+      {
+        "feature": "day_cos",
+        "mean_abs_shap": 160.29223203160038,
+        "mean_shap": -160.29223203160038
+      },
+      {
+        "feature": "weekend",
+        "mean_abs_shap": 134.39100915136018,
+        "mean_shap": -1.2164364094331006
+      },
+      {
+        "feature": "day_sin",
+        "mean_abs_shap": 123.05932897429203,
+        "mean_shap": 123.05932897429203
+      },
+      {
+        "feature": "lag_28",
+        "mean_abs_shap": 80.27598555717252,
+        "mean_shap": 18.48533811714674
+      },
+      {
+        "feature": "dow_cos",
+        "mean_abs_shap": 58.337491901690605,
+        "mean_shap": -26.779245839877394
+      },
+      {
+        "feature": "lag_7",
+        "mean_abs_shap": 56.357847494690844,
+        "mean_shap": 21.702916445447766
+      },
+      {
+        "feature": "lag_4",
+        "mean_abs_shap": 53.85948888977642,
+        "mean_shap": -5.0068519231705375
+      },
+      {
+        "feature": "mean_28",
+        "mean_abs_shap": 22.866683775872502,
+        "mean_shap": 22.866683775872502
+      }
+    ]
+  }
+}

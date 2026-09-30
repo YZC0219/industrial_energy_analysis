@@ -1,0 +1,23 @@
+{
+  "source_file": "data/real/uci_steel_energy/Steel_industry_data.csv",
+  "source_sha256": "9b1cee6f9cb9cd9df2b95814ca90a9a2ff15b7f5f1fba0fae3c643e82072eacc",
+  "rows": 35040,
+  "timestamp_start": "2018-01-01T00:00:00",
+  "timestamp_end": "2018-12-31T23:45:00",
+  "baseline_period": "2018-01-01 through 2018-10-31",
+  "evaluation_period": "2018-11-01 through 2018-12-31",
+  "evaluation_rows": 5856,
+  "timestamp_duplicates": 0,
+  "non_15_minute_gaps": 0,
+  "minimum_peer_sample_count": 20,
+  "screening_method": "January-October baseline empirical 95th percentile within Load_Type × WeekStatus × quarter-hour-of-day, applied to November-December holdout",
+  "scenario_basis": "share of candidate measured kWh excess over matched peer P95",
+  "tariff_yuan_per_kwh": null,
+  "limitations": [
+    "single facility and one calendar year",
+    "Load_Type and time matching are observational strata, not causal controls",
+    "high-use candidates are review signals, not confirmed faults or avoidable energy",
+    "no production quantity, equipment map, intervention records, or tariff supplied",
+    "scenario savings are sensitivities; they are not measured savings or ROI"
+  ]
+}

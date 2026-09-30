@@ -10,7 +10,6 @@ import argparse
 import hashlib
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 
 # The input is small; one BLAS thread keeps the standalone run usable when
@@ -136,7 +135,7 @@ def run(input_path: Path, output_dir: Path, tariff_yuan_per_kwh: float | None = 
     pf_review.to_csv(output_dir / "power_factor_review_queue.csv", index=False, encoding="utf-8-sig")
     scenario_df.to_csv(output_dir / "candidate_savings_scenarios.csv", index=False, encoding="utf-8-sig")
     provenance = {
-        "source_file": str(input_path),
+        "source_file": input_path.as_posix(),
         "source_sha256": _sha256(input_path),
         "rows": int(len(raw)),
         "timestamp_start": raw.timestamp.min().isoformat(),
@@ -150,7 +149,6 @@ def run(input_path: Path, output_dir: Path, tariff_yuan_per_kwh: float | None = 
         "screening_method": "January-October baseline empirical 95th percentile within Load_Type × WeekStatus × quarter-hour-of-day, applied to November-December holdout",
         "scenario_basis": "share of candidate measured kWh excess over matched peer P95",
         "tariff_yuan_per_kwh": tariff_yuan_per_kwh,
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "limitations": [
             "single facility and one calendar year",
             "Load_Type and time matching are observational strata, not causal controls",
