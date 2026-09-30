@@ -1,0 +1,50 @@
+# Optional source-only MySQL CDC experiment. Use together with docker-compose.yml:
+# docker compose -f docker-compose.yml -f docker-compose.cdc.yml --profile streaming --profile cdc up -d mysql kafka cdc-topics-init debezium-connect
+# This override does not change the default project stack or energy-events.
+services:
+  cdc-topics-init:
+    image: apache/kafka:3.9.1
+    profiles: [cdc]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - |
+        set -e
+        for topic in energy-cdc-connect-configs energy-cdc-connect-offsets energy-cdc-connect-statuses energy-cdc-schema-history; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+        done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-cdc.industrial_energy.fact_energy_consumption --partitions 1 --replication-factor 1
+    restart: "no"
+
+  debezium-connect:
+    image: quay.io/debezium/connect:3.6
+    profiles: [cdc]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      cdc-topics-init:
+        condition: service_completed_successfully
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: energy-cdc-connect
+      CONFIG_STORAGE_TOPIC: energy-cdc-connect-configs
+      OFFSET_STORAGE_TOPIC: energy-cdc-connect-offsets
+      STATUS_STORAGE_TOPIC: energy-cdc-connect-statuses
+      CONNECT_CONFIG_PROVIDERS: file
+      CONNECT_CONFIG_PROVIDERS_FILE_CLASS: org.apache.kafka.common.config.provider.FileConfigProvider
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+    ports:
+      - "127.0.0.1:8083:8083"
+    volumes:
+      - type: bind
+        source: ./cdc/secrets/connect-secrets.properties
+        target: /opt/connect-secrets.properties
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: unless-stopped
