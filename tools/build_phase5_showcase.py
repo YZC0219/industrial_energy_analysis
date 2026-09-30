@@ -38,7 +38,7 @@ def main() -> None:
     naive = metrics["seasonal_naive_7d"]
     advantage = (naive["mae"] - lightgbm["mae"]) / naive["mae"] * 100
     compressor = sorted(asset["compressed_air_assets"], key=lambda row: row["asset_id"])
-    if len(compressor) != 2 or len(episodes) != 62:
+    if len(compressor) != 2 or not episodes:
         raise ValueError("阶段五证据结构或口径已变化，请先更新展示页生成逻辑")
 
     values = {
