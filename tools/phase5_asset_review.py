@@ -10,7 +10,7 @@ import csv
 import hashlib
 import json
 import os
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 
@@ -141,7 +141,6 @@ def main() -> None:
     result = {
         "source": provenance["source_page"],
         "source_provenance_sha256": digest(provenance_path),
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "baseline_end_exclusive": CUTOFF.isoformat(),
         "review_start_inclusive": CUTOFF.isoformat(),
         "min_daily_windows": MIN_DAILY_WINDOWS,

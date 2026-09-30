@@ -142,10 +142,10 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 ```text
 industrial_energy_analysis/
 ├─ dags/
-│  └─ energy_pipeline_dag.py       # Airflow 五任务 DAG
+│  └─ energy_pipeline_dag.py       # Airflow 主链路与可选数仓/流批分支
 ├─ .github/workflows/
 │  └─ build-pages-report.yml       # 自动生成并发布 GitHub Pages 报告
-├─ data/                            # 本地生成的原始数据
+├─ data/                            # 模拟原始数据与独立公开数据来源记录
 ├─ datax/                           # MySQL→Hive 全量/增量同步模板与入口
 ├─ docker/
 │  └─ airflow/Dockerfile
@@ -157,7 +157,7 @@ industrial_energy_analysis/
 │  ├─ 系统设计文档.md
 │  ├─ 测试文档.md
 │  └─ 问题发现与工程复盘.md
-├─ output/                          # 本地生成的清洗、分析和报告产物
+├─ output/                          # 清洗、分析、报告产物及少量归档证据
 ├─ sql/
 │  ├─ create_table.sql              # 建库、维表、事实表和视图
 │  └─ analysis.sql                  # Q01～Q29 分析查询
@@ -187,7 +187,7 @@ industrial_energy_analysis/
 └─ requirements.txt
 ```
 
-`data/raw_energy_data.csv` 和 `output/` 下的文件都是可复现产物，因此我没有把它们继续纳入版本控制。运行下面的流程即可重新生成。
+`data/raw_energy_data.csv` 等生成物默认不入库；少量阶段一验收和阶段五案例结果作为可审阅证据保留在 `output/`。阶段五原始 ITAC 工作簿与设备 Parquet 文件在本机 D 盘，下载入口与哈希记录见[阶段五说明](docs/阶段五_能效基线与节能情景.md)。
 
 ## 快速开始
 
@@ -195,9 +195,18 @@ industrial_energy_analysis/
 
 环境要求：Python 3.9+、MySQL 8.0+。
 
-```bash
-pip install -r requirements.txt
+Windows PowerShell 下将虚拟环境和依赖缓存放在项目所在的 D 盘：
 
+```powershell
+python -m venv D:\industrial_energy_analysis\.venv
+$env:PIP_CACHE_DIR = 'D:\industrial_energy_analysis\.pip-cache'
+D:\industrial_energy_analysis\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+安装后在同一环境执行主链路：
+
+```bash
 # 1. 生成带脏数据的原始 CSV
 python src/generate_data.py
 

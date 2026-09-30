@@ -11,7 +11,6 @@ import csv
 import hashlib
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -116,7 +115,6 @@ def analyze(input_path: Path, output_dir: Path, assessment_id: str = CASE_ID) ->
         "estimated_implemented_cost_usd": sum(row["estimated_implementation_cost_usd"] for row in implemented),
         "source_page": f"https://itac.university/assessment/{assessment_id}",
         "source_workbook_sha256": sha256(input_path),
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "limit": "Savings and costs are ITAC engineering estimates. I means the measure was reported implemented; this workbook has no metered post-intervention consumption or dated before/after series.",
     }
     output_dir.mkdir(parents=True, exist_ok=True)

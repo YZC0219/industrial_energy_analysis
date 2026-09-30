@@ -1,7 +1,6 @@
 {
   "source": "https://huggingface.co/datasets/renumics/industrial-asset-level-electrical-energy-dataset",
   "source_provenance_sha256": "67097e2336262031a694ce549badeed57e7b87e01c3401615d62ea4c2777437a",
-  "generated_at_utc": "2026-09-28T10:42:38.177662+00:00",
   "baseline_end_exclusive": "2025-11-01",
   "review_start_inclusive": "2025-11-01",
   "min_daily_windows": 80,
