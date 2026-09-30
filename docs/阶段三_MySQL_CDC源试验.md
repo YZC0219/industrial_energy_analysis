@@ -135,6 +135,10 @@ DWD、DWS、ADS 的硬删除传播。上述探针的通过结果只覆盖所列�
 
 ## 2026-09-30 实机证据
 
+后续已增加[CDC 业务数仓入口与验收](阶段三_CDC业务数仓接入.md)：业务事实结构的
+真实删除已通过原项目 DWD/DWS/ADS SQL，包含旧插入消息追加重放与部分失败恢复。
+该入口改用 binlog 坐标判定版本；本节早期最小探针仍只覆盖其明确列出的隔离路径。
+
 运行方式为 Kafka 3.9.1 / Java 21 加 Debezium MySQL 3.6.0.Final 插件；
 源端是 Windows Docker 中的 MySQL 8.0，仓库端为原有 Linux VM 的 Spark 3.5.1
 和 HDFS。没有修改业务事实表或现有 Airflow DAG。

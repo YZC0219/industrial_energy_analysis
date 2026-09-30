@@ -59,3 +59,5 @@ Dockerfile  text eol=lf
 # CDC reports contain SHA256 links to the exact captured source bytes.
 output/mysql_cdc_probe*.json -text
 output/mysql_cdc_hive_projection*.json -text
+output/mysql_cdc_snapshot*.json -text
+output/mysql_cdc_business*.json -text

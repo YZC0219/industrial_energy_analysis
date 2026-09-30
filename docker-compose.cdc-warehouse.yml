@@ -1,0 +1,17 @@
+# Opt-in environment for the paused CDC warehouse DAG. Does not activate it.
+x-cdc-warehouse-env: &cdc-warehouse-env
+  CDC_WAREHOUSE_ENABLED: ${CDC_WAREHOUSE_ENABLED:-0}
+  CDC_EXCLUSIVE_SOURCE_CONFIRMED: ${CDC_EXCLUSIVE_SOURCE_CONFIRMED:-0}
+  CDC_CONNECTOR: ${CDC_CONNECTOR:-energy-mysql-cdc}
+  CDC_SOURCE_TOPIC: ${CDC_SOURCE_TOPIC:-energy-cdc.industrial_energy.fact_energy_consumption}
+  CDC_BOOTSTRAP: ${CDC_BOOTSTRAP:-kafka:9092}
+  CDC_CONNECT_URL: ${CDC_CONNECT_URL:-http://debezium-connect:8083}
+  CDC_PYSPARK_PYTHON: ${CDC_PYSPARK_PYTHON:-}
+  CDC_SPARK_MASTER: ${CDC_SPARK_MASTER:-local[2]}
+  SPARK_SUBMIT: ${SPARK_SUBMIT:-/usr/local/spark/bin/spark-submit}
+
+services:
+  airflow-scheduler:
+    environment: *cdc-warehouse-env
+  airflow-webserver:
+    environment: *cdc-warehouse-env

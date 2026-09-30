@@ -7,6 +7,11 @@ from tools import check_mysql_cdc_readiness as readiness
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_preflight_uses_the_actual_star_schema_business_columns():
+    assert {'workshop_code', 'energy_code'} <= readiness.REQUIRED_COLUMNS
+    assert not {'workshop_id', 'energy_id'} & readiness.REQUIRED_COLUMNS
+
+
 def test_preflight_queries_are_read_only():
     assert readiness.VARIABLES_SQL.startswith("SHOW VARIABLES")
     assert readiness.BINLOG_STATUS_SQL.startswith("SHOW ")

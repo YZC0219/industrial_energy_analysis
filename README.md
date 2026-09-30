@@ -10,7 +10,7 @@
 
 当前数据集覆盖 **8 个车间、6 种能源、731 天**。项目重点是让数据链路可复现、分析口径可解释、结果能够相互核验：关键环节由业务规则、数据恒等式、查询快照和端到端测试共同验证。
 
-**项目进展：**阶段一至阶段四的核心能力已落地，阶段三已验证隔离链路的真实物理删除与 Hive 投影，主业务 CDC 接入和多节点高可用仍待完成。阶段五已交付模拟数据的年度基线与节能情景、UCI 钢厂负荷诊断，并新增 ITAC 真实工厂产量及措施评估案例和独立设备级用电筛查。真实措施效果验证仍需同厂的实施日期与改造前后计量数据。各阶段的完成边界和证据见下方架构与路线图。
+**项目进展：**阶段一至阶段四的核心能力已落地，阶段三已验证隔离链路的真实物理删除与 Hive 投影，主业务 CDC 部署切换和多节点高可用仍待完成。阶段五已交付模拟数据的年度基线与节能情景、UCI 钢厂负荷诊断，并新增 ITAC 真实工厂产量及措施评估案例和独立设备级用电筛查。真实措施效果验证仍需同厂的实施日期与改造前后计量数据。各阶段的完成边界和证据见下方架构与路线图。
 
 ## 项目亮点
 
@@ -97,6 +97,8 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 ### 阶段三：数据质量与实时管道（单机实时验收完成，工程化增强进行中）
 
 阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 的 Docker 实机复跑验证了正常告警、checkpoint 恢复、迟到/DELETE/无效业务值路由和中文字段；[当次报告](output/streaming_experiment_20260925_utf8.json)保留原始证据。2026-09-26 增加原始 Kafka 字节隔离链路，验证坏 UTF-8/JSON、未知 `schema_version`、不可解析的 UPSERT 数值、三个非法时间/日期字段、不符合 `Wnn`/`Enn` 格式的业务键、非法 `op`、空 `event_id` 和空 `unit`；同窗口故障注入确认坏样本不会污染正常费用聚合，非法时间的 DELETE 和非法操作的迟到事件不会泄漏到业务旁路。最新[事件元数据复跑报告](output/streaming_experiment_metadata_20260926.json)记录十四条坏样本和正常 3 条／155 元告警。这些检查不覆盖所有字段类型转换和 schema 演进。已提供默认关闭的 [MySQL CDC 源端试验入口](docs/阶段三_MySQL_CDC源试验.md)，2026-09-30 已通过真实 MySQL 物理删除、Kafka tombstone、连接器重启后再次删除，以及真实 CDC 行镜像到独立 Hive ODS/DWD/DWS 的删除与重放核验；[源端报告](output/mysql_cdc_probe_20260930193749.json)、[Hive 报告](output/mysql_cdc_hive_projection_20260930193749.json)已归档，尚未接入主流程。流批对账仍须同范围完整事件历史；主业务硬删 CDC、多节点高可用和自动回补仍未完成，不能把单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
+
+进一步已交付[CDC 业务数仓入口](docs/阶段三_CDC业务数仓接入.md)：真实业务结构的物理删除通过项目原有 DWD/DWS/ADS SQL，费用在三层均为 **30 → 37 → 20 元**；旧插入消息追加重放后仍为 20 元，部分失败后的旧快照被拒绝、新快照可重跑修复。[验收报告](output/mysql_cdc_business_warehouse_20260930203846.json)已归档。新增 `energy_cdc_warehouse` 调度入口默认暂停，原有流程保持运行方式；主库部署切换及新 DAG 调度实跑仍待完成。
 
 ```mermaid
 flowchart LR
@@ -595,6 +597,7 @@ python tests/update_baseline.py
 - [x] Airflow 增加默认关闭的 `reconcile_stream_batch` 质量门禁；只有部署方具备完整同范围 CDC topic 并显式启用后才阻断下游，当前演示 topic 不满足启用前提。
 - [x] 增加只读 MySQL binlog CDC 前提检查；2026-09-26 当前 Compose 实例的 ROW/FULL binlog 可用，但事实表缺失，故[预检报告](output/mysql_cdc_readiness_20260926.json)明确为 FAIL，不把前提检查冒充物理删除 CDC。
 - [x] 提供默认关闭、独立主题的 [MySQL CDC 源端试验入口](docs/阶段三_MySQL_CDC源试验.md)：Kafka Connect / Debezium 配置、专用账号与文件口令说明、注册和状态查询脚本。2026-09-30 已实机验证隔离库的物理删除、Kafka tombstone、完整重放、连接器重启后再次删除，以及独立 Hive ODS/DWD/DWS 投影；不接入现有 `energy-events` 与数仓主流程。
+- [x] 增加独立 CDC 业务快照与主业务数仓 SQL 入口：按 binlog 坐标判定版本，保留旧业务键 tombstone，核验 DWD/DWS/ADS 删除指标、旧插入追加重放、部分失败恢复与水位线回退保护；[实机证据](output/mysql_cdc_business_warehouse_20260930203846.json)通过。新 DAG 默认暂停，主库切换尚未执行。
 - [ ] 完成多节点 Kafka/Flink 高可用、主业务 MySQL 物理硬删除 CDC 接入、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
 ### 阶段四：服务化与可视化交付（本地核心交付已归档）

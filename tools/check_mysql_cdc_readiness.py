@@ -29,7 +29,7 @@ COLUMNS_SQL = (
     "AND TABLE_NAME='fact_energy_consumption'"
 )
 BINLOG_STATUS_SQL = "SHOW MASTER STATUS"
-REQUIRED_COLUMNS = {"id", "record_date", "workshop_id", "energy_id", "updated_at"}
+REQUIRED_COLUMNS = {"id", "record_date", "workshop_code", "energy_code", "updated_at"}
 
 
 def _query(sql: str) -> list[list[str]]:

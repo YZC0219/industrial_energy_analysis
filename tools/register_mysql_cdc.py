@@ -26,6 +26,8 @@ CONNECTOR_CONFIG = {
     "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
     "schema.history.internal.kafka.topic": "energy-cdc-schema-history",
     "snapshot.mode": "initial",
+    "decimal.handling.mode": "string",
+    "time.precision.mode": "connect",
     "tombstones.on.delete": "true",
     "include.schema.changes": "false",
 }

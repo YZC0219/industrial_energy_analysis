@@ -1,0 +1,170 @@
+{
+  "schema_version": 2,
+  "topic": "energy-cdc-business-20260930203846.industrial_energy_cdc_business_20260930203846.fact_energy_consumption",
+  "partition": 0,
+  "start_offset": 0,
+  "end_offset": 2,
+  "source_database": "industrial_energy_cdc_business_20260930203846",
+  "source_table": "fact_energy_consumption",
+  "complete_history": true,
+  "ordering": "binlog file sequence/position/row; Kafka offset freezes capture boundary; source updated_at is not rewritten",
+  "rows": [
+    {
+      "id": 1,
+      "record_date": "2024-03-15",
+      "workshop_code": "W01",
+      "energy_code": "E01",
+      "consumption": "1.000",
+      "unit": "unit",
+      "unit_price": "10.0000",
+      "cost": "10.00",
+      "record_status": "normal",
+      "avg_temperature": "20.00",
+      "data_source": "cdc-probe",
+      "is_production_day": 1,
+      "updated_at": "2025-12-30 09:00:00",
+      "is_deleted": 0
+    },
+    {
+      "id": 2,
+      "record_date": "2024-03-15",
+      "workshop_code": "W01",
+      "energy_code": "E02",
+      "consumption": "2.000",
+      "unit": "unit",
+      "unit_price": "10.0000",
+      "cost": "20.00",
+      "record_status": "normal",
+      "avg_temperature": "20.00",
+      "data_source": "cdc-probe",
+      "is_production_day": 1,
+      "updated_at": "2025-12-30 09:00:00",
+      "is_deleted": 0
+    }
+  ],
+  "row_offsets": [
+    0,
+    1
+  ],
+  "binlog_prefix": "binlog",
+  "row_binlog_versions": [
+    [
+      8,
+      134373,
+      0,
+      1
+    ],
+    [
+      8,
+      134373,
+      1,
+      1
+    ]
+  ],
+  "events": [
+    {
+      "topic": "energy-cdc-business-20260930203846.industrial_energy_cdc_business_20260930203846.fact_energy_consumption",
+      "partition": 0,
+      "offset": 0,
+      "key": {
+        "id": 1
+      },
+      "value": {
+        "before": null,
+        "after": {
+          "id": 1,
+          "record_date": 19797,
+          "workshop_code": "W01",
+          "energy_code": "E01",
+          "consumption": "1.000",
+          "unit": "unit",
+          "unit_price": "10.0000",
+          "cost": "10.00",
+          "record_status": "normal",
+          "avg_temperature": "20.00",
+          "data_source": "cdc-probe",
+          "is_production_day": 1,
+          "updated_at": 1767085200000,
+          "is_deleted": 0
+        },
+        "source": {
+          "version": "3.6.0.Final",
+          "connector": "mysql",
+          "name": "energy-cdc-business-20260930203846",
+          "ts_ms": 1790771931000,
+          "snapshot": "false",
+          "db": "industrial_energy_cdc_business_20260930203846",
+          "sequence": null,
+          "ts_us": 1790771931000000,
+          "ts_ns": 1790771931000000000,
+          "table": "fact_energy_consumption",
+          "server_id": 1,
+          "gtid": null,
+          "file": "binlog.000008",
+          "pos": 134373,
+          "row": 0,
+          "thread": 705,
+          "query": null
+        },
+        "transaction": null,
+        "op": "c",
+        "ts_ms": 1790771931321,
+        "ts_us": 1790771931321534,
+        "ts_ns": 1790771931321534130
+      }
+    },
+    {
+      "topic": "energy-cdc-business-20260930203846.industrial_energy_cdc_business_20260930203846.fact_energy_consumption",
+      "partition": 0,
+      "offset": 1,
+      "key": {
+        "id": 2
+      },
+      "value": {
+        "before": null,
+        "after": {
+          "id": 2,
+          "record_date": 19797,
+          "workshop_code": "W01",
+          "energy_code": "E02",
+          "consumption": "2.000",
+          "unit": "unit",
+          "unit_price": "10.0000",
+          "cost": "20.00",
+          "record_status": "normal",
+          "avg_temperature": "20.00",
+          "data_source": "cdc-probe",
+          "is_production_day": 1,
+          "updated_at": 1767085200000,
+          "is_deleted": 0
+        },
+        "source": {
+          "version": "3.6.0.Final",
+          "connector": "mysql",
+          "name": "energy-cdc-business-20260930203846",
+          "ts_ms": 1790771931000,
+          "snapshot": "false",
+          "db": "industrial_energy_cdc_business_20260930203846",
+          "sequence": null,
+          "ts_us": 1790771931000000,
+          "ts_ns": 1790771931000000000,
+          "table": "fact_energy_consumption",
+          "server_id": 1,
+          "gtid": null,
+          "file": "binlog.000008",
+          "pos": 134373,
+          "row": 1,
+          "thread": 705,
+          "query": null
+        },
+        "transaction": null,
+        "op": "c",
+        "ts_ms": 1790771931322,
+        "ts_us": 1790771931322462,
+        "ts_ns": 1790771931322462207
+      }
+    }
+  ],
+  "captured_at_utc": "2026-09-30T12:38:51.835395+00:00",
+  "raw_events_sha256": "3b5edf5994c64b1de4ed69c03c1bc76a6ecaeb9d2d5f9780acbbb94cb6d7328c"
+}

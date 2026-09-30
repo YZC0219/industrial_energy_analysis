@@ -7,6 +7,7 @@ the SSH channel's stdin, never through a shell command argument or log line.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -44,7 +45,7 @@ def remote_environment(environ: dict[str, str]) -> dict[str, str]:
         raise ValueError("invalid remote MySQL port")
     if not re.fullmatch(r"[A-Za-z0-9_]+", mysql_db):
         raise ValueError("invalid MySQL database")
-    return {
+    variables = {
         "MYSQL_HOST": mysql_host,
         "MYSQL_PORT": mysql_port,
         "MYSQL_USER": environ["MYSQL_USER"],
@@ -59,6 +60,10 @@ def remote_environment(environ: dict[str, str]) -> dict[str, str]:
         "DATAX_ENTRY": "/home/yzc/apps/datax/bin/datax.py",
         "DATAX_PYTHON": "/usr/bin/python3",
     }
+    for key in ('CDC_PYSPARK_PYTHON', 'CDC_SPARK_MASTER', 'SPARK_SUBMIT'):
+        if environ.get(key):
+            variables[key] = environ[key]
+    return variables
 
 
 def remote_script(command: str, *, project: str, expected_sha: str,
@@ -87,7 +92,55 @@ def redact(line: str, secrets: tuple[str, ...]) -> str:
     return line
 
 
-def run(command: str) -> int:
+def cdc_input_path(path: Path) -> tuple[Path, str]:
+    resolved = path.resolve()
+    relative = resolved.relative_to(ROOT.resolve()).as_posix()
+    if not re.fullmatch(r'output/mysql_cdc_snapshot_[A-Za-z0-9_-]+\.json', relative):
+        raise ValueError('Only project output/mysql_cdc_snapshot_*.json may be uploaded')
+    from tools.export_mysql_cdc_batch import project
+    doc = json.loads(resolved.read_text(encoding='utf-8'))
+    rebuilt = project(doc['events'], doc['topic'], doc['end_offset'])
+    if any(doc.get(key) != value for key, value in rebuilt.items()):
+        raise ValueError('CDC upload does not match complete source history')
+    return resolved, relative
+
+
+def upload_cdc_snapshot(client, path: Path, project: str, expected_sha: str) -> str:
+    local, relative = cdc_input_path(path)
+    # Check the remote checkout before writing even the new input file.
+    check = remote_script('true', project=project, expected_sha=expected_sha, variables={})
+    channel = client.get_transport().open_session()
+    try:
+        channel.exec_command('bash -se')
+        channel.sendall(check.encode('utf-8'))
+        channel.shutdown_write()
+        if channel.recv_exit_status() != 0:
+            raise ValueError('VM checkout differs; refusing CDC input upload')
+    finally:
+        channel.close()
+    digest = hashlib.sha256(local.read_bytes()).hexdigest()
+    destination = project.rstrip('/') + '/' + relative
+    with client.open_sftp() as sftp:
+        try:
+            existing = sftp.open(destination, 'rb')
+        except FileNotFoundError:
+            existing = None
+        if existing is not None:
+            with existing:
+                if hashlib.sha256(existing.read()).hexdigest() != digest:
+                    raise ValueError('Remote CDC input exists with different bytes')
+        else:
+            import uuid
+            temporary = destination + '.part-' + uuid.uuid4().hex
+            sftp.put(str(local), temporary)
+            with sftp.open(temporary, 'rb') as uploaded:
+                if hashlib.sha256(uploaded.read()).hexdigest() != digest:
+                    raise ValueError('Uploaded CDC input checksum differs')
+            sftp.rename(temporary, destination)
+    return f"printf '%s  %s\\n' {shlex.quote(digest)} {shlex.quote(relative)} | sha256sum -c - && "
+
+
+def run(command: str, input_file: Path | None = None) -> int:
     import paramiko
 
     host = os.environ["LAKEHOUSE_SSH_HOST"]
@@ -98,8 +151,9 @@ def run(command: str) -> int:
     if not key.is_file() or not known_hosts.is_file():
         raise ValueError("mounted SSH key and known_hosts must exist")
     variables = remote_environment(os.environ)
+    expected_sha = checkout_sha()
     script = remote_script(command, project=project,
-                           expected_sha=checkout_sha(), variables=variables)
+                           expected_sha=expected_sha, variables=variables)
     client = paramiko.SSHClient()
     client.load_host_keys(str(known_hosts))
     client.set_missing_host_key_policy(paramiko.RejectPolicy())
@@ -107,6 +161,10 @@ def run(command: str) -> int:
         client.connect(host, username=user, key_filename=str(key),
                        look_for_keys=False, allow_agent=False, timeout=10,
                        auth_timeout=10, banner_timeout=10)
+        if input_file is not None:
+            prefix = upload_cdc_snapshot(client, input_file, project, expected_sha)
+            script = remote_script(prefix + command, project=project,
+                                   expected_sha=expected_sha, variables=variables)
         channel = client.get_transport().open_session()
         channel.set_combine_stderr(True)
         channel.exec_command("bash -se")
@@ -135,10 +193,11 @@ def run(command: str) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--command", required=True)
+    parser.add_argument('--input', type=Path, help='validated immutable CDC snapshot to upload before execution')
     parser.add_argument("--report", type=Path,
                         help="optional non-secret JSON outcome for a read-only smoke check")
     args = parser.parse_args()
-    exit_code = run(args.command)
+    exit_code = run(args.command, args.input)
     if args.report:
         report = {
             "checked_at_utc": datetime.now(timezone.utc).isoformat(),
