@@ -174,6 +174,10 @@ def consume_until(consumer, row_id: int, marker: str, state: sqlite3.Connection,
                 state.commit()
                 seen.append({"kind": kind, "partition": record.partition,
                              "offset": record.offset,
+                             "key": key,
+                             "before": None if value is None else value.get("before"),
+                             "after": None if value is None else value.get("after"),
+                             "op": None if value is None else value.get("op"),
                              "source": None if value is None else {
                                  "file": value.get("source", {}).get("file"),
                                  "pos": value.get("source", {}).get("pos"),
@@ -220,7 +224,20 @@ def run(output: Path, *, bootstrap: str, connect_url: str,
         after_count = state.execute("SELECT COUNT(*) FROM projection WHERE id=?", (row_id,)).fetchone()[0]
         source_count = int(mysql(f"SELECT COUNT(*) FROM {PROBE_DB}.fact_energy_consumption "
                                  f"WHERE id={row_id};"))
-        success = before_count == 1 and after_count == 0 and source_count == 0
+        replay_state = sqlite3.connect(":memory:")
+        replay_state.execute("CREATE TABLE projection (id INTEGER PRIMARY KEY, marker TEXT NOT NULL)")
+        replay_consumer = KafkaConsumer(PROBE_TOPIC, bootstrap_servers=[bootstrap],
+                                       auto_offset_reset="earliest", enable_auto_commit=False,
+                                       group_id=None)
+        replay_events: list[dict] = []
+        try:
+            consume_until(replay_consumer, row_id, marker, replay_state, replay_events,
+                          {"insert", "delete", "tombstone"}, timeout_seconds)
+            replay_count = replay_state.execute("SELECT COUNT(*) FROM projection").fetchone()[0]
+        finally:
+            replay_consumer.close()
+            replay_state.close()
+        success = before_count == 1 and after_count == 0 and source_count == 0 and replay_count == 0
         report = {"checked_at_utc": datetime.now(timezone.utc).isoformat(),
                   "success": success, "scope": "isolated MySQL hard delete -> Debezium/Kafka -> SQLite projection; not Hive/Spark",
                   "source_database": PROBE_DB, "topic": PROBE_TOPIC,
@@ -228,6 +245,7 @@ def run(output: Path, *, bootstrap: str, connect_url: str,
                   "events": seen, "source_rows_after_delete": source_count,
                   "downstream_rows_before_delete": before_count,
                   "downstream_rows_after_delete": after_count,
+                  "downstream_rows_after_full_replay": replay_count,
                   "downstream_state": str(state_path)}
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return report

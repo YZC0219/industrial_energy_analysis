@@ -8,6 +8,15 @@
 
 ## 启用前
 
+Windows 本机可使用 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/start_docker_desktop.ps1`
+启动 Docker。该入口先检查引擎；只在日志确认 Secrets Engine 的遗留 socket 错误时，
+通过现有 Ubuntu WSL 将仅含零字节 socket 的临时目录改名保留，再启动 Desktop。
+它拒绝处理含其它文件的目录，启动日志写入 `D:\Docker\desktop-startup.log`。
+这处理的是 Docker Desktop 的已知 Windows 启动缺陷，不涉及镜像/卷的重置。
+当前机器已设置用户登录启动项 `IndustrialEnergyDockerRecovery`，并创建
+`D:\Docker\Start Docker Desktop.lnk`。若要停用自动启动，可以删除这个同名用户启动项；
+脚本依赖现有 `Ubuntu` WSL 和本机 Docker 安装路径。
+
 1. 确认 Docker 的镜像和卷实际存储在 `D:\`。本试验会拉取 Debezium 镜像，
    也会写入已有的 MySQL/Kafka 卷；若 Docker Desktop 的数据盘仍在 `C:\`，
    先不要运行下面的 `up`。本仓库不修改 Docker Desktop 的全局存储设置。
