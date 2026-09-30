@@ -3,6 +3,7 @@
 [![Build GitHub Pages report](https://github.com/YZC0219/industrial_energy_analysis/actions/workflows/build-pages-report.yml/badge.svg)](https://github.com/YZC0219/industrial_energy_analysis/actions/workflows/build-pages-report.yml)
 
 **在线演示：** [工业能耗可视化报告](https://yzc0219.github.io/industrial_energy_analysis/)　·　
+**真实数据案例：** [阶段五独立展示页](docs/phase5.html)　·　
 **技术文档：** [系统设计](docs/系统设计文档.md)　·　[指标字典](docs/指标字典.md)　·　[工程复盘](docs/问题发现与工程复盘.md)
 
 这是一个面向制造企业能源管理场景的个人数据项目，覆盖**数据工程、能源分析、预测建模与可视化交付**。项目从带质量问题的原始数据出发，经过可追溯清洗、MySQL 星型模型、29 组 SQL 分析、异常检测和 Airflow 调度，最终生成可交互的分析报告。
@@ -620,7 +621,7 @@ FastAPI 本地启动、端点口径与错误语义见[阶段四服务说明](doc
 - [ ] **形成可追溯的设备/工序异常归因：** 将同厂的设备、班次、工序、产量和实施事件关联到候选时段，区分异常信号和已确认原因。当前 ITAC、设备级数据与 UCI 分属不同工厂。
 - [ ] **核验实际措施效果：** 获得同厂措施实施日期及前后计量数据，控制产量、天气和产品结构影响，再估算实际净收益。ITAC 的回收期仅是工程估计值。
 
-实现和口径见[阶段五说明](docs/阶段五_能效基线与节能情景.md)。模拟数据车间基线入口为 `python tools/phase5_energy_assessment.py`；UCI 预测与诊断入口分别为 `python ml/uci_steel_experiment.py`、`python tools/phase5_real_data_diagnosis.py`；ITAC 下载与案例入口为 `python -m tools.fetch_itac_data`、`python -m tools.analyze_itac_assessment`；设备数据下载、资产汇总与复核入口分别为 `python -m tools.fetch_asset_energy_data`、`python -m tools.analyze_asset_energy`、`python -m tools.phase5_asset_review`。所有公开数据下载均先核查 `robots.txt`，原始文件与 SHA-256 来源记录保存在 `data/real/`。各数据集独立分析，不拼接不同工厂的记录。
+实现和口径见[阶段五说明](docs/阶段五_能效基线与节能情景.md)，对外展示见[独立案例页](docs/phase5.html)。模拟数据车间基线入口为 `python tools/phase5_energy_assessment.py`；UCI 预测与诊断入口分别为 `python ml/uci_steel_experiment.py`、`python tools/phase5_real_data_diagnosis.py`；ITAC 下载与案例入口为 `python -m tools.fetch_itac_data`、`python -m tools.analyze_itac_assessment`；设备数据下载、资产汇总与复核入口分别为 `python -m tools.fetch_asset_energy_data`、`python -m tools.analyze_asset_energy`、`python -m tools.phase5_asset_review`。案例页由已归档证据通过 `python -m tools.build_phase5_showcase` 生成。所有公开数据下载均先核查 `robots.txt`，原始文件与 SHA-256 来源记录保存在 `data/real/`。各数据集独立分析，不拼接不同工厂的记录。
 
 **职业能力对应：** 能源管理/节能咨询侧重基线核算、措施评估与效果验证；数据分析/BI 侧重指标口径、情景分析和决策表达；工业数字化侧重后续设备数据接入、异常闭环和分析服务化。
 
