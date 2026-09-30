@@ -97,3 +97,9 @@ sync_current_dimensions → capture_complete_cdc → apply_cdc_dwd_dws_ads
 调度端到端运行尚未执行**。不得让新 DAG 和原 DataX 能耗写入同时运行。
 数仓多表写入不是跨表事务，运行失败时可能出现暂时不一致；执行意图与成功后才
 推进的提交水位线用于阻止回退并允许重跑，消费方仍应遵循成功发布门禁。
+
+[Airflow 状态报告](../output/mysql_cdc_business_dag_import_20260930.json)记录实际
+metadata database 中的暂停状态。另使用现有 Airflow 镜像的 Paramiko，对
+独立 VM Git checkout 实测 SHA 固定、快照上传、相同文件重复上传及内容冲突拒绝；
+[SSH 输入报告](../output/mysql_cdc_business_ssh_input_20260930.json)保留测试的 Git SHA
+与源快照 SHA256。这是输入传输验证，没有执行生产 DAG 或改动原 VM checkout。

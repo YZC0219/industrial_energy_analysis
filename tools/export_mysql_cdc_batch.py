@@ -74,7 +74,9 @@ def business_key(row: dict) -> tuple:
 
 
 def project(records: list[dict], topic: str, end_offset: int) -> dict:
-    if not records or [r['offset'] for r in records] != list(range(end_offset)):
+    if (not records or type(end_offset) is not int or len(records) != end_offset
+            or any(type(record['offset']) is not int or record['offset'] != index
+                   for index, record in enumerate(records))):
         raise ValueError('Expected contiguous complete topic history from offset zero')
     state = {}
     versions = {}
