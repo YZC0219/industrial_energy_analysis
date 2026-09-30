@@ -72,5 +72,34 @@ python -m tools.register_mysql_cdc --status
 基于 binlog 顺序的版本判定、Hive/Spark 删除传播和同范围流批对账。不要在
 生产事实表上做演示性物理删除。
 
+## 隔离的真实硬删除探针
+
+`tools.verify_mysql_cdc_probe` 使用单独的 `industrial_energy_cdc_probe` 库、
+`energy_cdc_probe` 账号、`energy-cdc-probe.*` 主题和本地 SQLite 投影。
+它在真实 MySQL 中提交 INSERT 后执行物理 DELETE，读取 Debezium 的插入、
+删除前镜像和 Kafka tombstone，再检查投影由一行变为零行。探针只会清理自己
+生成的随机主键与标记；不会写项目事实表、`energy-events`、Flink 或 Hive。
+因此它证明的是**源端到隔离下游投影**，不能替代主数仓删除传播验收。
+
+在确认 Docker 镜像与卷位于 `D:\`、Docker 可用之后，按顺序执行：
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.cdc.yml --profile streaming --profile cdc up -d mysql kafka cdc-topics-init
+python -m tools.verify_mysql_cdc_probe --prepare
+docker compose -f docker-compose.yml -f docker-compose.cdc.yml --profile streaming --profile cdc up -d debezium-connect
+python -m tools.verify_mysql_cdc_probe --run --output output/mysql_cdc_probe_YYYYMMDD.json
+```
+
+`--prepare` 检查 ROW/FULL binlog、创建隔离库与最小事实表、生成仅用于探针的
+随机口令并授予读取/复制权限。真实口令只写入被忽略的
+`cdc/secrets/connect-secrets.properties`，通过标准输入进入 MySQL 客户端。
+`--run` 使用独立 connector ID 注册 CDC、等待任务运行、执行插入与删除，
+保存 Kafka 分区/offset、源端 binlog 文件/位点及 SQLite 投影行数。
+输出 JSON 和 SQLite 文件默认保存在 `D:\industrial_energy_analysis\output`；
+更换报告文件名可以重跑，脚本拒绝覆盖旧证据。
+
+仍需单独实现并验收 Debezium 事件转项目事件契约，以及 Hive/Spark DWD、DWS、
+ADS 的硬删除传播。上述探针的通过结果只覆盖所列隔离路径。
+
 参考：[Debezium MySQL connector](https://debezium.io/documentation/reference/stable/connectors/mysql.html)、
 [Kafka Connect 配置提供者](https://docs.confluent.io/platform/current/connect/userguide.html#externalizing-secrets)。

@@ -12,10 +12,11 @@ services:
     command:
       - |
         set -e
-        for topic in energy-cdc-connect-configs energy-cdc-connect-offsets energy-cdc-connect-statuses energy-cdc-schema-history; do
+        for topic in energy-cdc-connect-configs energy-cdc-connect-offsets energy-cdc-connect-statuses energy-cdc-schema-history energy-cdc-probe-schema-history; do
           /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 1 --replication-factor 1 --config cleanup.policy=compact
         done
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-cdc.industrial_energy.fact_energy_consumption --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic energy-cdc-probe.industrial_energy_cdc_probe.fact_energy_consumption --partitions 1 --replication-factor 1
     restart: "no"
 
   debezium-connect:
