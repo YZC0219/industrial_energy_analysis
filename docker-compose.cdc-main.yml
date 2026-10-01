@@ -6,6 +6,7 @@ services:
     profiles: [cdc-main]
     restart: unless-stopped
     command: scheduler
+    working_dir: /opt/airflow/project
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
