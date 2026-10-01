@@ -93,8 +93,20 @@ sync_current_dimensions → capture_complete_cdc → apply_cdc_dwd_dws_ads
 项目 `output/mysql_cdc_snapshot_*.json`；在写入前核对 VM 的 Git SHA，上传后
 校验 SHA256，拒绝覆盖内容不同的已有文件。
 
-本次已验证 Airflow 导入与默认暂停状态；**主库切换、完整初始快照对账、该 DAG 的
-调度端到端运行尚未执行**。不得让新 DAG 和原 DataX 能耗写入同时运行。
+2026-10-01 已完成该 DAG 的真实调度端到端验证：独立 Airflow 元数据库与
+LocalExecutor 调度器运行同一 DAG 文件，维表经真实 MySQL → DataX → HDFS 同步，
+再捕获 CDC 并通过 SSH 执行原 DWD/DWS/ADS SQL。新建源库在连接器注册前已有两条
+记录，初始快照实际产生两条 `op=r`；首次三个任务全部成功，金额均为 30.00。
+随后真实物理删除 id=1，第二次三个任务全部成功，有效行数由 2 降为 1，
+日汇总、月汇总和 ADS 金额均降为 20.00，DWD 保留删除标记。
+
+[调度证据](../output/mysql_cdc_business_scheduler_20261001204940.json)固定运行代码的
+Git SHA；[归档审计](../output/mysql_cdc_business_scheduler_audit_20261001204940.json)
+验证两批快照完整重放、数仓输入 SHA256，以及删除后的全部源字段对账。
+初始阶段检查了实际快照事件及预设指标，尚未进行生产全量源端对账。
+测试仅使用独立测试库、HDFS 路径、VM checkout 和调度实例；验证结束停止测试调度器
+并暂停测试连接器。**主库切换和生产全量初始快照对账仍未执行**。
+不得让新 DAG 和原 DataX 能耗写入同时运行。
 数仓多表写入不是跨表事务，运行失败时可能出现暂时不一致；执行意图与成功后才
 推进的提交水位线用于阻止回退并允许重跑，消费方仍应遵循成功发布门禁。
 
@@ -103,3 +115,7 @@ metadata database 中的暂停状态。另使用现有 Airflow 镜像的 Paramik
 独立 VM Git checkout 实测 SHA 固定、快照上传、相同文件重复上传及内容冲突拒绝；
 [SSH 输入报告](../output/mysql_cdc_business_ssh_input_20260930.json)保留测试的 Git SHA
 与源快照 SHA256。这是输入传输验证，没有执行生产 DAG 或改动原 VM checkout。
+
+复现实验使用 `python -m tools.verify_cdc_scheduler_runtime`；每次新建带时间戳的
+隔离资源，并拒绝复用已有目标。`CDC_DAG_ID` 与 `CDC_TARGET_DATABASE` 仅允许
+默认主流程名称或规定格式的独立测试名称，源库与目标 HDFS 路径必须对应。

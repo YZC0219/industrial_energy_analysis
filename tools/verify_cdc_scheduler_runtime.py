@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 from tools.verify_mysql_cdc_probe import ROOT, mysql, connector_config
 from tools.register_mysql_cdc import request_json
-from tools.export_mysql_cdc_batch import capture
+from tools.export_mysql_cdc_batch import capture, FIELDS, normalize
 from datax.run_sync import TABLES
 
 
@@ -18,6 +18,19 @@ def run(argv, *, output=False):
     result = subprocess.run(argv, cwd=ROOT, check=True, text=True,
                             capture_output=output, encoding='utf-8')
     return result.stdout.strip() if output else None
+
+
+def source_rows(database):
+    pairs = []
+    for field in FIELDS:
+        value = f'`{field}`'
+        if field in ('consumption', 'unit_price', 'cost', 'avg_temperature', 'record_date'):
+            value = f'CAST({value} AS CHAR)'
+        elif field == 'updated_at':
+            value = "DATE_FORMAT(`updated_at`, '%Y-%m-%d %H:%i:%s')"
+        pairs.extend([f"'{field}'", value])
+    result = mysql(f"SELECT JSON_OBJECT({','.join(pairs)}) FROM {database}.fact_energy_consumption ORDER BY id")
+    return [normalize(json.loads(line)) for line in result.splitlines()]
 
 
 def main():
@@ -103,6 +116,9 @@ def main():
         if operations != ['r', 'r']:
             raise ValueError('Expected two genuine initial snapshot records')
         evidence['initial_snapshot_ops'] = operations
+        if initial['rows'] != source_rows(source):
+            raise ValueError('Initial snapshot differs from complete MySQL source rows')
+        evidence['initial_source_reconciliation'] = True
         python = '/home/yzc/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/bin/python3.11'
         run(['ssh', *ssh, host, f'cd {remote}/project && PYSPARK_PYTHON={python} PYSPARK_DRIVER_PYTHON={python} /usr/local/spark/bin/spark-submit --master "local[2]" spark/init_cdc_probe_schema.py --database {target}'])
         dags = work / 'dags'
@@ -170,6 +186,9 @@ def main():
                 raise ValueError('Scheduled warehouse totals differ from source')
             snapshot = f'output/mysql_cdc_snapshot_{tag}.json'
             shutil.copy2(project / snapshot, ROOT / snapshot)
+            doc = json.loads((ROOT / snapshot).read_text(encoding='utf-8'))
+            if [row for row in doc['rows'] if not row['is_deleted']] != source_rows(source):
+                raise ValueError('Scheduled snapshot differs from current MySQL source rows')
             evidence['runs'].append({'phase': phase, 'state': state, 'tasks': tasks, 'report': filename, 'snapshot': snapshot})
             print('CDC_SCHEDULER_PHASE_PASS', phase, flush=True)
         evidence['success'] = True
