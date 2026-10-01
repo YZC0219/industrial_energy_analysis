@@ -27,7 +27,7 @@ REPORT = 'output/mysql_cdc_business_{{ ts_nodash }}.json'
 GUARD = ('test "${CDC_WAREHOUSE_ENABLED:-0}" = "1" && '
          'test "${CDC_EXCLUSIVE_SOURCE_CONFIRMED:-0}" = "1" && ')
 DIMENSIONS = ('for table in dim_workshop dim_energy_type dim_calendar fact_production; do '
-              'python datax/run_sync.py --table "$table" --biz-date {{ ds }} '
+              'python3 datax/run_sync.py --table "$table" --biz-date {{ ds }} '
               + (f'--probe-database {DATABASE} ' if DATABASE != 'energy' else '')
               + '|| exit $?; done')
 APPLY = ('PYSPARK_PYTHON="${CDC_PYSPARK_PYTHON:?set CDC_PYSPARK_PYTHON}" '

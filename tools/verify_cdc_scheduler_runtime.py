@@ -123,7 +123,9 @@ def main():
                'SPARK_SUBMIT': '/usr/local/spark/bin/spark-submit'}
         envfile = work / 'runtime.env'
         envfile.write_text(''.join(f'{k}={v}\n' for k, v in env.items()), encoding='utf-8')
-        mounts = []
+        logs = work / 'logs'
+        logs.mkdir()
+        mounts = ['--mount', f'type=bind,source={logs},target=/opt/airflow/logs']
         for local, destination in [(project, '/opt/airflow/project'), (dags, '/opt/airflow/probe-dags'),
                                    (key, '/opt/airflow/ssh/key'), (known, '/opt/airflow/ssh/known_hosts')]:
             mounts += ['--mount', f'type=bind,source={local},target={destination}' + (',readonly' if local != project else '')]
