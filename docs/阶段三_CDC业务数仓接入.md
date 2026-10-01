@@ -176,3 +176,22 @@ metadata database 中的暂停状态。另使用现有 Airflow 镜像的 Paramik
 21 项相关测试通过。**这证明源数据满足当前 CDC 投影要求；主数仓写入切换仍未执行。**
 切换需要停止旧能耗写入及模拟源再装载，部署同一代码版本到主 VM，并核对主库
 维表、数仓及远程源连接；不能让两条写入链路同时运行。
+
+### 主数仓切换准备已完成
+
+[可审阅的切换方案](../output/mysql_cdc_business_main_cutover_plan_20261002014412.json)
+固定部署版本 `65f12d8`，在 D 盘建立独立 Airflow 代码、DAG 和日志目录，并在
+VM 新建同版本 checkout；没有覆盖原 VM 代码。独立 scheduler 使用
+`docker-compose.cdc-main.yml`，启用开关仍为 0，默认暂停、无自动计划。
+源账号仅授予主源库 SELECT 权限，密码存于忽略的 D 盘部署环境文件。
+
+准备阶段已确认主事实无维表/产量缺失，VM 可直接连接 Windows MySQL 的
+`192.168.21.1:3307`，无须临时 SSH 隧道。新 Spark 配置显式连接原主
+`metastore_db`，防止新 checkout 意外建立空的元数据库。
+[固定版本 SSH 只读验收](../output/mysql_cdc_business_main_catalog_20261002014412.json)
+通过，实际查询主 DWD 为 19,006 行，表结构已有 `is_deleted`。
+
+正式切换仍需确认：停用旧 `energy_pipeline` 日常模拟/导入链路，并在维护窗口
+完整备份四层 HDFS 目录和 Derby 元数据库，之后启动独立 CDC 调度器执行首批主库
+更新。切换后旧链路保持暂停，避免重新插入已删除的事实；发生失败则停止新写入，
+从备份恢复后再决定恢复旧调度。准备阶段尚未暂停旧链路或写入主数仓。
