@@ -8,6 +8,7 @@ business connector, deploy the same Git revision to the VM, and bootstrap dimens
 from __future__ import annotations
 
 import os
+import re
 import shlex
 from datetime import datetime, timedelta
 
@@ -15,19 +16,27 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 
 PROJECT = os.getenv('PROJECT_DIR', '/opt/airflow/project')
+DATABASE = os.getenv('CDC_TARGET_DATABASE', 'energy')
+DAG_ID = os.getenv('CDC_DAG_ID', 'energy_cdc_warehouse')
+if DATABASE != 'energy' and not re.fullmatch(r'energy_cdc_business_probe_[0-9]{14}', DATABASE):
+    raise ValueError('Unsupported CDC target database')
+if DAG_ID != 'energy_cdc_warehouse' and not re.fullmatch(r'energy_cdc_warehouse_probe_[0-9]{14}', DAG_ID):
+    raise ValueError('Unsupported CDC DAG id')
 SNAPSHOT = 'output/mysql_cdc_snapshot_{{ ts_nodash }}.json'
 REPORT = 'output/mysql_cdc_business_{{ ts_nodash }}.json'
 GUARD = ('test "${CDC_WAREHOUSE_ENABLED:-0}" = "1" && '
          'test "${CDC_EXCLUSIVE_SOURCE_CONFIRMED:-0}" = "1" && ')
 DIMENSIONS = ('for table in dim_workshop dim_energy_type dim_calendar fact_production; do '
-              'python datax/run_sync.py --table "$table" --biz-date {{ ds }} || exit $?; done')
+              'python datax/run_sync.py --table "$table" --biz-date {{ ds }} '
+              + (f'--probe-database {DATABASE} ' if DATABASE != 'energy' else '')
+              + '|| exit $?; done')
 APPLY = ('PYSPARK_PYTHON="${CDC_PYSPARK_PYTHON:?set CDC_PYSPARK_PYTHON}" '
          'PYSPARK_DRIVER_PYTHON="${CDC_PYSPARK_PYTHON}" '
          '"${SPARK_SUBMIT:-spark-submit}" --master "${CDC_SPARK_MASTER:-local[2]}" '
-         'spark/apply_mysql_cdc_batch.py --database energy '
+         f'spark/apply_mysql_cdc_batch.py --database {DATABASE} '
          '--biz-date {{ ds }} --snapshot ' + SNAPSHOT + ' --output ' + REPORT)
 
-with DAG('energy_cdc_warehouse', start_date=datetime(2026, 9, 30), schedule=None,
+with DAG(DAG_ID, start_date=datetime(2026, 9, 30), schedule=None,
          catchup=False, max_active_runs=1, is_paused_upon_creation=True,
          default_args={'owner': 'data-engineering', 'retries': 0,
                        'execution_timeout': timedelta(minutes=30)},

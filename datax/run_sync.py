@@ -27,9 +27,11 @@ TABLES = {
 def validate_probe_destination(database: str, jdbc_url: str, stage_path: str) -> str:
     """Require matching isolated MySQL and HDFS destinations for a probe run."""
     match = re.fullmatch(r"energy_datax_probe_([0-9]{8})", database)
-    if not match:
-        raise ValueError("probe database must match energy_datax_probe_YYYYMMDD")
-    expected_source = f"industrial_energy_datax_probe_{match[1]}"
+    cdc = re.fullmatch(r'energy_cdc_business_probe_([0-9]{14})', database)
+    if not match and not cdc:
+        raise ValueError("Unsupported isolated DataX or CDC probe database")
+    expected_source = (f"industrial_energy_datax_probe_{match[1]}" if match else
+                       f'industrial_energy_cdc_business_{cdc[1]}')
     source = jdbc_url.split("?", 1)[0].rsplit("/", 1)[-1]
     if source != expected_source:
         raise ValueError(f"probe JDBC URL must point to {expected_source}")
@@ -96,13 +98,28 @@ def main() -> None:
     table = f"{database}.{target}"
     partition = vals["TARGET_PARTITION"]
     location = f"{vals['HIVE_STAGE_PATH']}/{target}/dt={partition}"
-    with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as f:
+    temporary_directory = ROOT / 'tmp' / 'datax_jobs'
+    temporary_directory.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False,
+                                     dir=temporary_directory) as f:
         f.write(payload); job_path = f.name
     try:
         # DataX HDFS Writer requires the target directory to exist before prepare().
         subprocess.run([os.getenv("HDFS_BIN", "hdfs"), "dfs", "-fs", vals["HDFS_DEFAULT_FS"],
                         "-mkdir", "-p", location], check=True, cwd=ROOT)
-        subprocess.run([os.getenv("DATAX_PYTHON", "python"), os.getenv("DATAX_ENTRY", "/opt/datax/bin/datax.py"), job_path], check=True)
+        # DataX prints the job configuration. Never let its reader password enter logs.
+        command = [os.getenv('DATAX_PYTHON', 'python'), os.getenv('DATAX_ENTRY', '/opt/datax/bin/datax.py'), job_path]
+        password = vals['MYSQL_PASSWORD']
+        variants = (password, json.dumps(password, ensure_ascii=False)[1:-1])
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True, encoding='utf-8', errors='replace')
+        for line in process.stdout:
+            for value in variants:
+                if value:
+                    line = line.replace(value, '***')
+            print(line, end='', flush=True)
+        if process.wait() != 0:
+            raise RuntimeError('DataX failed; configuration passwords were redacted from logs')
         if not args.skip_recover:
             subprocess.run([os.getenv("SPARK_SQL", "spark-sql"), "-e",
                             f"ALTER TABLE {table} RECOVER PARTITIONS"], check=True, cwd=ROOT)

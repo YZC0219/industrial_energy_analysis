@@ -63,6 +63,12 @@ def remote_environment(environ: dict[str, str]) -> dict[str, str]:
     for key in ('CDC_PYSPARK_PYTHON', 'CDC_SPARK_MASTER', 'SPARK_SUBMIT'):
         if environ.get(key):
             variables[key] = environ[key]
+    target = environ.get('CDC_TARGET_DATABASE', 'energy')
+    if target != 'energy':
+        match = re.fullmatch(r'energy_cdc_business_probe_([0-9]{14})', target)
+        if not match or mysql_db != f'industrial_energy_cdc_business_{match[1]}':
+            raise ValueError('CDC probe warehouse and MySQL source do not match')
+        variables['HIVE_STAGE_PATH'] = '/warehouse/' + target
     return variables
 
 

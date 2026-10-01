@@ -34,7 +34,7 @@ def mysql(sql: str) -> str:
     result = subprocess.run(command, cwd=ROOT, input=sql, text=True,
                             capture_output=True, encoding="utf-8", timeout=30)
     if result.returncode:
-        if "IDENTIFIED BY" in sql:
+        if "IDENTIFIED" in sql.upper():
             raise RuntimeError("MySQL account setup failed; SQL stderr was suppressed to protect the password")
         raise RuntimeError(f"MySQL command failed: {result.stderr.strip()}")
     return result.stdout.strip()
