@@ -103,9 +103,9 @@ LocalExecutor 调度器运行同一 DAG 文件，维表经真实 MySQL → DataX
 [调度证据](../output/mysql_cdc_business_scheduler_20261001204940.json)固定运行代码的
 Git SHA；[归档审计](../output/mysql_cdc_business_scheduler_audit_20261001204940.json)
 验证两批快照完整重放、数仓输入 SHA256，以及删除后的全部源字段对账。
-初始阶段检查了实际快照事件及预设指标，尚未进行生产全量源端对账。
+独立调度初始阶段检查了实际快照事件及预设指标。
 测试仅使用独立测试库、HDFS 路径、VM checkout 和调度实例；验证结束停止测试调度器
-并暂停测试连接器。**主库切换和生产全量初始快照对账仍未执行**。
+并暂停测试连接器。**主库写入切换仍未执行**。
 不得让新 DAG 和原 DataX 能耗写入同时运行。
 数仓多表写入不是跨表事务，运行失败时可能出现暂时不一致；执行意图与成功后才
 推进的提交水位线用于阻止回退并允许重跑，消费方仍应遵循成功发布门禁。
@@ -119,3 +119,22 @@ metadata database 中的暂停状态。另使用现有 Airflow 镜像的 Paramik
 复现实验使用 `python -m tools.verify_cdc_scheduler_runtime`；每次新建带时间戳的
 隔离资源，并拒绝复用已有目标。`CDC_DAG_ID` 与 `CDC_TARGET_DATABASE` 仅允许
 默认主流程名称或规定格式的独立测试名称，源库与目标 HDFS 路径必须对应。
+
+## 主业务源全量初始快照对账（2026-10-01）
+
+当前 Docker MySQL 的 `industrial_energy.fact_energy_consumption` 已有 20,704 条
+记录。新增独立只读连接器，在不修改业务记录、不启动主数仓写入的情况下，捕获
+全部 20,704 条 `op=r` 初始快照；按源主键逐条比较全部 14 个字段，读取前后源数据
+相同且快照全部匹配。[对账报告](../output/mysql_cdc_business_main_reconciliation_20261001225051.json)
+与[压缩原始快照](../output/mysql_cdc_business_main_raw_20261001225051.json.gz)保留行数、
+内容摘要和完整事件。读取不加锁，结论仅适用于本次前后数据相同的窗口；这批数据
+来自项目现有业务表，本验证不证明它是外部工业现场数据。
+
+**源端对账通过，数仓切换门禁未通过。** 20,704 条记录对应 19,006 个业务键，
+有 1,698 个键包含多个源 ID。当前 CDC 数仓按日期、车间、能源类型识别唯一业务行，
+对此初始快照返回 `Conflicting images at the same binlog version`，拒绝产生歧义
+数仓输入。本次没有删除、合并或覆盖这些记录；应先明确这些行代表历史版本还是
+多笔可累加事实，再决定主键与版本策略。此前隔离删除验证仍然有效，但不能据此
+宣称主业务源已完成切换。连接器在验证结束后已暂停。
+
+只读对账复现入口为 `python -m tools.verify_main_cdc_snapshot`。

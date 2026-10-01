@@ -30,7 +30,7 @@ COMPOSE = ["docker", "compose", "-f", "docker-compose.yml", "-f", "docker-compos
 
 def mysql(sql: str) -> str:
     command = [*COMPOSE, "exec", "-T", "mysql", "sh", "-lc",
-               'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --batch --raw --skip-column-names']
+               'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 --batch --raw --skip-column-names']
     result = subprocess.run(command, cwd=ROOT, input=sql, text=True,
                             capture_output=True, encoding="utf-8", timeout=30)
     if result.returncode:

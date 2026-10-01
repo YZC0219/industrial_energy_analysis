@@ -175,7 +175,7 @@ def project(records: list[dict], topic: str, end_offset: int) -> dict:
             'row_binlog_versions': [list(binlog_versions[key]) for key in sorted(state)]}
 
 
-def capture(topic: str, bootstrap: str, timeout: int = 120) -> dict:
+def capture_history(topic: str, bootstrap: str, timeout: int = 120) -> tuple[list[dict], int]:
     from kafka import KafkaConsumer, TopicPartition
     consumer = KafkaConsumer(bootstrap_servers=bootstrap, enable_auto_commit=False,
                              group_id=None, request_timeout_ms=30000)
@@ -200,13 +200,18 @@ def capture(topic: str, bootstrap: str, timeout: int = 120) -> dict:
                         records.append({'topic': topic, 'partition': record.partition,
                                         'offset': record.offset, 'key': json.loads(record.key),
                                         'value': None if record.value is None else json.loads(record.value)})
-        result = project(records, topic, end)
-        result['events'] = records
-        result['captured_at_utc'] = datetime.now(timezone.utc).isoformat()
-        result['raw_events_sha256'] = hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
-        return result
+        return records, end
     finally:
         consumer.close()
+
+
+def capture(topic: str, bootstrap: str, timeout: int = 120) -> dict:
+    records, end = capture_history(topic, bootstrap, timeout)
+    result = project(records, topic, end)
+    result['events'] = records
+    result['captured_at_utc'] = datetime.now(timezone.utc).isoformat()
+    result['raw_events_sha256'] = hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
+    return result
 
 
 def main() -> None:
