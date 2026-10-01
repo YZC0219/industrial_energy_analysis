@@ -128,6 +128,37 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 `generate_data.py`、`clean_data.py`、`import_mysql.py --incremental`、
 `import_mysql.py --run-analysis`、`make_report.py`；预测侧由 `tools/run_phase2.py` 统一编排。）
 
+## 后续演进：围绕工业数据生命周期的四方向扩展
+
+四个方向均已进入项目，新增模块以隔离 POC 推进，复用已完成的数仓、实时管道、预测和质量能力。运行方式与验收边界见[四方向扩展说明](docs/工业数据生命周期_四方向扩展.md)。
+
+| 方向 | 新增入口 | 当前验证边界 |
+|---|---|---|
+| 实时基线报警与冷热分离 | `streaming/flink/power_baseline.sql`、采样模拟、Redis/Webhook 分发、分钟聚合及 ClickHouse 表 | 本机回放和分钟聚合通过；新 SQL 与外部服务联调待验收 |
+| Iceberg 增量修正与审计 | `lakehouse/iceberg_poc.py` | 提供三天迟到修正、版本重放、历史快照实验；Spark/Iceberg 实跑待验收 |
+| 小时负荷预测与分时电价优化 | `optimization/` | 模拟小时预测和产量/功率约束优化可运行；收益为模拟情景 |
+| 统一指标与 DQC | `governance/metrics.yaml`、语义 API、车间品种覆盖门禁 | 三个计算指标、29 组查询目录及离线门禁通过；新增 Airflow 节点实跑待验收 |
+
+```mermaid
+flowchart LR
+    PLC[功率采样] --> Kafka[Kafka]
+    Kafka --> Flink[Flink 15分钟窗口]
+    Flink --> Alerts[告警主题]
+    Alerts --> Dispatch[Redis / Webhook]
+    Kafka --> Minute[分钟聚合]
+    Minute --> CH[ClickHouse 热数据]
+    CDC[迟到修正与版本事件] --> Iceberg[Iceberg 隔离旁路]
+    Iceberg --> Audit[历史快照审计]
+    Batch[清洗批次] --> Gate[GX 与品种覆盖门禁]
+    Gate --> DW[现有分层数仓]
+    DW --> Catalog[YAML 指标目录与语义 API]
+    Plan[产量计划与天气预报] --> Forecast[小时负荷预测]
+    Forecast --> TOU[分时电价优化]
+    TOU --> Savings[约束排程与情景节费]
+```
+
+上图包含可运行本机 POC 与尚待集群验收的路径，不代表已完成生产部署。统一复现入口：`python tools/run_extensions.py --artifact-dir tests/baseline`；产物位于 `output/extensions/`。固定模拟排程日节费 860 元，按 30 个同样的运行日外推 2.58 万元，不能作为真实工厂节费承诺。
+
 ## 技术栈
 
 | 领域 | 技术 |
@@ -600,6 +631,7 @@ python tests/update_baseline.py
 - [x] 增加独立 CDC 业务快照与主业务数仓 SQL 入口：按 binlog 坐标判定版本，保留旧业务键 tombstone，核验 DWD/DWS/ADS 删除指标、旧插入追加重放、部分失败恢复与水位线回退保护；[实机证据](output/mysql_cdc_business_warehouse_20260930203846.json)通过。新 DAG 默认暂停，主库切换尚未执行。
 - [x] 2026-10-01 完成同一 CDC DAG 的[独立 Airflow 真实调度](output/mysql_cdc_business_scheduler_20261001204940.json)：两次运行各三个任务全部成功，真实 DataX 维表同步、已填充源库的初始快照和物理删除贯通原 DWD/DWS/ADS SQL，汇总金额从 30 降为 20；[归档与最终源端逐字段对账](output/mysql_cdc_business_scheduler_audit_20261001204940.json)通过。主库切换仍须通过源端业务键门禁。
 - [x] 完成现有主业务 MySQL 全部 **20,704 条记录、14 个字段**的[只读 CDC 初始快照对账](output/mysql_cdc_business_main_reconciliation_20261001225051.json)，读取前后源数据与快照一致。发现 **1,698 个重复业务键**，当前唯一业务行投影拒绝该输入；主库切换须先解决源事实的版本/主键语义，现有记录未改动。
+- [x] 2026-10-02 确认上述重复组除 ID 外完全一致，修复导入时关闭唯一性检查的风险；[真实数据库四次导入重放](output/mysql_cdc_business_import_replay_20261002002734.json)保持行数不变。已生成[1,698 条冗余记录清理计划](output/mysql_cdc_business_duplicate_plan_20261002002842.json)，尚未执行，需备份并取得删除现有数据的授权。
 - [ ] 完成多节点 Kafka/Flink 高可用、主业务 MySQL 物理硬删除 CDC 接入、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
 ### 阶段四：服务化与可视化交付（本地核心交付已归档）

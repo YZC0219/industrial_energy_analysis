@@ -267,8 +267,8 @@ def load_csv(conn, table: str, csv_name: str, columns, db: str, upsert: bool = F
         f"LINES TERMINATED BY '\\n' IGNORE 1 LINES ({cols}) SET {assigns}"
     )
     with conn.cursor() as cur:
-        # 装载期间关掉唯一性与外键校验以提升速度(数据本身已通过清洗保证一致性)
-        cur.execute("SET UNIQUE_CHECKS=0")
+        # 重放仍须检查业务唯一键，不能依赖输入清洗代替目标端冲突检测。
+        cur.execute("SET UNIQUE_CHECKS=1")
         cur.execute("SET FOREIGN_KEY_CHECKS=0")
         if upsert:
             # 临时表结构与事实表一致, 但它没有唯一键, 因此同业务键的多版本
