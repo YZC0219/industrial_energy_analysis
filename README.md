@@ -598,7 +598,7 @@ python tests/update_baseline.py
 - [x] 增加只读 MySQL binlog CDC 前提检查；2026-09-26 当前 Compose 实例的 ROW/FULL binlog 可用，但事实表缺失，故[预检报告](output/mysql_cdc_readiness_20260926.json)明确为 FAIL，不把前提检查冒充物理删除 CDC。
 - [x] 提供默认关闭、独立主题的 [MySQL CDC 源端试验入口](docs/阶段三_MySQL_CDC源试验.md)：Kafka Connect / Debezium 配置、专用账号与文件口令说明、注册和状态查询脚本。2026-09-30 已实机验证隔离库的物理删除、Kafka tombstone、完整重放、连接器重启后再次删除，以及独立 Hive ODS/DWD/DWS 投影；不接入现有 `energy-events` 与数仓主流程。
 - [x] 增加独立 CDC 业务快照与主业务数仓 SQL 入口：按 binlog 坐标判定版本，保留旧业务键 tombstone，核验 DWD/DWS/ADS 删除指标、旧插入追加重放、部分失败恢复与水位线回退保护；[实机证据](output/mysql_cdc_business_warehouse_20260930203846.json)通过。新 DAG 默认暂停，主库切换尚未执行。
-- [x] 2026-10-01 完成同一 CDC DAG 的[独立 Airflow 真实调度](output/mysql_cdc_business_scheduler_20261001204940.json)：两次运行各三个任务全部成功，真实 DataX 维表同步、已填充源库的初始快照和物理删除贯通原 DWD/DWS/ADS SQL，汇总金额从 30 降为 20；[归档与最终源端逐字段对账](output/mysql_cdc_business_scheduler_audit_20261001204940.json)通过。主库仍未切换，生产全量初始快照对账待完成。
+- [x] 2026-10-01 完成同一 CDC DAG 的[独立 Airflow 真实调度](output/mysql_cdc_business_scheduler_20261001204940.json)：两次运行各三个任务全部成功，真实 DataX 维表同步、已填充源库的初始快照和物理删除贯通原 DWD/DWS/ADS SQL，汇总金额从 30 降为 20；[归档与最终源端逐字段对账](output/mysql_cdc_business_scheduler_audit_20261001204940.json)通过。主库切换仍须通过源端业务键门禁。
 - [x] 完成现有主业务 MySQL 全部 **20,704 条记录、14 个字段**的[只读 CDC 初始快照对账](output/mysql_cdc_business_main_reconciliation_20261001225051.json)，读取前后源数据与快照一致。发现 **1,698 个重复业务键**，当前唯一业务行投影拒绝该输入；主库切换须先解决源事实的版本/主键语义，现有记录未改动。
 - [ ] 完成多节点 Kafka/Flink 高可用、主业务 MySQL 物理硬删除 CDC 接入、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
