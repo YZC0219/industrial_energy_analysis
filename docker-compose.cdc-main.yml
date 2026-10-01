@@ -1,0 +1,44 @@
+# Dedicated CDC main scheduler. Start explicitly after approving the cutover.
+# No existing service is recreated by this overlay.
+services:
+  cdc-main-scheduler:
+    image: industrial-energy-airflow:2.10.5
+    profiles: [cdc-main]
+    restart: unless-stopped
+    command: scheduler
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/cdc-dags
+      AIRFLOW__CORE__PARALLELISM: '2'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow_cdc_main
+      PROJECT_DIR: /opt/airflow/project
+      CDC_TARGET_DATABASE: energy
+      CDC_WAREHOUSE_ENABLED: ${CDC_MAIN_ENABLED:-0}
+      CDC_EXCLUSIVE_SOURCE_CONFIRMED: ${CDC_MAIN_EXCLUSIVE_CONFIRMED:-0}
+      CDC_CONNECTOR: ${CDC_MAIN_CONNECTOR:?set verified source connector}
+      CDC_SOURCE_TOPIC: ${CDC_MAIN_SOURCE_TOPIC:?set complete source topic}
+      CDC_BOOTSTRAP: kafka:9092
+      CDC_CONNECT_URL: http://debezium-connect:8083
+      CDC_PYSPARK_PYTHON: /home/yzc/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/bin/python3.11
+      CDC_SPARK_MASTER: local[2]
+      SPARK_SUBMIT: /usr/local/spark/bin/spark-submit
+      MYSQL_DB: industrial_energy
+      MYSQL_USER: ${CDC_MAIN_MYSQL_USER:?set dedicated SELECT account}
+      MYSQL_PASSWORD: ${CDC_MAIN_MYSQL_PASSWORD:?set SELECT account password}
+      LAKEHOUSE_EXECUTION_MODE: ssh
+      LAKEHOUSE_SSH_HOST: 192.168.21.131
+      LAKEHOUSE_SSH_USER: yzc
+      LAKEHOUSE_SSH_KEY: /run/secrets/lakehouse_ssh_key
+      LAKEHOUSE_SSH_KNOWN_HOSTS: /run/secrets/lakehouse_known_hosts
+      LAKEHOUSE_REMOTE_PROJECT: ${CDC_MAIN_REMOTE_PROJECT:?set pinned VM checkout}
+      LAKEHOUSE_REMOTE_SPARK_CONF_DIR: ${CDC_MAIN_REMOTE_SPARK_CONF_DIR:?set main metastore config}
+      LAKEHOUSE_REMOTE_MYSQL_HOST: ${CDC_MAIN_REMOTE_MYSQL_HOST:?set durable VM-visible MySQL address}
+      LAKEHOUSE_REMOTE_MYSQL_PORT: ${CDC_MAIN_REMOTE_MYSQL_PORT:-3307}
+    volumes:
+      - ${CDC_MAIN_PROJECT_DIR:?set pinned D drive checkout}:/opt/airflow/project
+      - ${CDC_MAIN_DAGS_DIR:?set CDC-only DAG directory}:/opt/airflow/cdc-dags:ro
+      - ${CDC_MAIN_LOG_DIR:?set D drive log directory}:/opt/airflow/logs
+      - ${LAKEHOUSE_SSH_KEY_HOST:?set authorized key path}:/run/secrets/lakehouse_ssh_key:ro
+      - ${LAKEHOUSE_KNOWN_HOSTS_HOST:?set pinned known hosts path}:/run/secrets/lakehouse_known_hosts:ro

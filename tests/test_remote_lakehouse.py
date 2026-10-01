@@ -36,6 +36,15 @@ def test_remote_environment_uses_vm_mysql_endpoint_and_validates_it():
         remote_environment({**source, "LAKEHOUSE_REMOTE_MYSQL_PORT": "-1"})
 
 
+def test_remote_spark_config_selects_existing_catalog_explicitly():
+    source = {'LAKEHOUSE_REMOTE_MYSQL_HOST': '127.0.0.1', 'MYSQL_USER': 'reader',
+              'MYSQL_PASSWORD': 'secret',
+              'LAKEHOUSE_REMOTE_SPARK_CONF_DIR': '/home/yzc/cdc_main/conf'}
+    assert remote_environment(source)['SPARK_CONF_DIR'] == '/home/yzc/cdc_main/conf'
+    with pytest.raises(ValueError):
+        remote_environment({**source, 'LAKEHOUSE_REMOTE_SPARK_CONF_DIR': '/home/yzc/../other'})
+
+
 def test_remote_script_pins_checkout_and_quotes_credentials():
     script = remote_script("hostname; whoami", project="/home/yzc/project",
                            expected_sha=SHA, variables={"MYSQL_PASSWORD": "don't print"})

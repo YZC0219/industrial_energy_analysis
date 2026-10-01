@@ -63,6 +63,11 @@ def remote_environment(environ: dict[str, str]) -> dict[str, str]:
     for key in ('CDC_PYSPARK_PYTHON', 'CDC_SPARK_MASTER', 'SPARK_SUBMIT'):
         if environ.get(key):
             variables[key] = environ[key]
+    spark_conf = environ.get('LAKEHOUSE_REMOTE_SPARK_CONF_DIR')
+    if spark_conf:
+        if not re.fullmatch(r'/home/[A-Za-z0-9_./-]+', spark_conf) or '..' in spark_conf.split('/'):
+            raise ValueError('Invalid remote Spark configuration directory')
+        variables['SPARK_CONF_DIR'] = spark_conf
     target = environ.get('CDC_TARGET_DATABASE', 'energy')
     if target != 'energy':
         match = re.fullmatch(r'energy_cdc_business_probe_([0-9]{14})', target)
