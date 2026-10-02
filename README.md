@@ -628,11 +628,12 @@ python tests/update_baseline.py
 - [x] Airflow 增加默认关闭的 `reconcile_stream_batch` 质量门禁；只有部署方具备完整同范围 CDC topic 并显式启用后才阻断下游，当前演示 topic 不满足启用前提。
 - [x] 增加只读 MySQL binlog CDC 前提检查；2026-09-26 当前 Compose 实例的 ROW/FULL binlog 可用，但事实表缺失，故[预检报告](output/mysql_cdc_readiness_20260926.json)明确为 FAIL，不把前提检查冒充物理删除 CDC。
 - [x] 提供默认关闭、独立主题的 [MySQL CDC 源端试验入口](docs/阶段三_MySQL_CDC源试验.md)：Kafka Connect / Debezium 配置、专用账号与文件口令说明、注册和状态查询脚本。2026-09-30 已实机验证隔离库的物理删除、Kafka tombstone、完整重放、连接器重启后再次删除，以及独立 Hive ODS/DWD/DWS 投影；不接入现有 `energy-events` 与数仓主流程。
-- [x] 增加独立 CDC 业务快照与主业务数仓 SQL 入口：按 binlog 坐标判定版本，保留旧业务键 tombstone，核验 DWD/DWS/ADS 删除指标、旧插入追加重放、部分失败恢复与水位线回退保护；[实机证据](output/mysql_cdc_business_warehouse_20260930203846.json)通过。新 DAG 默认暂停，主库切换尚未执行。
-- [x] 2026-10-01 完成同一 CDC DAG 的[独立 Airflow 真实调度](output/mysql_cdc_business_scheduler_20261001204940.json)：两次运行各三个任务全部成功，真实 DataX 维表同步、已填充源库的初始快照和物理删除贯通原 DWD/DWS/ADS SQL，汇总金额从 30 降为 20；[归档与最终源端逐字段对账](output/mysql_cdc_business_scheduler_audit_20261001204940.json)通过。主库切换仍须通过源端业务键门禁。
-- [x] 完成现有主业务 MySQL 全部 **20,704 条记录、14 个字段**的[只读 CDC 初始快照对账](output/mysql_cdc_business_main_reconciliation_20261001225051.json)，读取前后源数据与快照一致。发现 **1,698 个重复业务键**，当前唯一业务行投影拒绝该输入；主库切换须先解决源事实的版本/主键语义，现有记录未改动。
-- [x] 2026-10-02 确认上述重复组除 ID 外完全一致，修复导入时关闭唯一性检查的风险；[真实数据库四次导入重放](output/mysql_cdc_business_import_replay_20261002002734.json)保持行数不变。已生成[1,698 条冗余记录清理计划](output/mysql_cdc_business_duplicate_plan_20261002002842.json)，尚未执行，需备份并取得删除现有数据的授权。
-- [ ] 完成多节点 Kafka/Flink 高可用、主业务 MySQL 物理硬删除 CDC 接入、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
+- [x] 增加独立 CDC 业务快照与主业务数仓 SQL 入口：按 binlog 坐标判定版本，保留旧业务键 tombstone，核验 DWD/DWS/ADS 删除指标、旧插入追加重放、部分失败恢复与水位线回退保护；[实机证据](output/mysql_cdc_business_warehouse_20260930203846.json)通过。新 DAG 默认暂停；主库已于 2026-10-03 经授权切换。
+- [x] 2026-10-01 完成同一 CDC DAG 的[独立 Airflow 真实调度](output/mysql_cdc_business_scheduler_20261001204940.json)：两次运行各三个任务全部成功，真实 DataX 维表同步、已填充源库的初始快照和物理删除贯通原 DWD/DWS/ADS SQL，汇总金额从 30 降为 20；[归档与最终源端逐字段对账](output/mysql_cdc_business_scheduler_audit_20261001204940.json)通过。主库后来通过业务键门禁并完成切换。
+- [x] 完成现有主业务 MySQL 全部 **20,704 条记录、14 个字段**的[只读 CDC 初始快照对账](output/mysql_cdc_business_main_reconciliation_20261001225051.json)，读取前后源数据与快照一致。发现 **1,698 个重复业务键**，当时唯一业务行投影拒绝该输入，随后已备份并清理完全重复记录。
+- [x] 2026-10-02 确认上述重复组除 ID 外完全一致，修复导入时关闭唯一性检查的风险；[真实数据库四次导入重放](output/mysql_cdc_business_import_replay_20261002002734.json)保持行数不变。已生成[1,698 条冗余记录清理计划](output/mysql_cdc_business_duplicate_plan_20261002002842.json)，已获授权执行：完整备份后清理 1,698 条冗余记录，保留 19,006 条，全部字段对账通过。
+- [x] **2026-10-03 已完成主数仓 CDC 切换**：[三个任务全部成功](output/mysql_cdc_business_main_cutover_20261003002141.json)，19,006 条有效事实，DWS 日/月及 ADS 金额均为 **215,364,002.57 元**，与源端一致；[输入与 SQL 归档审计](output/mysql_cdc_business_main_cutover_audit_20261003002141.json)及[完整备份检查](output/mysql_cdc_business_main_backup_audit_20261003002141.json)通过。旧模拟/导入链路保持暂停；CDC 持续捕获，数仓按手动批次更新，尚无自动计划。首批约 21 分钟，26 项相关测试通过。[运行与回退说明](docs/阶段三_CDC业务数仓接入.md)。
+- [ ] 完成多节点 Kafka/Flink 高可用、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
 ### 阶段四：服务化与可视化交付（本地核心交付已归档）
 
