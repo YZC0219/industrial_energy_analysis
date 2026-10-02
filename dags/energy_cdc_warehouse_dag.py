@@ -29,17 +29,18 @@ if DAG_ID != 'energy_cdc_warehouse' and not re.fullmatch(r'energy_cdc_warehouse_
     raise ValueError('Unsupported CDC DAG id')
 SNAPSHOT = 'output/mysql_cdc_snapshot_{{ ts_nodash }}.json'
 REPORT = 'output/mysql_cdc_business_{{ ts_nodash }}.json'
+BIZ_DATE = "{{ logical_date.in_timezone('Asia/Shanghai').to_date_string() }}"
 GUARD = ('test "${CDC_WAREHOUSE_ENABLED:-0}" = "1" && '
          'test "${CDC_EXCLUSIVE_SOURCE_CONFIRMED:-0}" = "1" && ')
 DIMENSIONS = ('for table in dim_workshop dim_energy_type dim_calendar fact_production; do '
-              'python3 datax/run_sync.py --table "$table" --biz-date {{ ds }} '
+              'python3 datax/run_sync.py --table "$table" --biz-date ' + BIZ_DATE + ' '
               + (f'--probe-database {DATABASE} ' if DATABASE != 'energy' else '')
               + '|| exit $?; done')
 APPLY = ('PYSPARK_PYTHON="${CDC_PYSPARK_PYTHON:?set CDC_PYSPARK_PYTHON}" '
          'PYSPARK_DRIVER_PYTHON="${CDC_PYSPARK_PYTHON}" '
          '"${SPARK_SUBMIT:-spark-submit}" --master "${CDC_SPARK_MASTER:-local[2]}" '
          f'spark/apply_mysql_cdc_batch.py --database {DATABASE} '
-         '--biz-date {{ ds }} --snapshot ' + SNAPSHOT + ' --output ' + REPORT)
+         '--biz-date ' + BIZ_DATE + ' --snapshot ' + SNAPSHOT + ' --output ' + REPORT)
 
 with DAG(DAG_ID, start_date=START, schedule=SCHEDULE,
          catchup=False, max_active_runs=1, is_paused_upon_creation=True,
