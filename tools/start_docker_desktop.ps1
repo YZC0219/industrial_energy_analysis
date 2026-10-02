@@ -5,8 +5,10 @@ $ErrorActionPreference = 'Stop'
 Start-Transcript -Path 'D:\Docker\desktop-startup.log' -Append | Out-Null
 $dockerExe = 'D:\Docker\DockerDesktop\resources\bin\docker.exe'
 $desktopExe = 'D:\Docker\DockerDesktop\Docker Desktop.exe'
-$socketDirectory = Join-Path $env:LOCALAPPDATA 'docker-secrets-engine'
-$backendLog = Join-Path $env:LOCALAPPDATA 'Docker\log\host\com.docker.backend.exe.log'
+$dockerRuntimeLocalAppData = 'D:\Docker\local-runtime'
+New-Item -ItemType Directory -Force -Path $dockerRuntimeLocalAppData | Out-Null
+$socketDirectory = Join-Path $dockerRuntimeLocalAppData 'docker-secrets-engine'
+$backendLog = Join-Path $dockerRuntimeLocalAppData 'Docker\log\host\com.docker.backend.exe.log'
 
 function Test-DockerReady {
     $probe = New-Object System.Diagnostics.Process
@@ -46,7 +48,20 @@ function Repair-StaleSocket {
     }
     $failedProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
     $failedProcesses | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
-    $unixPath = (& wsl.exe -d Ubuntu -- wslpath -u $socketDirectory | Out-String).Trim()
+    if ((Get-Item -LiteralPath $socketDirectory -Force).Attributes -band [IO.FileAttributes]::Encrypted) {
+        # EFS directories are invisible to WSL drvfs. Preserve them through Windows.
+        $preservedName = 'docker-secrets-engine.stale-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+        try {
+            Rename-Item -LiteralPath $socketDirectory -NewName $preservedName -ErrorAction Stop
+        } catch {
+            throw 'Windows cannot preserve the encrypted Docker socket directory. Run this recovery launcher as administrator; if EFS still denies access, its owner must restore access. Docker data was not reset.'
+        }
+        Write-Host "Preserved encrypted socket directory: $preservedName"
+        return $true
+    }
+    # WSL shell argument forwarding may strip Windows backslashes.
+    $wslWindowsPath = $socketDirectory.Replace('\', '/')
+    $unixPath = (& wsl.exe -d Ubuntu -- wslpath -u $wslWindowsPath | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or !$unixPath.StartsWith('/mnt/')) {
         throw 'WSL could not resolve the temporary directory.'
     }
@@ -59,7 +74,15 @@ function Repair-StaleSocket {
 
 if (Test-DockerReady) { Write-Output 'Docker is already ready.'; exit 0 }
 $repaired = Repair-StaleSocket
-Start-Process -FilePath $desktopExe -WindowStyle Hidden
+$desktopStart = New-Object System.Diagnostics.ProcessStartInfo
+$desktopStart.FileName = $desktopExe
+$desktopStart.UseShellExecute = $false
+$desktopStart.CreateNoWindow = $true
+$desktopStart.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+# Only the child process uses this D drive runtime. Roaming settings and the
+# existing D drive WSL disk remain unchanged; no Windows-wide environment edit.
+$desktopStart.EnvironmentVariables['LOCALAPPDATA'] = $dockerRuntimeLocalAppData
+[void][System.Diagnostics.Process]::Start($desktopStart)
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 while ((Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 3

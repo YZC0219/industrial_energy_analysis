@@ -195,3 +195,45 @@ VM 新建同版本 checkout；没有覆盖原 VM 代码。独立 scheduler 使�
 完整备份四层 HDFS 目录和 Derby 元数据库，之后启动独立 CDC 调度器执行首批主库
 更新。切换后旧链路保持暂停，避免重新插入已删除的事实；发生失败则停止新写入，
 从备份恢复后再决定恢复旧调度。准备阶段尚未暂停旧链路或写入主数仓。
+
+## 主数仓已切换（2026-10-03）
+
+经用户授权决定后执行，[主库切换报告](../output/mysql_cdc_business_main_cutover_20261003002141.json)
+记录首批三个任务全部成功。实际主库 `energy_dwd` 保留 19,006 条有效事实，
+`energy_dws` 日/月汇总与 `energy_ads` 日汇总金额均为 **215,364,002.57 元**，
+与源端一致；源记录未改动。成功提交的 CDC 水位线为本次主题 offset 19,006。
+运行代码固定为 `65f12d8`，原分层 SQL 没有修改。
+
+[归档审计](../output/mysql_cdc_business_main_cutover_audit_20261003002141.json)
+核验了全部源字段、完整事件重放、输入 SHA256 及 SQL 的 Git 内容摘要；
+[压缩输入](../output/mysql_cdc_business_main_input_20261003002141.json.gz)可按审计记录
+恢复成原始 JSON 文件。26 项相关测试通过。首批调度包含维表同步和全历史分区
+更新，用时约 21 分钟，不能把该单节点全量更新模式描述为秒级流式数仓。
+
+### 当前运行方式
+
+- 旧 `energy_pipeline` **保持暂停**，避免模拟生成、再装载或 DataX 能耗写入覆盖 CDC 结果。
+- 新 `cdc-main-scheduler` 使用独立元数据库 `airflow_cdc_main`，两个执行开关已启用。
+- 源连接器持续运行；数仓 DAG 为**显式触发批次**，`schedule=None`，没有自动分钟计划。
+- 原 Airflow 页面连接旧元数据库，其同名 CDC DAG 仍是未启用的备用入口；新运行状态以独立元数据库和下述管理入口为准。
+- 新代码通过显式 Spark 配置使用原主 Hive 元数据，原 VM checkout 没有被覆盖。
+
+```powershell
+python -m tools.main_cdc_operator status --deployment tmp/cdc_main_deployment_20261002014412
+python -m tools.main_cdc_operator trigger --deployment tmp/cdc_main_deployment_20261002014412
+```
+
+触发入口会拒绝旧链路未暂停或当前 CDC 批次未完成的情况。运行凭据保留在该部署
+目录的忽略环境文件中，未写入证据或 Git。不要同时恢复旧能耗写入链路。
+
+### 保留的回退数据与启动恢复
+
+四层 HDFS 完整备份位于 `/warehouse/energy_cdc_main_backup_20261003002141`，
+HDFS 完整性检查为 HEALTHY，无损坏/缺失块；VM 元数据备份位于
+`/home/yzc/industrial_energy_cdc_main_backup_20261003002141/metastore.tar.gz`，
+并已另存[本地 D 盘副本](../output/mysql_cdc_business_main_metastore_20261003002141.tar.gz)。
+原业务源的清理前备份也继续保留。备份未删除；本次成功切换没有执行回退。
+
+Docker 启动恢复入口已改为仅对子进程设置 `LOCALAPPDATA=D:\Docker\local-runtime`，
+绕过旧残留套接字目录的访问问题。Windows 全局环境、原漫游配置和 D 盘 WSL 数据盘
+没有调整；实际恢复后原 MySQL/Kafka/Connect/Airflow 服务与数据均存在。
