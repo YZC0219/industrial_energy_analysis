@@ -25,8 +25,14 @@ def main():
     active = run([*metadata, 'airflow_cdc_main', '-c', "SELECT COUNT(*) FROM dag_run WHERE dag_id='energy_cdc_warehouse' AND state IN ('queued','running')"])
     recent = run([*metadata, 'airflow_cdc_main', '-c', "SELECT run_id||':'||state FROM dag_run WHERE dag_id='energy_cdc_warehouse' ORDER BY execution_date DESC LIMIT 3"])
     if args.action == 'status':
+        compose = ['docker', 'compose', '--env-file', str(deployment / 'deployment.env'),
+                   '-f', str(ROOT / 'docker-compose.yml'), '-f', str(deployment / 'project/docker-compose.cdc-main.yml'),
+                   '--profile', 'cdc-main']
+        schedule = run([*compose, 'exec', '-T', 'cdc-main-scheduler', 'python', '-c',
+                        "import os; print(os.getenv('CDC_SCHEDULE') or 'manual batch')"])
         print(json.dumps({'old_writer_paused': old_paused == 't', 'active_cdc_runs': int(active),
-                          'recent_runs': recent.splitlines(), 'schedule': 'manual batch'}, ensure_ascii=False, indent=2))
+                          'recent_runs': recent.splitlines(), 'schedule': schedule,
+                          'timezone': 'Asia/Shanghai'}, ensure_ascii=False, indent=2))
         return
     if old_paused != 't' or active != '0':
         raise ValueError('Old writer must be paused and current CDC batch must be finished')

@@ -16,6 +16,8 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow_cdc_main
       PROJECT_DIR: /opt/airflow/project
       CDC_TARGET_DATABASE: energy
+      CDC_SCHEDULE: ${CDC_MAIN_SCHEDULE:-}
+      CDC_SCHEDULE_START: ${CDC_MAIN_SCHEDULE_START:-2026-09-30T00:00:00+08:00}
       CDC_WAREHOUSE_ENABLED: ${CDC_MAIN_ENABLED:-0}
       CDC_EXCLUSIVE_SOURCE_CONFIRMED: ${CDC_MAIN_EXCLUSIVE_CONFIRMED:-0}
       CDC_CONNECTOR: ${CDC_MAIN_CONNECTOR:?set verified source connector}

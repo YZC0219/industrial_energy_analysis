@@ -11,6 +11,7 @@ import os
 import re
 import shlex
 from datetime import datetime, timedelta
+import pendulum
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
@@ -18,6 +19,10 @@ from airflow.operators.bash import BashOperator
 PROJECT = os.getenv('PROJECT_DIR', '/opt/airflow/project')
 DATABASE = os.getenv('CDC_TARGET_DATABASE', 'energy')
 DAG_ID = os.getenv('CDC_DAG_ID', 'energy_cdc_warehouse')
+SCHEDULE = os.getenv('CDC_SCHEDULE', '').strip() or None
+if SCHEDULE not in (None, '0 2 * * *'):
+    raise ValueError('CDC schedule must be manual or daily at 02:00 Asia/Shanghai')
+START = pendulum.parse(os.getenv('CDC_SCHEDULE_START', '2026-09-30T00:00:00+08:00')).in_timezone('Asia/Shanghai')
 if DATABASE != 'energy' and not re.fullmatch(r'energy_cdc_business_probe_[0-9]{14}', DATABASE):
     raise ValueError('Unsupported CDC target database')
 if DAG_ID != 'energy_cdc_warehouse' and not re.fullmatch(r'energy_cdc_warehouse_probe_[0-9]{14}', DAG_ID):
@@ -36,7 +41,7 @@ APPLY = ('PYSPARK_PYTHON="${CDC_PYSPARK_PYTHON:?set CDC_PYSPARK_PYTHON}" '
          f'spark/apply_mysql_cdc_batch.py --database {DATABASE} '
          '--biz-date {{ ds }} --snapshot ' + SNAPSHOT + ' --output ' + REPORT)
 
-with DAG(DAG_ID, start_date=datetime(2026, 9, 30), schedule=None,
+with DAG(DAG_ID, start_date=START, schedule=SCHEDULE,
          catchup=False, max_active_runs=1, is_paused_upon_creation=True,
          default_args={'owner': 'data-engineering', 'retries': 0,
                        'execution_timeout': timedelta(minutes=30)},
