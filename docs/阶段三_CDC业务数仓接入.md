@@ -215,6 +215,7 @@ VM 新建同版本 checkout；没有覆盖原 VM 代码。独立 scheduler 使�
 - 旧 `energy_pipeline` **保持暂停**，避免模拟生成、再装载或 DataX 能耗写入覆盖 CDC 结果。
 - 新 `cdc-main-scheduler` 使用独立元数据库 `airflow_cdc_main`，两个执行开关已启用。
 - 源连接器持续运行；数仓 DAG 为**显式触发批次**，`schedule=None`，没有自动分钟计划。
+- 已将本源主题设为 `cleanup.policy=delete`、`retention.ms=-1`、`retention.bytes=-1`，保留初始事件及删除历史供完整重放；[实际配置](../output/mysql_cdc_business_main_topic_retention_20261003002141.log)已归档。本实现不能直接清空或压缩为仅保留最新键的主题。
 - 原 Airflow 页面连接旧元数据库，其同名 CDC DAG 仍是未启用的备用入口；新运行状态以独立元数据库和下述管理入口为准。
 - 新代码通过显式 Spark 配置使用原主 Hive 元数据，原 VM checkout 没有被覆盖。
 

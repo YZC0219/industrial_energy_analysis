@@ -78,6 +78,12 @@ def main():
         save()
         with urlopen(Request('http://127.0.0.1:8083/connectors/' + plan['verified_connector'] + '/resume', method='PUT'), timeout=15):
             pass
+        # This bridge replays from offset zero, so both deletes and initial rows
+        # must remain in the source topic. Never compact its event history.
+        run(['docker', 'compose', 'exec', '-T', 'kafka', '/opt/kafka/bin/kafka-configs.sh',
+             '--bootstrap-server', 'kafka:9092', '--entity-type', 'topics',
+             '--entity-name', plan['verified_topic'], '--alter', '--add-config',
+             'cleanup.policy=delete,retention.ms=-1,retention.bytes=-1'])
         doc = capture(plan['verified_topic'], '127.0.0.1:29092')
         if sorted(doc['rows'], key=lambda row: row['id']) != before:
             raise ValueError('Resumed CDC projection differs from current source')
