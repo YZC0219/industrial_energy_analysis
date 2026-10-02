@@ -233,6 +233,8 @@ HDFS 完整性检查为 HEALTHY，无损坏/缺失块；VM 元数据备份位于
 `/home/yzc/industrial_energy_cdc_main_backup_20261003002141/metastore.tar.gz`，
 并已另存[本地 D 盘副本](../output/mysql_cdc_business_main_metastore_20261003002141.tar.gz)。
 原业务源的清理前备份也继续保留。备份未删除；本次成功切换没有执行回退。
+[备份审计](../output/mysql_cdc_business_main_backup_audit_20261003002141.json)
+保留四层目录/文件数量、字节数及元数据副本 SHA256。
 
 Docker 启动恢复入口已改为仅对子进程设置 `LOCALAPPDATA=D:\Docker\local-runtime`，
 绕过旧残留套接字目录的访问问题。Windows 全局环境、原漫游配置和 D 盘 WSL 数据盘
