@@ -10,7 +10,7 @@
 
 当前数据集覆盖 **8 个车间、6 种能源、731 天**。项目重点是让数据链路可复现、分析口径可解释、结果能够相互核验：关键环节由业务规则、数据恒等式、查询快照和端到端测试共同验证。
 
-**项目进展：**阶段一至阶段四的核心能力已落地，阶段三已验证隔离链路的真实物理删除与 Hive 投影，主业务 CDC 部署切换和多节点高可用仍待完成。阶段五已交付模拟数据的年度基线与节能情景、UCI 钢厂负荷诊断，并新增 ITAC 真实工厂产量及措施评估案例和独立设备级用电筛查。真实措施效果验证仍需同厂的实施日期与改造前后计量数据。各阶段的完成边界和证据见下方架构与路线图。
+**项目进展：**阶段一至阶段四的核心能力已落地，阶段三已验证隔离链路的真实物理删除与 Hive 投影，主业务 CDC 已切换并启用每日 02:00 更新，自动批次恢复验收通过；多节点高可用仍待完成。阶段五已交付模拟数据的年度基线与节能情景、UCI 钢厂负荷诊断，并新增 ITAC 真实工厂产量及措施评估案例和独立设备级用电筛查。真实措施效果验证仍需同厂的实施日期与改造前后计量数据。各阶段的完成边界和证据见下方架构与路线图。
 
 ## 项目亮点
 
@@ -96,9 +96,9 @@ Airflow 与 CI 共用 `tools/run_phase2.py` 和 `clean_batch_*` 输入；运行�
 
 ### 阶段三：数据质量与实时管道（单机实时验收完成，工程化增强进行中）
 
-阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 的 Docker 实机复跑验证了正常告警、checkpoint 恢复、迟到/DELETE/无效业务值路由和中文字段；[当次报告](output/streaming_experiment_20260925_utf8.json)保留原始证据。2026-09-26 增加原始 Kafka 字节隔离链路，验证坏 UTF-8/JSON、未知 `schema_version`、不可解析的 UPSERT 数值、三个非法时间/日期字段、不符合 `Wnn`/`Enn` 格式的业务键、非法 `op`、空 `event_id` 和空 `unit`；同窗口故障注入确认坏样本不会污染正常费用聚合，非法时间的 DELETE 和非法操作的迟到事件不会泄漏到业务旁路。最新[事件元数据复跑报告](output/streaming_experiment_metadata_20260926.json)记录十四条坏样本和正常 3 条／155 元告警。这些检查不覆盖所有字段类型转换和 schema 演进。已提供默认关闭的 [MySQL CDC 源端试验入口](docs/阶段三_MySQL_CDC源试验.md)，2026-09-30 已通过真实 MySQL 物理删除、Kafka tombstone、连接器重启后再次删除，以及真实 CDC 行镜像到独立 Hive ODS/DWD/DWS 的删除与重放核验；[源端报告](output/mysql_cdc_probe_20260930193749.json)、[Hive 报告](output/mysql_cdc_hive_projection_20260930193749.json)已归档，尚未接入主流程。流批对账仍须同范围完整事件历史；主业务硬删 CDC、多节点高可用和自动回补仍未完成，不能把单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
+阶段三已完成离线质量规则与 CI 门禁、单机 Kafka/Flink 窗口实验、MySQL→Hive 软删除 tombstone，以及流式质量隔离/事件路由和批流 JSONL 对账入口。2026-09-25 的 Docker 实机复跑验证了正常告警、checkpoint 恢复、迟到/DELETE/无效业务值路由和中文字段；[当次报告](output/streaming_experiment_20260925_utf8.json)保留原始证据。2026-09-26 增加原始 Kafka 字节隔离链路，验证坏 UTF-8/JSON、未知 `schema_version`、不可解析的 UPSERT 数值、三个非法时间/日期字段、不符合 `Wnn`/`Enn` 格式的业务键、非法 `op`、空 `event_id` 和空 `unit`；同窗口故障注入确认坏样本不会污染正常费用聚合，非法时间的 DELETE 和非法操作的迟到事件不会泄漏到业务旁路。最新[事件元数据复跑报告](output/streaming_experiment_metadata_20260926.json)记录十四条坏样本和正常 3 条／155 元告警。这些检查不覆盖所有字段类型转换和 schema 演进。已提供默认关闭的 [MySQL CDC 源端试验入口](docs/阶段三_MySQL_CDC源试验.md)，2026-09-30 已通过真实 MySQL 物理删除、Kafka tombstone、连接器重启后再次删除，以及真实 CDC 行镜像到独立 Hive ODS/DWD/DWS 的删除与重放核验；[源端报告](output/mysql_cdc_probe_20260930193749.json)、[Hive 报告](output/mysql_cdc_hive_projection_20260930193749.json)已归档；主业务后来已完成 CDC 切换。流批对账仍须同范围完整事件历史；多节点高可用和自动回补仍未完成，不能把单机实验表述为生产级 CDC/HA。详见[阶段三实施与验收边界](docs/阶段三_数据质量与实时管道.md)。
 
-进一步已交付[CDC 业务数仓入口](docs/阶段三_CDC业务数仓接入.md)：真实业务结构的物理删除通过项目原有 DWD/DWS/ADS SQL，费用在三层均为 **30 → 37 → 20 元**；旧插入消息追加重放后仍为 20 元，部分失败后的旧快照被拒绝、新快照可重跑修复。[验收报告](output/mysql_cdc_business_warehouse_20260930203846.json)已归档。新增 `energy_cdc_warehouse` 调度入口默认暂停，原有流程保持运行方式；主库部署切换及新 DAG 调度实跑仍待完成。
+进一步已交付[CDC 业务数仓入口](docs/阶段三_CDC业务数仓接入.md)：真实业务结构的物理删除通过项目原有 DWD/DWS/ADS SQL，费用在三层均为 **30 → 37 → 20 元**；旧插入消息追加重放后仍为 20 元，部分失败后的旧快照被拒绝、新快照可重跑修复。[验收报告](output/mysql_cdc_business_warehouse_20260930203846.json)已归档。新增 `energy_cdc_warehouse` 调度入口默认暂停；主库已完成切换及每日 02:00 自动批次恢复验收，旧模拟/导入写入链路保持暂停。
 
 ```mermaid
 flowchart LR
@@ -621,7 +621,7 @@ python tests/update_baseline.py
 - [x] 使用 Kafka + Flink 构建能耗事件流，完成窗口聚合、乱序处理、状态恢复和秒级告警实验；单机 10 秒窗口、5 秒乱序容忍，2026-09-26 最新复跑验证 checkpoint 恢复和秒级告警；延迟从最后一条推进水位线的消息开始发送时计时，见[运行报告](output/streaming_experiment_keys_20260926.json)；
 - [x] 扩展 GitHub Actions，在可用的测试环境中自动运行完整离线测试、MySQL 查询快照和关键端到端测试；
 - [x] 为增量链路增加软删除 tombstone 捕获，按 `updated_at` 重放到 Hive 并在 Spark 汇总排除删除行；硬删除仍需源端 CDC。
-- [x] 增加 Kafka 迟到/显式 DELETE/无效业务值隔离路径；2026-09-25 已通过容器端到端验证。事件 JSONL 对账器仍是离线审计入口，主业务物理删除 CDC 接入待完成。
+- [x] 增加 Kafka 迟到/显式 DELETE/无效业务值隔离路径；2026-09-25 已通过容器端到端验证。事件 JSONL 对账器仍是离线审计入口，主业务后来已切换至 CDC；真实硬删传播在隔离源与相同数仓 SQL 中完成验证。
 - [x] 日期维表按能耗与产量数据范围自动扩展，并在增量装载时校验日期上下界。
 - [x] 对坏 UTF-8、坏 JSON、未知 schema 版本、不可解析的 UPSERT 数值字段、非法时间/日期、不符 `Wnn`／`Enn` 的业务键、非法操作及空事件 ID/单位增加原始字节隔离；同窗口故障注入证明十一类错误不污染正常费用聚合，不把它扩称为完整 schema registry。
 - [x] 增加一次性 Kafka offset 冻结/导出/流批对账入口，强制显式批次时区、`updated_at` 版本和事件 `schema_version=1`；独立版本 1 测试 topic 的[实机报告](output/kafka_snapshot_v1_20260926.json)通过，不把单行演示冒充全量 CDC 对账。
@@ -632,7 +632,7 @@ python tests/update_baseline.py
 - [x] 2026-10-01 完成同一 CDC DAG 的[独立 Airflow 真实调度](output/mysql_cdc_business_scheduler_20261001204940.json)：两次运行各三个任务全部成功，真实 DataX 维表同步、已填充源库的初始快照和物理删除贯通原 DWD/DWS/ADS SQL，汇总金额从 30 降为 20；[归档与最终源端逐字段对账](output/mysql_cdc_business_scheduler_audit_20261001204940.json)通过。主库后来通过业务键门禁并完成切换。
 - [x] 完成现有主业务 MySQL 全部 **20,704 条记录、14 个字段**的[只读 CDC 初始快照对账](output/mysql_cdc_business_main_reconciliation_20261001225051.json)，读取前后源数据与快照一致。发现 **1,698 个重复业务键**，当时唯一业务行投影拒绝该输入，随后已备份并清理完全重复记录。
 - [x] 2026-10-02 确认上述重复组除 ID 外完全一致，修复导入时关闭唯一性检查的风险；[真实数据库四次导入重放](output/mysql_cdc_business_import_replay_20261002002734.json)保持行数不变。已生成[1,698 条冗余记录清理计划](output/mysql_cdc_business_duplicate_plan_20261002002842.json)，已获授权执行：完整备份后清理 1,698 条冗余记录，保留 19,006 条，全部字段对账通过。
-- [x] **2026-10-03 已完成主数仓 CDC 切换**：[三个任务全部成功](output/mysql_cdc_business_main_cutover_20261003002141.json)，19,006 条有效事实，DWS 日/月及 ADS 金额均为 **215,364,002.57 元**，与源端一致；[输入与 SQL 归档审计](output/mysql_cdc_business_main_cutover_audit_20261003002141.json)及[完整备份检查](output/mysql_cdc_business_main_backup_audit_20261003002141.json)通过。旧模拟/导入链路保持暂停；CDC 持续捕获，数仓按手动批次更新，尚无自动计划。首批约 21 分钟，26 项相关测试通过。[运行与回退说明](docs/阶段三_CDC业务数仓接入.md)。
+- [x] **2026-10-03 已完成主数仓 CDC 切换**：[三个任务全部成功](output/mysql_cdc_business_main_cutover_20261003002141.json)，19,006 条有效事实，DWS 日/月及 ADS 金额均为 **215,364,002.57 元**，与源端一致；[输入与 SQL 归档审计](output/mysql_cdc_business_main_cutover_audit_20261003002141.json)及[完整备份检查](output/mysql_cdc_business_main_backup_audit_20261003002141.json)通过。旧模拟/导入链路保持暂停；CDC 持续捕获，数仓每日 **02:00（Asia/Shanghai）**自动更新；[自动批次恢复验收](output/mysql_cdc_business_main_daily_runtime_20261003105130.json)及[逐字段/输入/SQL 审计](output/mysql_cdc_business_main_cutover_audit_20261003105130.json)通过。首个自动批次经历环境中断与模板修复后成功重跑；不代表曾准点启动。计划运行需 Windows、Docker 与 VM/HDFS 在线。首批约 21 分钟，26 项相关测试通过。[运行与回退说明](docs/阶段三_CDC业务数仓接入.md)。
 - [ ] 完成多节点 Kafka/Flink 高可用、完整的类型转换/schema 演进隔离和流批自动回补/对账；需要集群资源与故障注入。
 
 ### 阶段四：服务化与可视化交付（本地核心交付已归档）
