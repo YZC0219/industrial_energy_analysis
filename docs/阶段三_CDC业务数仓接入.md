@@ -214,14 +214,14 @@ VM 新建同版本 checkout；没有覆盖原 VM 代码。独立 scheduler 使�
 
 - 旧 `energy_pipeline` **保持暂停**，避免模拟生成、再装载或 DataX 能耗写入覆盖 CDC 结果。
 - 新 `cdc-main-scheduler` 使用独立元数据库 `airflow_cdc_main`，两个执行开关已启用。
-- 源连接器持续运行；数仓 DAG 为**显式触发批次**，`schedule=None`，没有自动分钟计划。
+- 源连接器持续运行；2026-10-03 已部署数仓 DAG **每日 02:00（Asia/Shanghai）**计划，自动批次的验收情况见下节。
 - 已将本源主题设为 `cleanup.policy=delete`、`retention.ms=-1`、`retention.bytes=-1`，保留初始事件及删除历史供完整重放；[实际配置](../output/mysql_cdc_business_main_topic_retention_20261003002141.log)已归档。本实现不能直接清空或压缩为仅保留最新键的主题。
 - 原 Airflow 页面连接旧元数据库，其同名 CDC DAG 仍是未启用的备用入口；新运行状态以独立元数据库和下述管理入口为准。
 - 新代码通过显式 Spark 配置使用原主 Hive 元数据，原 VM checkout 没有被覆盖。
 
 ```powershell
-python -m tools.main_cdc_operator status --deployment tmp/cdc_main_deployment_20261002014412
-python -m tools.main_cdc_operator trigger --deployment tmp/cdc_main_deployment_20261002014412
+python -m tools.main_cdc_operator status --deployment tmp/cdc_main_daily_20261003103045
+python -m tools.main_cdc_operator trigger --deployment tmp/cdc_main_daily_20261003103045
 ```
 
 触发入口会拒绝旧链路未暂停或当前 CDC 批次未完成的情况。运行凭据保留在该部署
@@ -240,3 +240,32 @@ HDFS 完整性检查为 HEALTHY，无损坏/缺失块；VM 元数据备份位于
 Docker 启动恢复入口已改为仅对子进程设置 `LOCALAPPDATA=D:\Docker\local-runtime`，
 绕过旧残留套接字目录的访问问题。Windows 全局环境、原漫游配置和 D 盘 WSL 数据盘
 没有调整；实际恢复后原 MySQL/Kafka/Connect/Airflow 服务与数据均存在。
+
+## 每日自动更新（2026-10-03）
+
+[当前部署记录](../output/mysql_cdc_business_main_daily_deployment_20261003103045.json)
+固定运行版本 `0918b63`，计划为 `0 2 * * *`，时区为 `Asia/Shanghai`。
+`catchup=False`、`max_active_runs=1`，旧写入链路继续暂停。新部署位于 D 盘独立目录，
+VM 使用 `/home/yzc/industrial_energy_cdc_daily_20261003103045/project`；主表、原元数据
+和回退备份继续沿用。下一计划时间为 **2026-10-04 02:00（北京时间）**。
+
+批次日期由 `logical_date` 转为北京时间后取日期；UTC 2026-10-01 18:00 对应
+业务日期 2026-10-02。UTC 时间仍用于快照文件名，避免两个时间口径混淆。
+部署前验证实际渲染后的远程命令。维表同步允许两次重试、间隔两分钟；
+不可变快照捕获与数仓写入仍不自动重试，部分写入失败须核查水位线后恢复。
+
+首个自动批次 `scheduled__2026-10-01T18:00:00+00:00` 曾遇运行环境中断与 SSH
+banner 读取失败；恢复尝试又暴露日期模板经 shell 转义后的引号问题，已修复。
+随后重跑原自动批次，没有补建历史批次。
+[自动批次报告](../output/mysql_cdc_business_main_daily_runtime_20261003105130.json)
+确认三个任务全部成功，`run_type=scheduled`，业务日期为 2026-10-02，
+恢复运行约 20 分钟。DWD 有效记录 **19,006 条**，DWS 日/月及 ADS 日汇总金额
+均为 **215,364,002.57 元**；
+[归档审计](../output/mysql_cdc_business_main_cutover_audit_20261003105130.json)
+确认完整事件重放、全部源字段一致、输入摘要及固定运行版本 SQL 摘要一致。
+[压缩输入](../output/mysql_cdc_business_main_input_20261003105130.json.gz)
+保留供复核，原始 JSON 留在 D 盘。该批次期间未主动改动源业务事实或删除回退备份。
+
+Windows、Docker 和 Linux VM/HDFS 须在计划时刻运行且能互相连接。
+本次恢复执行不能证明之前准点启动；`catchup=False` 也不保证补齐停机期间每一天。
+管理入口的 `status` 可查看唯一写入状态、近期批次与下次北京时间计划。
