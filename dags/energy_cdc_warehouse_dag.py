@@ -29,7 +29,7 @@ if DAG_ID != 'energy_cdc_warehouse' and not re.fullmatch(r'energy_cdc_warehouse_
     raise ValueError('Unsupported CDC DAG id')
 SNAPSHOT = 'output/mysql_cdc_snapshot_{{ ts_nodash }}.json'
 REPORT = 'output/mysql_cdc_business_{{ ts_nodash }}.json'
-BIZ_DATE = "{{ logical_date.in_timezone('Asia/Shanghai').to_date_string() }}"
+BIZ_DATE = '{{ logical_date.in_timezone("Asia/Shanghai").to_date_string() }}'
 GUARD = ('test "${CDC_WAREHOUSE_ENABLED:-0}" = "1" && '
          'test "${CDC_EXCLUSIVE_SOURCE_CONFIRMED:-0}" = "1" && ')
 DIMENSIONS = ('for table in dim_workshop dim_energy_type dim_calendar fact_production; do '
