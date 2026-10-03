@@ -63,8 +63,11 @@ def main():
     compose = ['docker', 'compose', '--env-file', str(envfile), '-f', str(ROOT / 'docker-compose.yml'),
                '-f', str(project / 'docker-compose.cdc-main.yml'), '--profile', 'cdc-main']
     run([*compose, 'config', '--quiet'])
-    validation = ("import runpy,json; d=runpy.run_path('dags/energy_cdc_warehouse_dag.py')['dag']; "
+    validation = ("import runpy,json,pendulum; d=runpy.run_path('dags/energy_cdc_warehouse_dag.py')['dag']; "
                   "assert str(d.timezone)=='Asia/Shanghai'; assert d.max_active_runs==1 and not d.catchup; "
+                  "c={'logical_date':pendulum.parse('2026-10-01T18:00:00+00:00'),'ts_nodash':'20261001T180000'}; "
+                  "[t.render_template_fields(c) for t in d.tasks]; "
+                  "assert all('2026-10-02' in d.get_task(n).bash_command for n in ['sync_current_dimensions','apply_cdc_dwd_dws_ads']); "
                   "print(json.dumps({'schedule':d.schedule_interval,'timezone':str(d.timezone),'tasks':d.task_ids}))")
     parsed = json.loads(run([*compose, 'run', '--rm', '--no-deps', '--entrypoint', 'python', 'cdc-main-scheduler', '-c', validation], True).splitlines()[-1])
     if parsed['schedule'] != '0 2 * * *' or len(parsed['tasks']) != 3:
