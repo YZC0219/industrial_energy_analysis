@@ -49,6 +49,7 @@ with DAG(DAG_ID, start_date=START, schedule=SCHEDULE,
          doc_md=__doc__, tags=['energy', 'cdc', 'opt-in']) as dag:
     dimensions = BashOperator(
         task_id='sync_current_dimensions',
+        retries=2, retry_delay=timedelta(minutes=2),
         bash_command=(f'cd {shlex.quote(PROJECT)} && ' + GUARD +
             'if [ "${LAKEHOUSE_EXECUTION_MODE:-local}" = "ssh" ]; then '
             'python -m tools.run_remote_lakehouse --command ' + shlex.quote(DIMENSIONS) +

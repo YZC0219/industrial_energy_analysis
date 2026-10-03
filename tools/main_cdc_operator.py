@@ -24,6 +24,8 @@ def main():
     old_paused = run([*metadata, 'airflow', '-c', "SELECT is_paused FROM dag WHERE dag_id='energy_pipeline'"])
     active = run([*metadata, 'airflow_cdc_main', '-c', "SELECT COUNT(*) FROM dag_run WHERE dag_id='energy_cdc_warehouse' AND state IN ('queued','running')"])
     recent = run([*metadata, 'airflow_cdc_main', '-c', "SELECT run_id||':'||state FROM dag_run WHERE dag_id='energy_cdc_warehouse' ORDER BY execution_date DESC LIMIT 3"])
+    next_local = run([*metadata, 'airflow_cdc_main', '-c',
+                      "SELECT to_char(next_dagrun_create_after AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS') FROM dag WHERE dag_id='energy_cdc_warehouse'"])
     if args.action == 'status':
         compose = ['docker', 'compose', '--env-file', str(deployment / 'deployment.env'),
                    '-f', str(ROOT / 'docker-compose.yml'), '-f', str(deployment / 'project/docker-compose.cdc-main.yml'),
@@ -32,7 +34,7 @@ def main():
                         "import os; print(os.getenv('CDC_SCHEDULE') or 'manual batch')"])
         print(json.dumps({'old_writer_paused': old_paused == 't', 'active_cdc_runs': int(active),
                           'recent_runs': recent.splitlines(), 'schedule': schedule,
-                          'timezone': 'Asia/Shanghai'}, ensure_ascii=False, indent=2))
+                          'timezone': 'Asia/Shanghai', 'next_run_local': next_local or None}, ensure_ascii=False, indent=2))
         return
     if old_paused != 't' or active != '0':
         raise ValueError('Old writer must be paused and current CDC batch must be finished')
