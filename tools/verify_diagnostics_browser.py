@@ -27,6 +27,7 @@ def main():
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.goto(args.base_url + "/diagnostics")
             page.locator(".incident").first.wait_for()
+            assert page.locator('#summary .stat').count() == 5
             listing = context.request.get(args.base_url + "/api/v1/diagnostics").json()
             sample = listing["items"][0]
             page.locator("#workshop").select_option(sample["workshop_code"])
@@ -34,11 +35,20 @@ def main():
                 page.get_by_role("button", name="筛选", exact=True).click()
             page.locator(".incident").first.click()
             page.get_by_role("heading", name="异常原始证据").wait_for()
+            assert page.locator('.trend svg').count() == 1
+            assert page.locator('.incident.active').count() == 1
             assert sample["workshop"] in page.locator("#detail h2").inner_text()
             page.get_by_placeholder("例如：本次异常有哪些证据？").fill("异常的证据是什么")
-            page.get_by_role("button", name="查看证据回答").click()
+            with page.expect_response(lambda r: '/diagnostics/ask' in r.url) as answer_response:
+                page.get_by_role("button", name="查看证据回答").click()
+            answer_payload = answer_response.value.json()
+            assert all('Q03_' not in c['source_path'] for claim in answer_payload['claims'] for c in claim['citations'])
             page.get_by_text("证据检索与规则守卫（非在线模型回答）", exact=True).wait_for()
             assert page.locator(".answer").count() > 0
+            with page.expect_response(lambda r: '/diagnostics/ask' in r.url) as cost_response:
+                page.get_by_role('button', name='同期能源费用是多少？', exact=True).click()
+            assert cost_response.value.json()['answer_metrics']
+            page.get_by_text('已引用日记录的费用合计', exact=False).first.wait_for()
             page.get_by_placeholder("处理人", exact=True).fill("浏览器验收")
             page.get_by_placeholder("确认原因或判断依据", exact=False).fill("测试反馈，仅用于隔离验收")
             page.get_by_placeholder("处理措施及结果").fill("已核对页面与接口")
@@ -53,13 +63,18 @@ def main():
             page.locator(".incident").first.click()
             page.locator(".history").first.wait_for()
             assert "浏览器验收" in page.locator(".history").first.inner_text()
+            page.get_by_role('button', name='待核查', exact=False).filter(has=page.locator('strong')).first.click()
+            page.get_by_text('选择一条异常，查看证据并记录处理结果。', exact=True).wait_for()
+            page.locator('.incident').first.wait_for()
+            page.locator('.incident').first.click()
+            page.locator('.trend svg').wait_for()
             page.screenshot(path=str(args.output_dir / "desktop.png"), full_page=True)
             page.set_viewport_size({"width": 390, "height": 844})
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             page.screenshot(path=str(args.output_dir / "mobile.png"), full_page=True)
             assert not errors, errors
             (args.output_dir / "verification.json").write_text(json.dumps({
-                "result": "pass", "checks": ["filter", "evidence", "scoped question", "feedback persistence", "mobile layout"],
+                "result": "pass", "checks": ["filter", "summary filter", "trend", "event citations", "cited cost total", "feedback persistence", "mobile layout"],
                 "page_errors": errors}, ensure_ascii=False, indent=2), encoding="utf-8")
             print("Workbench browser verification passed")
         finally:

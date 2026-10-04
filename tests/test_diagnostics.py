@@ -88,6 +88,8 @@ def test_monthly_questions_use_event_and_daily_records_instead_of_total(client):
     citations = [c for claim in result['claims'] for c in claim['citations']]
     assert citations and all('Q28_' in c['source_path'] for c in citations)
     assert citations[0]['evidence_value']['能源费用_元'] == '50'
+    assert result['answer_metrics'][0]['value'] == 50
+    assert result['answer_metrics'][0]['record_days'] == 1
     assert ask('2025-02-01 的费用是多少？')['insufficient_evidence']
     assert ask('设备检修日期是哪天？')['insufficient_evidence']
 
@@ -116,3 +118,22 @@ def test_stale_feedback_conflicts_without_losing_history(client):
     latest = first.json()['history'][0]['id']
     second = client.post(url, json={**body, 'operator':'乙','expected_revision':latest})
     assert second.status_code == 200 and len(second.json()['history']) == 2
+
+
+def test_online_scoped_answer_rejects_mapping_as_answer(client, monkeypatch, tmp_path):
+    from ml.attribution_assistant import load_evidence
+    from src.diagnostics import ROOT
+    evidence = load_evidence(ROOT / 'docs/指标字典.md', tmp_path)
+    item = client.get('/api/v1/diagnostics', params={'workshop_code':'W01'}).json()['items'][0]
+    monkeypatch.setenv('LLM_API_URL', 'http://unused.invalid')
+    monkeypatch.setenv('LLM_MODEL', 'test')
+    event = next(e for e in evidence if 'Q16_' in e.source_path)
+    monkeypatch.setattr('src.diagnostics.openai_compatible_llm',
+                        lambda _: {'insufficient_evidence':False, 'evidence_ids':[event.evidence_id]})
+    body = {'question':'本次异常有哪些证据？', 'incident_id':item['id']}
+    result = client.post('/api/v1/diagnostics/ask', json=body)
+    assert result.status_code == 200 and result.json()['mode'] == 'configured_llm'
+    mapping = next(e for e in evidence if 'Q03_' in e.source_path and e.evidence_value['车间编码'] == 'W01')
+    monkeypatch.setattr('src.diagnostics.openai_compatible_llm',
+                        lambda _: {'insufficient_evidence':False, 'evidence_ids':[mapping.evidence_id]})
+    assert client.post('/api/v1/diagnostics/ask', json=body).status_code == 503

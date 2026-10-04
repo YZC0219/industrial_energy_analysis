@@ -211,6 +211,28 @@ def scoped_offline_answer(question, item, evidence):
     return result, audit
 
 
+def answer_metrics(question, result):
+    """Aggregate only cited daily records, with explicit partial-period scope."""
+    from src.api import number
+    records = {}
+    for claim in result['claims']:
+        for citation in claim['citations']:
+            if Path(citation['source_path']).name.startswith('Q28_'):
+                records[(citation['source_path'], citation['record_key'])] = citation['evidence_value']
+    metrics = []
+    if not records:
+        return metrics
+    for words, field, label, unit in (
+        (('费用','成本','多少钱'), '能源费用_元', '已引用日记录的费用合计', '元'),
+        (('产量',), '产量', '已引用日记录的产量合计', '原车间产量单位'),
+        (('碳排',), '碳排放_tCO2', '已引用日记录的碳排放合计', 'tCO₂')):
+        if any(word in question for word in words):
+            metrics.append({'label': label, 'value': round(sum(number(row, field) for row in records.values()), 3),
+                            'unit': unit, 'record_days': len({row['日期'] for row in records.values()}),
+                            'scope': '仅汇总回答中引用的日记录，不自动视为完整月份或实测节能收益'})
+    return metrics
+
+
 @router.post("/api/v1/diagnostics/ask")
 def ask(body: Question):
     from src.api import output_dir
@@ -241,11 +263,13 @@ def ask(body: Question):
         if item and any(Path(c['source_path']).name.startswith('Q03_')
                         for claim in result['claims'] for c in claim['citations']):
             raise GroundingError("车间总览不能作为当前异常的回答证据")
+        metrics = answer_metrics(body.question, result)
+        audit['computed_metrics'] = metrics
         folder = Path(os.getenv("ENERGY_DIAGNOSTICS_AUDIT_DIR", ROOT / "output/diagnostics/audit"))
         folder.mkdir(parents=True, exist_ok=True)
         (folder / f"{result['analysis_id']}.json").write_text(
             json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")
-        return {**result, "mode": audit["provider"],
+        return {**result, "answer_metrics": metrics, "mode": audit["provider"],
                 "mode_label": "在线模型选择证据" if audit["provider"] == "configured_llm" else
                 "证据检索与规则守卫（非在线模型回答）"}
     except HTTPException:

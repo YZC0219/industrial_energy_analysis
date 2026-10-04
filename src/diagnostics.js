@@ -149,6 +149,12 @@ function renderQuestion(root, id) {
     try {
       const result = await api('/api/v1/diagnostics/ask', {question:q.value, incident_id:id});
       answer.replaceChildren(node('p', result.mode_label, 'muted'), node('p', result.summary));
+      (result.answer_metrics || []).forEach(metric => {
+        const block = node('div', undefined, 'answer');
+        block.append(node('strong', metric.label + '：' + metric.value.toLocaleString('zh-CN') + ' ' + metric.unit),
+          node('p', '已引用 ' + metric.record_days + ' 天。' + metric.scope, 'muted'));
+        answer.append(block);
+      });
       result.claims.forEach(claim => {
         const block = node('div', undefined, 'answer');
         claim.citations.forEach(cite => {
