@@ -1,0 +1,1594 @@
+version: 2
+source_of_truth: sql/analysis.sql; pinned SQL blocks and typed table contracts; no
+  averaging or summing derived analytical results
+metrics:
+- id: total_energy_tce
+  name: 综合能耗
+  unit: tce
+  source_query: Q28
+  column: 综合能耗_tce
+  aggregation: sum
+  definition: 各能源折标煤后汇总；不直接相加不同能源实物量
+- id: net_energy_tce
+  name: 剔除公用工程净用能
+  unit: tce
+  source_query: Q28
+  column: 综合能耗_tce
+  aggregation: sum
+  exclude_process: 公用工程
+  definition: 排除工序为公用工程的车间日综合能耗
+- id: energy_intensity_kgce
+  name: 单位产品单耗
+  unit: kgce/产量单位
+  source_query: Q28
+  column: 综合能耗_tce
+  denominator: 产量
+  scale: 1000
+  aggregation: ratio_of_sums
+  exclude_process: 公用工程
+  definition: 单车间综合能耗之和×1000/对应产量之和；不跨车间相加不同产品产量
+  scope: single_workshop_only
+- id: analysis_Q01
+  name: 能源消费总览
+  source_query: Q01
+  aggregation: sql_result
+  result_kind: table
+  definition: 全厂 2024-2025 综合能耗、费用、碳排放总量与日均水平
+  unit: per_column
+- id: analysis_Q02
+  name: 剔除公用工程后的能耗总览
+  source_query: Q02
+  aggregation: sql_result
+  result_kind: table
+  definition: 动力站(公用工程)产出的蒸汽被其他车间二次消费, 全厂口径会重复计算,
+  unit: per_column
+- id: analysis_Q03
+  name: 各车间综合能耗排名
+  source_query: Q03
+  aggregation: sql_result
+  result_kind: table
+  definition: 折标煤口径的车间能耗排名, 含占比与费用强度
+  unit: per_column
+- id: analysis_Q04
+  name: 能源结构_折标煤与费用双口径
+  source_query: Q04
+  aggregation: sql_result
+  result_kind: table
+  definition: 各能源品种的实物量、折标煤占比、费用占比、碳排放
+  unit: per_column
+- id: analysis_Q05
+  name: 月度能耗趋势与环比
+  source_query: Q05
+  aggregation: sql_result
+  result_kind: table
+  definition: 逐月综合能耗、费用, 并用窗口函数计算环比(MoM)
+  unit: per_column
+- id: analysis_Q06
+  name: 各车间能耗同比
+  source_query: Q06
+  aggregation: sql_result
+  result_kind: table
+  definition: 2025 年 vs 2024 年综合能耗同比, 产量增长的同时能耗是否同步增长
+  unit: per_column
+- id: analysis_Q07
+  name: 各车间单位产品能耗月度趋势
+  source_query: Q07
+  aggregation: sql_result
+  result_kind: table
+  definition: 单位产品综合能耗(kgce/单位产量), 口径为剔除公用工程后的生产车间
+  unit: per_column
+- id: analysis_Q08
+  name: 单位产品能耗同比_节能改造效果
+  source_query: Q08
+  aggregation: sql_result
+  result_kind: table
+  definition: 以年度平均单耗衡量各车间节能改造的实际成效
+  unit: per_column
+- id: analysis_Q09
+  name: 能源费用帕累托分析
+  source_query: Q09
+  aggregation: sql_result
+  result_kind: table
+  definition: 车间能源费用降序累计占比, 识别关键少数(通常前 3 个车间占 70%+)
+  unit: per_column
+- id: analysis_Q10
+  name: 各车间能耗结构
+  source_query: Q10
+  aggregation: sql_result
+  result_kind: table
+  definition: '交叉表: 每个车间各能源品种的折标煤消耗, 定位各车间的用能特征'
+  unit: per_column
+- id: analysis_Q11
+  name: 气温与能耗的关系_分档
+  source_query: Q11
+  aggregation: sql_result
+  result_kind: table
+  definition: 仅取连续型车间(全年不停产), 排除停产日对气温信号的干扰。
+  unit: per_column
+- id: analysis_Q12
+  name: 气温与各能源相关系数
+  source_query: Q12
+  aggregation: sql_result
+  result_kind: table
+  definition: 手算 Pearson 相关系数(MySQL 无 CORR 函数), 同样限定连续型车间。
+  unit: per_column
+- id: analysis_Q13
+  name: 停产日待机损耗分析
+  source_query: Q13
+  aggregation: sql_result
+  result_kind: table
+  definition: 非生产日仍发生的能耗即待机损耗, 是节能挖潜的重点
+  unit: per_column
+- id: analysis_Q14
+  name: 工作日与周末节假日能耗对比
+  source_query: Q14
+  aggregation: sql_result
+  result_kind: table
+  definition: 对比不同日型的日均能耗与日均费用
+  unit: per_column
+- id: analysis_Q15
+  name: 各节假日能耗水平
+  source_query: Q15
+  aggregation: sql_result
+  result_kind: table
+  definition: 按 年份+节日 统计停工期能耗, 识别长假期间的能源浪费
+  unit: per_column
+- id: analysis_Q16
+  name: 单耗异常日检测_2sigma
+  source_query: Q16
+  aggregation: sql_result
+  result_kind: table
+  definition: 单位产品能耗超过车间自身 均值+2倍标准差 的日期, 用于能效诊断
+  unit: per_column
+- id: analysis_Q17
+  name: 能耗连续三日上涨
+  source_query: Q17
+  aggregation: sql_result
+  result_kind: table
+  definition: 窗口函数识别连续 3 天能耗递增的车间, 及时发现跑冒滴漏与设备劣化
+  unit: per_column
+- id: analysis_Q18
+  name: 全厂能耗7日移动平均
+  source_query: Q18
+  aggregation: sql_result
+  result_kind: table
+  definition: 平滑日波动, 观察能耗趋势与波动区间
+  unit: per_column
+- id: analysis_Q19
+  name: 能源采购单价月度波动
+  source_query: Q19
+  aggregation: sql_result
+  result_kind: table
+  definition: 实际结算均价 vs 主数据参考价, 监控采购价偏离与成本风险
+  unit: per_column
+- id: analysis_Q20
+  name: 电耗强度月度趋势
+  source_query: Q20
+  aggregation: sql_result
+  result_kind: table
+  definition: 单位产量电耗(kWh/单位), 电力是最主要的二次能源成本项
+  unit: per_column
+- id: analysis_Q21
+  name: 碳排放强度
+  source_query: Q21
+  aggregation: sql_result
+  result_kind: table
+  definition: 月度碳排放总量与单位标煤碳排强度, 反映能源结构清洁化程度
+  unit: per_column
+- id: analysis_Q22
+  name: 能耗突增预警_环比超25pct
+  source_query: Q22
+  aggregation: sql_result
+  result_kind: table
+  definition: 月度环比增幅超 25% 的车间, 作为能效异常的第一道告警
+  unit: per_column
+- id: analysis_Q23
+  name: 能耗最高的车间日TOP20
+  source_query: Q23
+  aggregation: sql_result
+  result_kind: table
+  definition: 绝对能耗最高的车间-日, 用于峰值负荷与容量费管理
+  unit: per_column
+- id: analysis_Q25
+  name: 产量基线单耗期望值
+  source_query: Q25
+  aggregation: sql_result
+  result_kind: table
+  definition: 【#10 考虑产量的能耗基线】按 产量 + 季节 拟合该车间的"期望单耗", 再拿
+  unit: per_column
+- id: analysis_Q26
+  name: 三种检测方法对比
+  source_query: Q26
+  aggregation: sql_result
+  result_kind: table
+  definition: 【#12 算法对比实验】固定 2σ 阈值法 / 产量基线残差法 / CUSUM 累积和法
+  unit: per_column
+- id: analysis_Q27
+  name: 单耗CUSUM累积和序列
+  source_query: Q27
+  aggregation: sql_result
+  result_kind: table
+  definition: 【#11 CUSUM 累积和控制图】每个车间的 S⁺/S⁻ 逐日轨迹, 供报告画累积和控制图。
+  unit: per_column
+- id: analysis_Q28
+  name: 各车间日度能耗与产量
+  source_query: Q28
+  aggregation: sql_result
+  result_kind: table
+  definition: 【#14 动态筛选的数据底座】把 车间 × 日 一行的"能耗 × 费用 × 碳排 × 产量 ×
+  unit: per_column
+- id: analysis_Q29
+  name: 各车间日度能耗结构
+  source_query: Q29
+  aggregation: sql_result
+  result_kind: table
+  definition: 【#14 动态筛选的数据底座, 结构用】日 × 车间 × 能源 的"实物量 × 折标煤 ×
+  unit: per_column
+- id: analysis_Q24
+  name: 单耗每日序列与2sigma带
+  source_query: Q24
+  aggregation: sql_result
+  result_kind: table
+  definition: 每个车间的每日单位产品能耗, 附该车间自身的均值与标准差, 供报告画
+  unit: per_column
+- id: total_cost_yuan
+  name: 能源总费用
+  source_query: Q28
+  column: 能源费用_元
+  unit: CNY
+  aggregation: sum
+  definition: 能源总费用按车间日记录求和
+- id: net_cost_yuan
+  name: 剔除公用工程费用
+  source_query: Q28
+  column: 能源费用_元
+  unit: CNY
+  aggregation: sum
+  definition: 剔除公用工程费用按车间日记录求和
+  exclude_process: 公用工程
+- id: total_carbon_tco2
+  name: 碳排放总量
+  source_query: Q28
+  column: 碳排放_tCO2
+  unit: tCO2
+  aggregation: sum
+  definition: 碳排放总量按车间日记录求和
+- id: net_carbon_tco2
+  name: 剔除公用工程碳排放
+  source_query: Q28
+  column: 碳排放_tCO2
+  unit: tCO2
+  aggregation: sum
+  definition: 剔除公用工程碳排放按车间日记录求和
+  exclude_process: 公用工程
+queries:
+- id: Q01
+  name: 能源消费总览
+  description: 全厂 2024-2025 综合能耗、费用、碳排放总量与日均水平
+  artifact: Q01_能源消费总览.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q01_能源消费总览'
+  sql_sha256: 818cf4ca189be8a2854189fa91cf330517b427312ff35a38815cfbcda8dd1940
+  columns:
+  - name: 统计天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源品种数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q02
+  name: 剔除公用工程后的能耗总览
+  description: 动力站(公用工程)产出的蒸汽被其他车间二次消费, 全厂口径会重复计算,
+  artifact: Q02_剔除公用工程后的能耗总览.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q02_剔除公用工程后的能耗总览'
+  sql_sha256: 748dbfa6d8d9b129c2f4cb3d262f7fceb50a68712b6869cb6c3c40e4753d558e
+  columns:
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q03
+  name: 各车间综合能耗排名
+  description: 折标煤口径的车间能耗排名, 含占比与费用强度
+  artifact: Q03_各车间综合能耗排名.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q03_各车间综合能耗排名'
+  sql_sha256: 2f73080b4cc614f6e6332c2db3d3d488b90a6ecad2a77ee7a42384addf1a7bbd
+  columns:
+  - name: 车间编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 工序
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能耗占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 费用占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能耗排名
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q04
+  name: 能源结构_折标煤与费用双口径
+  description: 各能源品种的实物量、折标煤占比、费用占比、碳排放
+  artifact: Q04_能源结构_折标煤与费用双口径.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q04_能源结构_折标煤与费用双口径'
+  sql_sha256: 9dcfe0fc6658de3d17357f8197717126b3eba68930bbd711e08438159e4421f8
+  columns:
+  - name: 能源编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单位
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 实物消耗量
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 折标煤_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 折标煤占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 费用占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 实际均价
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q05
+  name: 月度能耗趋势与环比
+  description: 逐月综合能耗、费用, 并用窗口函数计算环比(MoM)
+  artifact: Q05_月度能耗趋势与环比.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q05_月度能耗趋势与环比'
+  sql_sha256: f8887e3cdcba9cf92f2a33bcbff576622a3e2517cfb362acd109dcf606d776cd
+  columns:
+  - name: 年月
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 上月能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 环比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q06
+  name: 各车间能耗同比
+  description: 2025 年 vs 2024 年综合能耗同比, 产量增长的同时能耗是否同步增长
+  artifact: Q06_各车间能耗同比.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q06_各车间能耗同比'
+  sql_sha256: e629e4a53ff5e50a5cb5f56c56655c7dc937cba62a83a589d756c73b18240d5a
+  columns:
+  - name: 车间编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能耗2024_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能耗2025_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 同比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q07
+  name: 各车间单位产品能耗月度趋势
+  description: 单位产品综合能耗(kgce/单位产量), 口径为剔除公用工程后的生产车间
+  artifact: Q07_各车间单位产品能耗月度趋势.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q07_各车间单位产品能耗月度趋势'
+  sql_sha256: 012e8a95b2359c826cdde9b386f6c0e8a7e677f08de21911fe340462d358b984
+  columns:
+  - name: 年月
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 产量
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 产量单位
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单位产品能耗_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q08
+  name: 单位产品能耗同比_节能改造效果
+  description: 以年度平均单耗衡量各车间节能改造的实际成效
+  artifact: Q08_单位产品能耗同比_节能改造效果.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q08_单位产品能耗同比_节能改造效果'
+  sql_sha256: 018d3767fcc12a42d997c733b1ff320a9351c6581501e1688b2c5564108c3323
+  columns:
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单耗2024
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单耗2025
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单耗同比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q09
+  name: 能源费用帕累托分析
+  description: 车间能源费用降序累计占比, 识别关键少数(通常前 3 个车间占 70%+)
+  artifact: Q09_能源费用帕累托分析.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q09_能源费用帕累托分析'
+  sql_sha256: 403d967f671ab82c58be1ddd74af64d4bda6bfe7fbb71f96dc7e5d48432bfaf9
+  columns:
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 费用占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 累计占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q10
+  name: 各车间能耗结构
+  description: '交叉表: 每个车间各能源品种的折标煤消耗, 定位各车间的用能特征'
+  artifact: Q10_各车间能耗结构.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q10_各车间能耗结构'
+  sql_sha256: f98124287219418ce8b061897ee43bd7eacae4be2aec0db77fd25567703b64f1
+  columns:
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 电力_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 天然气_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 蒸汽_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 工业水_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 压缩空气_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 柴油_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 合计_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q11
+  name: 气温与能耗的关系_分档
+  description: 仅取连续型车间(全年不停产), 排除停产日对气温信号的干扰。
+  artifact: Q11_气温与能耗的关系_分档.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q11_气温与能耗的关系_分档'
+  sql_sha256: 7cef47c91eed9e14f85922af14e3fecdd278eb5924eadeb0c874c3c6db539a8b
+  columns:
+  - name: 气温区间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 区间均温
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均电耗_kWh
+    type: number
+    unit: kWh
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均气耗_m3
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均蒸汽_t
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q12
+  name: 气温与各能源相关系数
+  description: 手算 Pearson 相关系数(MySQL 无 CORR 函数), 同样限定连续型车间。
+  artifact: Q12_气温与各能源相关系数.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q12_气温与各能源相关系数'
+  sql_sha256: 1194a0dcfa050bad5bd3c64c196f451f931a259a4fa828e1069b4afebc75e1e9
+  columns:
+  - name: 样本天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 电力_r
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 天然气_r
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 蒸汽_r
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q13
+  name: 停产日待机损耗分析
+  description: 非生产日仍发生的能耗即待机损耗, 是节能挖潜的重点
+  artifact: Q13_停产日待机损耗分析.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q13_停产日待机损耗分析'
+  sql_sha256: a02134f3e3f3ff38de38c58057b2cc20c8f17423dc1fc4883c39dbe4de83511d
+  columns:
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 工序
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 停产天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 待机能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 待机占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 待机浪费_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q14
+  name: 工作日与周末节假日能耗对比
+  description: 对比不同日型的日均能耗与日均费用
+  artifact: Q14_工作日与周末节假日能耗对比.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q14_工作日与周末节假日能耗对比'
+  sql_sha256: eea985bfb24f34830da6304995b144473e40eb89fc98b14560cab813af562711
+  columns:
+  - name: 日型
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均碳排_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q15
+  name: 各节假日能耗水平
+  description: 按 年份+节日 统计停工期能耗, 识别长假期间的能源浪费
+  artifact: Q15_各节假日能耗水平.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q15_各节假日能耗水平'
+  sql_sha256: 9b17898e45b828297f88fd46c0077b19b33eb904c58903b41852fd983d900f9d
+  columns:
+  - name: 年份
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 节假日
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q16
+  name: 单耗异常日检测_2sigma
+  description: 单位产品能耗超过车间自身 均值+2倍标准差 的日期, 用于能效诊断
+  artifact: Q16_单耗异常日检测_2sigma.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q16_单耗异常日检测_2sigma'
+  sql_sha256: 6764028586061cc7a2914c935eb8791f82c67a56e81c952b2d9a557e70fdc6ed
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 产量
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单位产品能耗_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间均值
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 标准差
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: Z值
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q17
+  name: 能耗连续三日上涨
+  description: 窗口函数识别连续 3 天能耗递增的车间, 及时发现跑冒滴漏与设备劣化
+  artifact: Q17_能耗连续三日上涨.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q17_能耗连续三日上涨'
+  sql_sha256: 13dc08820370e44e54483cfabbe1e5d412d0d6c4511bf5a498a0b55b7372f05f
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 当日能耗_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 前一日_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 前二日_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日增幅_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q18
+  name: 全厂能耗7日移动平均
+  description: 平滑日波动, 观察能耗趋势与波动区间
+  artifact: Q18_全厂能耗7日移动平均.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q18_全厂能耗7日移动平均'
+  sql_sha256: bacba64d63f9649d9cde3833d11c855ef41d78a127fe893f98ab6df9bc8c47cd
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日能耗_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 七日移动平均
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 七日标准差
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q19
+  name: 能源采购单价月度波动
+  description: 实际结算均价 vs 主数据参考价, 监控采购价偏离与成本风险
+  artifact: Q19_能源采购单价月度波动.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q19_能源采购单价月度波动'
+  sql_sha256: 09672b4a2c60c6af823e3599a0c1186fea6e4d813bcaa40a794d5eb3b22a11d5
+  columns:
+  - name: 年月
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单位
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 消耗量
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 实际均价
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 参考单价
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 偏离_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q20
+  name: 电耗强度月度趋势
+  description: 单位产量电耗(kWh/单位), 电力是最主要的二次能源成本项
+  artifact: Q20_电耗强度月度趋势.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q20_电耗强度月度趋势'
+  sql_sha256: 3de6c3fe490a13a62440f028a045620ff45ff9aed75cf503e0b5b4303e45743d
+  columns:
+  - name: 年月
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 产量单位
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单位产品电耗_kWh
+    type: number
+    unit: kWh
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q21
+  name: 碳排放强度
+  description: 月度碳排放总量与单位标煤碳排强度, 反映能源结构清洁化程度
+  artifact: Q21_碳排放强度.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q21_碳排放强度'
+  sql_sha256: 6ec5dd280ce02428555e46166c996f1830daa9cdbe5ae56a33c80a64d48c9645
+  columns:
+  - name: 年月
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排强度_tCO2每tce
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q22
+  name: 能耗突增预警_环比超25pct
+  description: 月度环比增幅超 25% 的车间, 作为能效异常的第一道告警
+  artifact: Q22_能耗突增预警_环比超25pct.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q22_能耗突增预警_环比超25pct'
+  sql_sha256: 5420d253fc6e79c80ab5ea095f4187d8a4c6ca52f5bbd34789b766c00df88876
+  columns:
+  - name: 年月
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 当月能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 上月能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 环比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q23
+  name: 能耗最高的车间日TOP20
+  description: 绝对能耗最高的车间-日, 用于峰值负荷与容量费管理
+  artifact: Q23_能耗最高的车间日TOP20.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q23_能耗最高的车间日TOP20'
+  sql_sha256: a2184ba21dcb2f4aa6ec5f53fcad9db53f64c46d208fee0af4223ebadf4e26ad
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日均气温
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q25
+  name: 产量基线单耗期望值
+  description: 【#10 考虑产量的能耗基线】按 产量 + 季节 拟合该车间的"期望单耗", 再拿
+  artifact: Q25_产量基线单耗期望值.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q25_产量基线单耗期望值'
+  sql_sha256: 51aa80839b88a1975eac1d31469d10b689666c5ea0fd6f7389931a2ae1ad70e9
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 产量
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 实际单耗_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 期望单耗_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单耗残差_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 残差均值
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 残差标准差
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: Z值
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 是否超限
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 固定阈值是否超限
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q26
+  name: 三种检测方法对比
+  description: 【#12 算法对比实验】固定 2σ 阈值法 / 产量基线残差法 / CUSUM 累积和法
+  artifact: Q26_三种检测方法对比.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q26_三种检测方法对比'
+  sql_sha256: 0ff64c18ef2d7c4664702e6c49e9338a39b104f251d8133663ca8999b139b931
+  columns:
+  - name: 车间编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 样本天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 固定阈值检出
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 产量基线检出
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 累计和报警天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 累计和报警段数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 累计和上侧天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 累计和下侧天数
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 两法一致
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 仅固定阈值
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 仅产量基线
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 固定阈值中基线不认_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 固定_节假日
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 基线_节假日
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 累计和_节假日
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 固定_节假日占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 基线_节假日占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 累计和_节假日占比_pct
+    type: number
+    unit: '%'
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 固定阈值σ
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 残差σ
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 噪声压低比
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 未白化最大S
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 白化最大S
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q27
+  name: 单耗CUSUM累积和序列
+  description: 【#11 CUSUM 累积和控制图】每个车间的 S⁺/S⁻ 逐日轨迹, 供报告画累积和控制图。
+  artifact: Q27_单耗CUSUM累积和序列.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q27_单耗CUSUM累积和序列'
+  sql_sha256: e72d9969b04a5cac302b42789ac05db182b550385ce235323037aceebf132ac3
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 白化残差Z值
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 上侧累积和
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 下侧累积和
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 上侧累积和_未白化
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 下侧累积和_未白化
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 判定限
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 是否报警
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 报警方向
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q28
+  name: 各车间日度能耗与产量
+  description: 【#14 动态筛选的数据底座】把 车间 × 日 一行的"能耗 × 费用 × 碳排 × 产量 ×
+  artifact: Q28_各车间日度能耗与产量.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q28_各车间日度能耗与产量'
+  sql_sha256: eefe55f4c22c6139f722a5320db31f5eae592aa8c13cff604aeb9cb491e3c0a3
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 工序
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 日型
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 是否生产日
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 综合能耗_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 产量
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单位产品能耗_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q29
+  name: 各车间日度能耗结构
+  description: 【#14 动态筛选的数据底座, 结构用】日 × 车间 × 能源 的"实物量 × 折标煤 ×
+  artifact: Q29_各车间日度能耗结构.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q29_各车间日度能耗结构'
+  sql_sha256: c806a306f2d9e708f491200c540f747ea6f6d38ef19a7334fd876e0ff83379e0
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 能源编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 实物消耗量
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 折标煤_tce
+    type: number
+    unit: tce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 费用_元
+    type: number
+    unit: CNY
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 碳排放_tCO2
+    type: number
+    unit: tCO2
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics
+- id: Q24
+  name: 单耗每日序列与2sigma带
+  description: 每个车间的每日单位产品能耗, 附该车间自身的均值与标准差, 供报告画
+  artifact: Q24_单耗每日序列与2sigma带.csv
+  logic_source: sql/analysis.sql
+  logic_marker: '@@name Q24_单耗每日序列与2sigma带'
+  sql_sha256: 9d6d3bd9ebfce290f606260d3bfe48503b27e392a482442c1969056f1a5d8378
+  columns:
+  - name: 日期
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间编码
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间
+    type: string
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 产量
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 单位产品能耗_kgce
+    type: number
+    unit: kgce
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 车间均值
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 标准差
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: Z值
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  - name: 是否超限
+    type: number
+    unit: as_named
+    null_policy: empty_is_SQL_NULL
+    reaggregation: forbidden; execute canonical SQL for a new scope
+  result_kind: table
+  scope: canonical SQL scope; artifact filtering does not recompute window statistics

@@ -49,7 +49,13 @@ def test_datax_schema_preserves_timestamp_and_increment_is_half_open():
     reader=parsed['job']['content'][0]['reader']['parameter']
     assert 'querySql' not in reader and 'querySql' in reader['connection'][0]
     runner=text("datax/run_sync.py")
-    assert runner.index('"-mkdir", "-p", location') < runner.index('os.getenv("DATAX_PYTHON"')
+    import ast
+    tree = ast.parse(runner)
+    mkdir_calls = [node.lineno for node in ast.walk(tree)
+                   if isinstance(node, ast.Constant) and node.value == "-mkdir"]
+    python_config = [node.lineno for node in ast.walk(tree)
+                     if isinstance(node, ast.Constant) and node.value == "DATAX_PYTHON"]
+    assert mkdir_calls and python_config and min(mkdir_calls) < min(python_config)
     assert '"-fs", vals["HDFS_DEFAULT_FS"]' in runner
     dwd=text("spark/sql/10_dwd_energy.sql")
     assert "cast(f.consumption AS decimal(16,3))" in dwd
@@ -160,7 +166,9 @@ def test_airflow_dependency_graph_is_complete(monkeypatch):
     load_module("energy_pipeline_contract", "dags/energy_pipeline_dag.py")
     expected={
       "generate_raw_data":{"clean_data"},
-      "clean_data":{"reconcile_stream_batch"},
+      "clean_data":{"quality_batch"},
+      "quality_batch":{"quality_energy_coverage"},
+      "quality_energy_coverage":{"reconcile_stream_batch"},
       "reconcile_stream_batch":{"ensure_mysql_soft_delete_schema","ensure_hive_soft_delete_schema","run_phase2"},
       "ensure_mysql_soft_delete_schema":{"load_warehouse"},
       "ensure_hive_soft_delete_schema":{"sync_ods_energy_incremental","build_dwd"},

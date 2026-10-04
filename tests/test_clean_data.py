@@ -110,6 +110,44 @@ class TestParseDates:
         assert out.iloc[1] == pd.Timestamp("2024-01-05")
 
 
+class TestLatestDuplicateRows:
+    def test_newest_timestamp_wins_and_older_row_is_rejected(self):
+        rows = pd.DataFrame({
+            "business_key": ["k1", "k1"],
+            "updated_at": pd.to_datetime(["2026-09-30 10:00", "2026-09-30 15:00"]),
+            "value": [10, 15],
+        })
+
+        kept, rejected = cd._split_latest_duplicate_rows(rows, ["business_key"])
+
+        assert kept["value"].tolist() == [15]
+        assert rejected["value"].tolist() == [10]
+
+    def test_valid_timestamp_wins_over_missing_timestamp(self):
+        rows = pd.DataFrame({
+            "business_key": ["k1", "k1"],
+            "updated_at": pd.to_datetime([None, "2026-09-30 10:00"]),
+            "value": [0, 10],
+        })
+
+        kept, rejected = cd._split_latest_duplicate_rows(rows, ["business_key"])
+
+        assert kept["value"].tolist() == [10]
+        assert rejected["value"].tolist() == [0]
+
+    def test_equal_timestamps_keep_first_input_row(self):
+        rows = pd.DataFrame({
+            "business_key": ["k1", "k1"],
+            "updated_at": pd.to_datetime(["2026-09-30 10:00"] * 2),
+            "value": [1, 2],
+        })
+
+        kept, rejected = cd._split_latest_duplicate_rows(rows, ["business_key"])
+
+        assert kept["value"].tolist() == [1]
+        assert rejected["value"].tolist() == [2]
+
+
 # =============================================================================
 # 3. 日期维表 (build_calendar)
 # =============================================================================

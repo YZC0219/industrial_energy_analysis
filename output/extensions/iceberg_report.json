@@ -1,0 +1,44 @@
+{
+  "table": "energy_poc.audit_84393585fb7a4fcd8e1cd49aa7e4756c.meter",
+  "original_snapshot": 7047505612259992642,
+  "current_consumption": 120.0,
+  "historical_consumption": 100.0,
+  "late_days": 3,
+  "replay_count": 1,
+  "status": "passed",
+  "data_source": "synthetic",
+  "spark_version": "3.5.1",
+  "source_sha256": "88c3dd35578c5c0b1986ab7c31439294c4eba6e11196d333975d72bfafcc7f99",
+  "snapshots": [
+    {
+      "snapshot_id": 7047505612259992642,
+      "parent_id": null,
+      "operation": "append",
+      "committed_at": "2026-10-02 00:37:15.035000"
+    },
+    {
+      "snapshot_id": 6368043527469629158,
+      "parent_id": 7047505612259992642,
+      "operation": "overwrite",
+      "committed_at": "2026-10-02 00:37:21.514000"
+    },
+    {
+      "snapshot_id": 4658685069129487153,
+      "parent_id": 6368043527469629158,
+      "operation": "overwrite",
+      "committed_at": "2026-10-02 00:37:24.308000"
+    },
+    {
+      "snapshot_id": 326553603452505608,
+      "parent_id": 4658685069129487153,
+      "operation": "overwrite",
+      "committed_at": "2026-10-02 00:37:27.006000"
+    }
+  ],
+  "iceberg_version": "1.9.1",
+  "jar_sha1": "577f2d40043ab6af4387eef5e856bdde06a931e6",
+  "jar_sha256": "081a420a912e1f926890b2ceb345d3c234903f04e6a7f45b52615a1f708eb8da",
+  "runtime": "WSL Ubuntu / Spark local[2]",
+  "warehouse_storage": "D drive",
+  "generated_at": "2026-10-01T16:37:29.768044+00:00"
+}

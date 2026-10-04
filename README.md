@@ -12,6 +12,37 @@
 
 **项目进展：**阶段一至阶段四的核心能力已落地，阶段三已验证隔离链路的真实物理删除与 Hive 投影，主业务 CDC 已切换并启用每日 02:00 更新，自动批次恢复验收通过；多节点高可用仍待完成。阶段五已交付模拟数据的年度基线与节能情景、UCI 钢厂负荷诊断，并新增 ITAC 真实工厂产量及措施评估案例和独立设备级用电筛查。真实措施效果验证仍需同厂的实施日期与改造前后计量数据。各阶段的完成边界和证据见下方架构与路线图。
 
+## 当前目录与新增交付（2026-10-04）
+
+本仓库同步正式源码、配置示例、测试、技术文档及精选验收证据。运行密钥、依赖缓存、临时项目副本、学习练习环境、生成数据库和论文打包文件保留在本地，不进入版本库。
+
+| 功能 | 目录 / 入口 | 使用与验证说明 |
+|---|---|---|
+| 智能诊断工作台 | `src/diagnostics.py`、`src/diagnostics.html` | 异常筛选、证据问答、人工处置及追加历史；见[工作台说明](docs/智能诊断工作台.md) |
+| 统一指标消费 | `governance/`、`src/semantic_metrics.js` | 报告、API、浏览器基础指标和 Metabase 语义迁移；见[消费迁移](docs/语义层消费迁移_报告与API.md)与[Metabase 说明](docs/Metabase语义层迁移.md) |
+| 持久化告警与恢复 | `streaming/alert_outbox.py`、`streaming/outbox_supervisor.py` | Kafka 桥接、Redis 恢复、重试预算、HTTP 确认与人工重入队；见[10 月 4 日复验记录](docs/告警与整体验收复验_20261004.md) |
+| 增量审计与设备排程 | `lakehouse/`、`optimization/` | Iceberg 历史快照与模拟设备排程；见[四方向扩展](docs/工业数据生命周期_四方向扩展.md) |
+| 前端分析公式 | `src/analysis_formulas.js`、`governance/analysis_formulas.py` | 分析公式独立扩展及原报告接入；见[报告入口说明](docs/分析公式接入原报告入口.md) |
+| 学习与复现 | `docs/daily_lessons/` | 保留课程与操作说明；见[两个月学习计划](docs/两个月项目学习计划.md) |
+
+已有分析输出时，可在项目根目录启动本地诊断入口：
+
+```powershell
+python -m uvicorn src.api:app --host 127.0.0.1 --port 8010
+# 浏览器打开 http://127.0.0.1:8010/diagnostics
+```
+
+工作台默认读取 `output/` 下的分析结果；配置模型需设置服务进程环境变量，未配置时使用证据检索模式。该本地入口尚无用户身份认证，人工反馈不代表已验证的训练标签或节能效果。GitHub Pages 展示静态报告，诊断反馈与问答需另行运行 API 服务。
+
+扩展依赖与离线检查：
+
+```powershell
+python -m pip install -r requirements.txt -r requirements-extensions.txt --cache-dir D:/industrial_energy_analysis/.pip-cache
+python -m pytest -q --basetemp D:/industrial_energy_analysis/tmp/pytest
+```
+
+上述默认测试排除 MySQL `db` 测试；Docker、浏览器、Spark/Iceberg 和外部服务验收使用各文档的独立命令。历史验收记录及其适用边界见[复验说明](docs/告警与整体验收复验_20261004.md)，不表示已完成生产部署。
+
 ## 项目亮点
 
 ### 1. 主动构造脏数据，建立可追溯的数据质量闭环
@@ -134,17 +165,20 @@ generate_raw_data → clean_data → load_warehouse → run_analysis → build_r
 
 | 方向 | 新增入口 | 当前验证边界 |
 |---|---|---|
-| 实时基线报警与冷热分离 | `streaming/flink/power_baseline.sql`、采样模拟、Redis/Webhook 分发、分钟聚合及 ClickHouse 表 | 本机回放和分钟聚合通过；新 SQL 与外部服务联调待验收 |
-| Iceberg 增量修正与审计 | `lakehouse/iceberg_poc.py` | 提供三天迟到修正、版本重放、历史快照实验；Spark/Iceberg 实跑待验收 |
-| 小时负荷预测与分时电价优化 | `optimization/` | 模拟小时预测和产量/功率约束优化可运行；收益为模拟情景 |
-| 统一指标与 DQC | `governance/metrics.yaml`、语义 API、车间品种覆盖门禁 | 三个计算指标、29 组查询目录及离线门禁通过；新增 Airflow 节点实跑待验收 |
+| 实时基线报警与冷热分离 | `streaming/flink/power_baseline.sql`、采样模拟、Redis/Webhook 分发、分钟聚合及 ClickHouse 表 | Kafka/Flink 20 个窗口通过；Redis TTL、测试 Webhook 重放/失败恢复、ClickHouse 分钟明细重放对账通过 |
+| Iceberg 增量修正与审计 | `lakehouse/iceberg_poc.py` | Spark 3.5.1 / Iceberg 1.9.1 本机实跑，三天迟到修正、版本重放、历史快照通过 |
+| 小时负荷预测与分时电价优化 | `optimization/` | 小时预测、连续产量优化及二元设备启停/工序 MILP 通过；收益为模拟情景 |
+| 统一指标与 DQC | `governance/metrics.yaml`、语义 API、车间品种覆盖门禁 | 7 个标量指标、29 个 SQL 契约绑定的表格指标；现有 MySQL 只读快照及 API 对账通过；完整 DAG 隔离 scheduler 两轮各 19 个任务通过 |
 
 ```mermaid
 flowchart LR
     PLC[功率采样] --> Kafka[Kafka]
     Kafka --> Flink[Flink 15分钟窗口]
     Flink --> Alerts[告警主题]
-    Alerts --> Dispatch[Redis / Webhook]
+    Alerts --> Outbox[持久化告警队列]
+    Alerts --> Quarantine[坏消息隔离与人工回放]
+    Quarantine --> Outbox
+    Outbox --> Dispatch[Redis / Webhook]
     Kafka --> Minute[分钟聚合]
     Minute --> CH[ClickHouse 热数据]
     CDC[迟到修正与版本事件] --> Iceberg[Iceberg 隔离旁路]
@@ -154,6 +188,7 @@ flowchart LR
     DW --> Catalog[YAML 指标目录与语义 API]
     Plan[产量计划与天气预报] --> Forecast[小时负荷预测]
     Forecast --> TOU[分时电价优化]
+    TOU --> MILP[设备启停与工序排程]
     TOU --> Savings[约束排程与情景节费]
 ```
 
@@ -646,6 +681,8 @@ python tests/update_baseline.py
 
 FastAPI 本地启动、端点口径与错误语义见[阶段四服务说明](docs/阶段四_服务化与可视化交付.md)；Windows/Docker 故障排查、现场检查及 7 分钟演示顺序见[答辩演示 runbook](docs/Windows_Docker_故障排查与答辩演示.md)。服务启动后可在 `http://127.0.0.1:8000/docs` 查看交互式 OpenAPI 文档；认证、HTTPS 和实时数据库读取仍属于部署阶段工作。
 
+智能诊断工作台：执行 `python -m uvicorn src.api:app --host 127.0.0.1 --port 8010`，访问 <http://127.0.0.1:8010/diagnostics>。支持异常筛选、证据详情、受控问答和持久化处理反馈，详见[工作台使用说明](docs/智能诊断工作台.md)。
+
 ### 阶段五：能效基线与节能情景评估（公开数据案例已补充）
 
 **目标：** 把现有数仓、预测和异常分析能力用于能源管理决策，逐步形成包含基线、诊断证据、措施情景和效果验证的案例。阶段五以独立离线分析旁路推进，不改动阶段一至四的管道、模型、服务和报告。
@@ -664,4 +701,16 @@ FastAPI 本地启动、端点口径与错误语义见[阶段四服务说明](doc
 
 **职业能力对应：** 能源管理/节能咨询侧重基线核算、措施评估与效果验证；数据分析/BI 侧重指标口径、情景分析和决策表达；工业数字化侧重后续设备数据接入、异常闭环和分析服务化。
 
+持久化 Webhook 告警队列已补充：先落盘、租约恢复、指数退避重试、失败记录与人工重新入队。真实本机 HTTP/进程崩溃验收通过；证据见[队列验收](output/extensions/outbox_runtime.json)，命令与边界见[生命周期扩展说明](docs/工业数据生命周期_四方向扩展.md)。[Kafka 桥接实际验收](output/extensions/kafka_outbox_runtime.json)确认落盘后崩溃重放不丢失、重复输入去重、坏消息阻断，以及 20 条告警全部送达本机 Webhook。[Redis 持久化重试验收](output/extensions/redis_outbox_runtime.json)通过：缓存成功但通知 503、Redis 停机与进程重启均可恢复，20 条告警最终全部确认，错误口令一次即失败留痕。81 项相关回归通过；真实授权通知端仍待接入。
+
+新增只读队列诊断和前台进程监管：可查询失败原因与告警历史，失败退出按上限自动重启，停止时结束子进程。[维护入口验收](output/extensions/outbox_operations_runtime.json)和 86 项相关回归通过；系统服务、开机任务与真实通知端尚未配置。
+
+三项纵深扩展已落地：29 个分析绑定统一 SQL/字段契约与 API，坏消息可先隔离再人工修复回放，设备排程支持二元启停与工序约束。实际 MySQL/Kafka 验收与设备约束核验通过，95 项相关回归通过。实现、复现命令和业务边界见[三项纵深扩展说明](docs/三项纵深扩展_指标隔离排程.md)。
+
+HTML 报告和既有 API 的分析产物读取已接入共享语义适配器，旧日期/车间汇总按 YAML 指标字段取值。完整报告数据迁移前后一致，隔离 Airflow 两轮各 19 个任务成功；详见[消费迁移说明](docs/语义层消费迁移_报告与API.md)。Metabase 既有两张费用查询构建器卡片已由语义注册表生成聚合并实际应用，5,848 个车间日费用、6 组图表查询、普通用户权限及浏览器筛选/93 行下钻通过核验，详见[Metabase 迁移说明](docs/Metabase语义层迁移.md)。全部前端衍生公式及更多 BI 指标尚待迁移。
+
 > 路线图表示计划，不代表已经完成。当前仓库可验证的能力以“最终实现”和测试章节为准；后续每项功能将在完成代码、测试和文档后再勾选。
+
+离线报告已内嵌由 YAML 编译的七个基础指标契约，修正筛选费用占比的分母、单耗生产日口径差异与单位误标，并使净用能占比随筛选变化。10 种范围逐项核对、真实浏览器筛选/重置和隔离调度验收见[前端迁移说明](docs/前端基础指标语义层迁移.md)。分析型衍生公式仍待继续统一。
+
+2026-10-04 已补齐告警代码更新后的本机端到端复验，并重新核对语义目录更新后的分析、页面与调度。直接 HTTP 2xx 确认、重定向拒绝、重启后降低重试上限及人工重入队均通过真实进程验收；119 项回归通过，隔离调度两轮各 19 个任务成功。[整体汇总](output/extensions/runtime_summary.json)已刷新且与当前源码一致，详见[复验记录](docs/告警与整体验收复验_20261004.md)。

@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "report_data_unchanged": true,
+  "legacy_api_cases": [
+    {
+      "filters": {},
+      "totals": {
+        "tce": 63759.6315,
+        "cost_yuan": 215364002.57,
+        "co2_t": 156783.46
+      }
+    },
+    {
+      "filters": {
+        "workshop_code": "W01"
+      },
+      "totals": {
+        "tce": 13399.0077,
+        "cost_yuan": 47518069.06,
+        "co2_t": 33597.327
+      }
+    },
+    {
+      "filters": {
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31",
+        "workshop_code": "W02"
+      },
+      "totals": {
+        "tce": 670.0559,
+        "cost_yuan": 2175279.92,
+        "co2_t": 1742.914
+      }
+    }
+  ],
+  "table_metric_cases": 29,
+  "legacy_anomaly_and_summary_ok": true,
+  "source_semantic_report_sha256": "4ac247016759eb4f50941f8ba016bd0822d971404c4cdb18da6d08d6b5766909",
+  "source_hashes": {
+    "governance/consumers.py": "d8f38236159b140400f5f4f14a148f1d1cabb10a456b764bbb33c448696dfaf6",
+    "src/api.py": "ed9a08aee395eac0c1ee03fbb70d99fc63b7148da0d735ec9872ebfefc8811c1",
+    "src/make_report.py": "8fec5272a9b34c3916d936d9799229630ec6c75df0e3a4fb481175ac72e95bfb"
+  },
+  "evidence_directory": "output\\extensions\\semantic_consumers_b90528a887b9",
+  "pending": "Additional BI metrics and browser analytical formulas beyond seven basic scalar metrics"
+}

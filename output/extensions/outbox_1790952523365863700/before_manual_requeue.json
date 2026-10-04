@@ -1,0 +1,26 @@
+[
+  {
+    "id": "180f2be94c9f1fae36ba4a7ac3837ef6fb58f99ae5b36990623902b54869e252",
+    "state": "dead",
+    "attempts": 1,
+    "error": "HTTP 400"
+  },
+  {
+    "id": "6415ffc4f740af058bdf4fb1ec3e679b2400e1d1846909043a916a409cc643f3",
+    "state": "sent",
+    "attempts": 2,
+    "error": null
+  },
+  {
+    "id": "98904917c7b65c6847b9313c65f7d4036609cd014e33f438f4667c1268727050",
+    "state": "dead",
+    "attempts": 3,
+    "error": "HTTP 503"
+  },
+  {
+    "id": "c4f868550f0dead534b3842449c7ff58d8cd9405f0b958d4bfac6bc4838ed3d9",
+    "state": "sent",
+    "attempts": 2,
+    "error": null
+  }
+]

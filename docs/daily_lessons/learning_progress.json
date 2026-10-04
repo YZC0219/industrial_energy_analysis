@@ -1,0 +1,34 @@
+{
+  "objective": "完美掌握这个项目，可以完整复现；分两个月学习，不要求第一天全懂",
+  "plan": "docs/两个月项目学习计划.md",
+  "planned_learning_days": 60,
+  "current_learning_day": 3,
+  "mastered_learning_days": [],
+  "lessons": [
+    {
+      "day": 1,
+      "material": "docs/daily_lessons/第01天_两个月课程版.md",
+      "material_status": "prepared_and_presented",
+      "mastery_status": "awaiting_user_feedback",
+      "user_practice_completed": false
+    },
+    {
+      "day": 2,
+      "material": "docs/daily_lessons/第02天_一条能源记录是什么意思.md",
+      "material_status": "prepared_and_presented",
+      "mastery_status": "awaiting_user_feedback",
+      "user_practice_completed": false
+    },
+    {
+      "day": 3,
+      "material": "docs/daily_lessons/第03天_单位价格费用产量与更新时间.md",
+      "material_status": "prepared_and_presented",
+      "mastery_status": "awaiting_user_feedback",
+      "user_practice_completed": false
+    }
+  ],
+  "advanced_practice_status": "assistant_reference_materials_only_not_user_completion",
+  "pending_feedback": "第三天：数量、单价、费用、产量与两种日期的区别；前三天掌握待反馈",
+  "progression_rule": "按学习日推进，不将助手产物生成或自动续行当作用户掌握；用户有疑问先复习，允许顺延；每天集中一个主题",
+  "automation_settings_changed": false
+}

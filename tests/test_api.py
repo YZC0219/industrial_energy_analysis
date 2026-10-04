@@ -1,5 +1,6 @@
 """Contract tests for the read-only FastAPI analytics facade."""
 from fastapi.testclient import TestClient
+import pytest
 
 from src.api import app
 
@@ -144,3 +145,39 @@ def test_non_finite_metric_fails_closed(tmp_path, monkeypatch):
 
     assert response.status_code == 503
     assert "无效" in response.json()["detail"]
+
+
+def test_extra_csv_field_returns_service_unavailable(tmp_path, monkeypatch):
+    seed_outputs(tmp_path)
+    filename = "Q28_各车间日度能耗与产量.csv"
+    path = tmp_path / filename
+    path.write_text(path.read_text(encoding="utf-8-sig").replace(
+        "10.5,100,2.5,20", "10.5,100,2.5,20,unexpected"), encoding="utf-8-sig")
+    monkeypatch.setenv("ENERGY_OUTPUT_DIR", str(tmp_path))
+    response = TestClient(app).get("/api/v1/metrics")
+    assert response.status_code == 503
+
+
+@pytest.mark.parametrize("endpoint", ["metrics", "report-summary", "anomalies"])
+@pytest.mark.parametrize("invalid_date", ["2025-02-30", "2025-1-1", ""])
+def test_invalid_artifact_dates_fail_closed(tmp_path, monkeypatch, endpoint, invalid_date):
+    seed_outputs(tmp_path)
+    filename = ("Q16_单耗异常日检测_2sigma.csv" if endpoint == "anomalies"
+                else "Q28_各车间日度能耗与产量.csv")
+    path = tmp_path / filename
+    original_date = "2025-01-02" if endpoint == "anomalies" else "2025-01-01"
+    path.write_text(path.read_text(encoding="utf-8-sig").replace(original_date, invalid_date),
+                    encoding="utf-8-sig")
+    monkeypatch.setenv("ENERGY_OUTPUT_DIR", str(tmp_path))
+    response = TestClient(app).get(f"/api/v1/{endpoint}")
+    assert response.status_code == 503
+
+
+@pytest.mark.parametrize("invalid_month", ["2025-13", "2025-1", "2025-01-01", ""])
+def test_invalid_monthly_alert_dates_fail_closed(tmp_path, monkeypatch, invalid_month):
+    seed_outputs(tmp_path)
+    path = tmp_path / "Q22_能耗突增预警_环比超25pct.csv"
+    path.write_text(path.read_text(encoding="utf-8-sig").replace("2025-01", invalid_month),
+                    encoding="utf-8-sig")
+    monkeypatch.setenv("ENERGY_OUTPUT_DIR", str(tmp_path))
+    assert TestClient(app).get("/api/v1/anomalies").status_code == 503

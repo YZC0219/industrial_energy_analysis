@@ -1,0 +1,25 @@
+version: 1
+scope: selected daily rows; no recalculation of historical anomaly baselines
+formulas:
+  monthly_energy_change:
+    operation: adjacent_month_change
+    unit: percent
+    field: tce
+    missing_previous: null
+    zero_previous: null
+    definition: Only consecutive calendar months are comparable; selected partial months use selected totals and must be labelled.
+  daily_energy_average:
+    operation: trailing_calendar_mean
+    unit: tce
+    field: tce
+    window_days: 7
+    minimum_points: 1
+    missing_days: exclude_without_zero_fill
+    definition: Inclusive trailing seven calendar days within selected rows; average observed eligible dates, never seven arbitrary observations.
+  energy_cost_pareto:
+    operation: descending_cumulative_share
+    unit: percent
+    field: cost
+    threshold_percent: 80
+    zero_total: zero_shares_no_threshold
+    definition: Sort descending by selected energy costs; ties preserve input order; first cumulative share reaching 80 percent is the threshold.

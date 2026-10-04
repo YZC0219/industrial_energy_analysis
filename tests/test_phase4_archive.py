@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -47,3 +48,21 @@ def test_phase4_archive_screenshots_are_real_pngs() -> None:
         path = OUTPUT / browser[key]
         assert path.is_file() and path.stat().st_size > 10000
         assert path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_phase4_document_evidence_is_tracked_by_git() -> None:
+    evidence = (
+        "output/phase4_runtime_verification_20260928.json",
+        "output/phase4_browser_verification_20260928.json",
+        "output/phase4_browser_dashboard_20260928.png",
+        "output/phase4_browser_drill_20260928.png",
+    )
+    for relative_path in evidence:
+        result = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", relative_path],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, f"{relative_path} is not tracked by git"

@@ -1,4 +1,0 @@
-Dynamic configs for topic energy-cdc-main-readonly-20261002012039.industrial_energy.fact_energy_consumption are:
-  cleanup.policy=delete sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:cleanup.policy=delete, DEFAULT_CONFIG:log.cleanup.policy=delete}
-  retention.bytes=-1 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.bytes=-1, DEFAULT_CONFIG:log.retention.bytes=-1}
-  retention.ms=-1 sensitive=false synonyms={DYNAMIC_TOPIC_CONFIG:retention.ms=-1}

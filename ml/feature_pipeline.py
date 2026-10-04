@@ -17,6 +17,18 @@ def build_features(energy: pd.DataFrame, production: pd.DataFrame) -> pd.DataFra
     """
     e=energy.copy(); p=production.copy()
     e["record_date"]=pd.to_datetime(e["record_date"]); p["record_date"]=pd.to_datetime(p["record_date"])
+    for frame, keys in ((e, ("record_date", "workshop_code", "energy_code")),
+                        (p, ("record_date", "workshop_code"))):
+        for key in keys:
+            if frame[key].isna().any() or frame[key].map(
+                lambda value: isinstance(value, str) and not value.strip()).any():
+                raise ValueError(f"业务键缺失或无效: {key}")
+    for frame, columns in ((e, ("consumption", "cost")), (p, ("output_qty",))):
+        for column in columns:
+            values = pd.to_numeric(frame[column], errors="raise")
+            if not np.isfinite(values).all() or (values < 0).any():
+                raise ValueError(f"计量字段缺失或无效: {column}")
+            frame[column] = values
     unknown=sorted(set(e["energy_code"].dropna())-set(STD_COAL))
     if unknown: raise ValueError(f"未知能源编码，无法计算折标煤: {unknown}")
     if e.duplicated(["record_date","workshop_code","energy_code"]).any():

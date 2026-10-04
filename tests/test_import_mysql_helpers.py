@@ -61,3 +61,36 @@ def test_create_table_script_keeps_tombstone_comment_intact():
             and "fact_energy_consumption" in stmt]
     assert len(fact) == 1
     assert "COMMENT '软删除标记; 增量 CDC tombstone'" in fact[0]
+
+
+def test_explicit_incremental_cold_start_needs_only_current_batch(monkeypatch, tmp_path):
+    import import_mysql as module
+    import sys
+    (tmp_path / "dim_calendar.csv").write_text("calendar_date\n2026-10-02\n")
+    for name in ("clean_batch_energy.csv", "clean_batch_production.csv"):
+        (tmp_path / name).write_text("record_date\n2026-10-02\n")
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+        def execute(self, sql, *_): self.sql = sql
+        def fetchone(self): return ("8.0",) if "VERSION()" in self.sql else (1,)
+    class Connection:
+        def cursor(self): return Cursor()
+        def commit(self): pass
+        def close(self): pass
+    monkeypatch.setattr(module, "connect", lambda _: Connection())
+    monkeypatch.setattr(module, "read_watermark", lambda *_: (None, None))
+    monkeypatch.setattr(module, "ensure_soft_delete_column", lambda *_: None)
+    loaded = []
+    def load(_, table, name, *args, **kwargs):
+        assert (tmp_path / name).is_file(), name
+        loaded.append(name)
+        return 1
+    def advance(_, database, table, column, old, *args):
+        assert old == "1970-01-01 00:00:00"
+        return "2026-10-02 00:00:00"
+    monkeypatch.setattr(module, "load_csv", load)
+    monkeypatch.setattr(module, "advance_watermark", advance)
+    monkeypatch.setattr(sys, "argv", ["import_mysql.py", "--incremental", "--batch-dir", str(tmp_path)])
+    module.main()
+    assert loaded == ["dim_calendar.csv", "clean_batch_energy.csv", "clean_batch_production.csv"]

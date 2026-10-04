@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "generated_at": "2026-10-01T16:35:43.715808+00:00",
+  "scope": "isolated DAG.test in real Airflow; not scheduler deployment",
+  "cases": [
+    {
+      "mode": "good",
+      "task_states": {
+        "coverage_gate": "success",
+        "downstream_report": "success"
+      },
+      "downstream_file_exists": true,
+      "dag_id": "energy_quality_probe_a82644ccd602_good",
+      "run_id": "manual__2026-09-27T00:00:00+00:00"
+    },
+    {
+      "mode": "missing_energy",
+      "task_states": {
+        "coverage_gate": "failed",
+        "downstream_report": "upstream_failed"
+      },
+      "downstream_file_exists": false,
+      "dag_id": "energy_quality_probe_a82644ccd602_missing_energy",
+      "run_id": "manual__2026-09-27T00:00:00+00:00"
+    }
+  ]
+}

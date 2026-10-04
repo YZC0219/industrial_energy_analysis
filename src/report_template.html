@@ -4,9 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>全厂能耗体检</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap">
 <style>
 :root{
   color-scheme: light;
@@ -515,6 +512,7 @@ td:first-child{color:var(--ink)}
   <header class="masthead">
     <p class="eyebrow">工业能耗分析 · 2024-01-01 ~ 2025-12-31</p>
     <h1>全厂能耗体检</h1>
+    <p><a href="http://127.0.0.1:8010/diagnostics" target="_blank" rel="noopener">打开智能诊断工作台</a> <small>需先启动本地 API 服务（端口 8010）</small></p>
     <p class="lede">8 个车间、6 种能源、731 天的日粒度能耗与产量数据，从原始脏数据一路清洗入 MySQL 后，由 <code>sql/analysis.sql</code> 的 24 条查询算出下面每一个数字。</p>
     <ul class="facts">
       <li>数据来源 <b>模拟数据（随机种子 20240918，可复现）</b></li>
@@ -998,6 +996,7 @@ td:first-child{color:var(--ink)}
 // 数据占位符: make_report.py 把 __DATA__ 标记到 __END__ 标记之间的内容整体替换成 JSON。
 // 模板本身保持可解析(此处的值是 null), 直接双击打开不会因语法错误导致整页脚本失效。
 window.REPORT = /*__DATA__*/null/*__END__*/;
+/*__SEMANTIC_ENGINE__*/
 </script>
 <script>
 (function(){
@@ -1044,6 +1043,11 @@ function dayMatch(d){
 }
 function dateMatch(d){
   return (!FILTER.from || d >= FILTER.from) && (!FILTER.to || d <= FILTER.to);
+}
+
+function semanticSelection(){
+  var rows = D.ws_daily.filter(function(r){ return wsMatch(r.code) && dateMatch(r.d) && dayMatch(r.day); });
+  return window.EnergySemantic.evaluate(window.ENERGY_SEMANTIC_CONTRACT, rows, D.ws_meta);
 }
 
 /* 聚合: 每加一个维度就多一个循环, 不建索引 —— 19,006 行在浏览器里是毫秒级,
@@ -1098,6 +1102,11 @@ function aggAll(){
   }
   K.days = 0;
   for (var dd in daySeen) K.days += 1;
+  var metrics = semanticSelection();
+  K.tce = metrics.total_energy_tce.value === null ? 0 : metrics.total_energy_tce.value;
+  K.cost = metrics.total_cost_yuan.value === null ? 0 : metrics.total_cost_yuan.value;
+  K.co2 = metrics.total_carbon_tco2.value === null ? 0 : metrics.total_carbon_tco2.value;
+  K.tce_ex = metrics.net_energy_tce.value;
   return {byEnergy:byEnergy, byWs:byWs, byMonth:byMonth, byDay:byDay,
           daytypeDays:byTypeDays, K:K};
 }
@@ -1106,6 +1115,9 @@ function aggAll(){
 function rebuildView(A){
   if (!isFiltered()) return D;
   var mixTotal = 0, wsTotal = 0;
+  var mixCost = 0, wsCost = 0;
+  for (var ek in A.byEnergy) mixCost += A.byEnergy[ek].cost;
+  for (var wk in A.byWs) wsCost += A.byWs[wk].cost;
   for (var k in A.byEnergy) mixTotal += A.byEnergy[k].tce;
   for (var c in A.byWs) wsTotal += A.byWs[c].tce;
 
@@ -1114,7 +1126,7 @@ function rebuildView(A){
     var v = A.byEnergy[code], m = D.en_meta[code] || {name:code, unit:""};
     energy_mix.push({name:m.name, unit:m.unit, qty:v.qty, tce:v.tce,
       tce_pct: mixTotal ? v.tce / mixTotal * 100 : 0,
-      cost:v.cost, cost_pct: mixTotal ? v.cost / mixTotal * 100 : 0, co2:v.co2,
+      cost:v.cost, cost_pct: window.EnergySemantic.share(v.cost, mixCost), co2:v.co2,
       price: v.qty ? v.cost / v.qty : 0});
   }
   energy_mix.sort(function(a, b){ return b.tce - a.tce; });
@@ -1124,7 +1136,7 @@ function rebuildView(A){
     var sv = A.byWs[wc], wm = D.ws_meta[wc] || {name:wc, proc:""};
     workshops.push({code:wc, name:wm.name, process:wm.proc, tce:sv.tce,
       tce_pct: wsTotal ? sv.tce / wsTotal * 100 : 0, cost:sv.cost,
-      cost_pct: wsTotal ? sv.cost / wsTotal * 100 : 0, co2:sv.co2,
+      cost_pct: window.EnergySemantic.share(sv.cost, wsCost), co2:sv.co2,
       utility: wm.proc === "公用工程"});
   }
   workshops.sort(function(a, b){ return b.tce - a.tce; });
@@ -1154,7 +1166,7 @@ function rebuildView(A){
   VIEW = Object.create(D);          // 原型指向 D: 没覆写的字段(unit_series 等)照常取到
   var K = A.K;
   VIEW.totals = {days:K.days, tce:K.tce, cost:K.cost, co2:K.co2,
-                 tce_ex:null,        // 剔除口径没有立方体支撑, 置 null 由文案兜底
+                 tce_ex:K.tce_ex,
                  filtered:true};
   VIEW.energy_mix = energy_mix;
   VIEW.workshops = workshops;
@@ -2444,7 +2456,7 @@ function initStatic(){
   document.getElementById("hero-note").textContent =
     T.filtered ? "折标煤当量值 · 已按筛选条件重算" : "折标煤当量值，含公用工程口径";
 
-  // 剔除公用工程的口径没有立方体支撑 —— 筛选时隐藏, 而不是编一个数出来
+  // 净用能按语义层从车间日明细重算；没有净用能数据时隐藏。
   var exWrap = document.getElementById("tce-ex-wrap");
   if (exWrap) exWrap.hidden = T.tce_ex === null;
   if (T.tce_ex !== null){
@@ -2452,7 +2464,7 @@ function initStatic(){
     // 占比也一并插值: 早先手写 72.7%, 实算 72.774% 应进位到 72.8% —— 手写的是
     // 截断值。这个数随数据变, 手写必然漂。
     document.querySelector('[data-fill="tce_ex-pct"]').textContent =
-      D.derived.utility_ratio.toFixed(1) + "%";
+      (T.tce ? T.tce_ex / T.tce * 100 : 0).toFixed(1) + "%";
   }
 
   var kpis = [
@@ -2886,8 +2898,9 @@ function dashTokens(){
    立方体支撑; 调暗并注明"全期口径", 而不是编一个随筛选变化的假数字。 */
 function drawDashKpis(){
   var T = VIEW.totals, nd = T.filtered ? T.days : 731;
-  var cost = VIEW.energy_mix.reduce(function(a, r){ return a + r.cost; }, 0) || T.cost;
-  var co2 = VIEW.energy_mix.reduce(function(a, r){ return a + r.co2; }, 0) || T.co2;
+  var semantics = semanticSelection();
+  var cost = semantics.total_cost_yuan.value === null ? 0 : semantics.total_cost_yuan.value;
+  var co2 = semantics.total_carbon_tco2.value === null ? 0 : semantics.total_carbon_tco2.value;
   var dv = D.derived || {};
   var standbyTce = dv.standby_tce || 0;
 
@@ -2906,18 +2919,10 @@ function drawDashKpis(){
     if (meta.proc === "公用工程"){
       ueNote = meta.name + " 属公用工程，不参与单耗口径";
     } else {
-      var tceSum = 0, qtySum = 0, n = 0;
-      for (var i = 0; i < wsd.length; i++){
-        var r = wsd[i];
-        if (r.code !== code) continue;
-        if (!dateMatch(r.d)) continue;
-        if (FILTER.day !== null && !dayMatch(r.day)) continue;
-        if (!r.prod || !(r.qty > 0)) continue;    // 停产日产量为 0, 不能进分母
-        tceSum += r.tce; qtySum += r.qty; n++;
-      }
-      if (qtySum > 0){
-        ue = tceSum / qtySum * 1000;    // tce/t -> kgce/t
-        ueNote = meta.name + " · " + n + " 个生产日";
+      var intensity = semantics.energy_intensity_kgce;
+      if (intensity.value !== null){
+        ue = intensity.value;
+        ueNote = meta.name + " · " + intensity.row_count + " 个车间日";
       } else {
         ueNote = meta.name + "：当前筛选下没有产量记录";
       }
@@ -2936,7 +2941,7 @@ function drawDashKpis(){
      n:"日均 ¥" + num(cost / nd, 0)},
     {l:"碳排放", v:num(co2, 1), u:"tCO₂",
      n:"碳排强度 " + (T.tce ? (co2 / T.tce).toFixed(3) : "0.000") + " tCO₂/tce"},
-    {l:"单位产品能耗", v:ue === null ? "—" : ue.toFixed(1), u:ue === null ? "" : "kgce/t",
+    {l:"单位产品能耗", v:ue === null ? "—" : ue.toFixed(1), u:ue === null ? "" : "kgce/产量单位",
      n:ueNote},
     {l:"末期环比", v:mom === null ? "—" : pct(mom, 1), u:"",
      n:mm ? mm.ym + " 相对上月" : "区间不足两月",

@@ -1,0 +1,16 @@
+{
+  "run_id": "f2b3bd086c95",
+  "source_topic": "energy-power-poc-f2b3bd086c95",
+  "sink_topic": "energy-power-alert-poc-f2b3bd086c95",
+  "sql_sha256": "b892d744833243e986db23c7497e5edffd4e99e1237d09ea59241a6653819384",
+  "success": true,
+  "generated_at": "2026-10-01T16:30:58.746867+00:00",
+  "job_id": "dd9d4b2ccbd5fba9a9d84d9bd31c49dc",
+  "expected_windows": 20,
+  "observed_windows": 20,
+  "cross_workshop_isolation": true,
+  "mean_slope_count_reconciled": true,
+  "runtime": "Flink 1.20.2 / Kafka 3.9.1",
+  "evidence_directory": "D:\\industrial_energy_analysis\\output\\extensions\\f2b3bd086c95",
+  "cancel_requested": true
+}

@@ -224,6 +224,17 @@ with DAG(
         """,
     )
 
+    quality_batch = project_task(
+        "quality_batch",
+        "tools/check_data_quality.py",
+        "Great Expectations 检查主键、非负性与跨表关系；失败阻断装载、预测及报表。",
+    )
+    quality_energy_coverage = project_task(
+        "quality_energy_coverage",
+        "tools/check_energy_coverage.py",
+        "按审核的车间能源主数据核验每个生产车间日的品种覆盖，失败阻断下游。",
+    )
+
     reconcile_stream_batch = optional_stream_reconcile_task()
 
     ensure_mysql_soft_delete_schema = project_task(
@@ -348,7 +359,7 @@ with DAG(
         "生成全厂日看板应用表。",
     )
 
-    generate_raw_data >> clean_data >> reconcile_stream_batch
+    generate_raw_data >> clean_data >> quality_batch >> quality_energy_coverage >> reconcile_stream_batch
     reconcile_stream_batch >> ensure_mysql_soft_delete_schema >> load_warehouse >> run_analysis >> build_report
     reconcile_stream_batch >> run_phase2 >> run_deep_validation
     reconcile_stream_batch >> ensure_hive_soft_delete_schema

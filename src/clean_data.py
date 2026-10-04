@@ -147,6 +147,21 @@ def norm_text(s: pd.Series) -> pd.Series:
              .replace({"": pd.NA}))
 
 
+def _split_latest_duplicate_rows(
+    rows: pd.DataFrame, key_cols: list[str], updated_at_col: str = "updated_at"
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return the newest row per key and the superseded rows.
+
+    Stable descending order puts valid, latest timestamps first, missing
+    timestamps last, and preserves input order when timestamps tie.
+    """
+    ordered = rows.sort_values(
+        updated_at_col, ascending=False, na_position="last", kind="stable"
+    )
+    duplicate_mask = ordered.duplicated(subset=key_cols, keep="first")
+    return ordered.loc[~duplicate_mask], ordered.loc[duplicate_mask]
+
+
 def parse_dates(s: pd.Series) -> pd.Series:
     """
     按 DATE_FORMATS 逐种格式尝试解析日期。
@@ -339,10 +354,10 @@ def main() -> None:
     # 使这次改动对既有数据集的去重结果零影响。
     key_cols = ["record_date", "workshop_code", "energy_code"]
     dup_mask = df.duplicated(subset=key_cols, keep=False)
-    # NaT(缺 updated_at)排在最前, 保证有时间的版本优先胜出
-    ordered = df.loc[dup_mask].sort_values(
-        "updated_at", na_position="first", kind="stable")
-    dup_rows = ordered.loc[ordered.duplicated(subset=key_cols, keep="first")].copy()
+    # 有效更新时间降序排列，NaT 排最后；同一时间戳保持输入顺序。
+    _keep_rows, dup_rows = _split_latest_duplicate_rows(
+        df.loc[dup_mask], key_cols, "updated_at")
+    dup_rows = dup_rows.copy()
     dup_rows["reject_reason"] = "业务键重复(日期×车间×能源)"
     rejects = pd.concat([rejects, dup_rows], ignore_index=True)
     stats["重复记录剔除"] = int(len(dup_rows))
@@ -350,9 +365,8 @@ def main() -> None:
     # rejects 是**留痕**日志, 除了被删的行, 还收了第 8 步那些"只置空、没删行"的
     # 离群记录, 两者混在一起会让合计虚高, 且与上方各项对不上。
     stats["剔除-合计"] = stats["剔除-合计"] + int(len(dup_rows))
-    # 保留每个业务键的首条(时间戳相同时取 df 顺序靠前者)
-    keep_idx = ordered.drop_duplicates(subset=key_cols, keep="first").index
-    dropped_idx = ordered.index.difference(keep_idx)
+    # 保留每个业务键最新的行(时间戳相同时取 df 顺序靠前者)
+    dropped_idx = dup_rows.index
     df = df.loc[~df.index.isin(dropped_idx)].copy()
 
     # ---- 8. 离群值处理 (Q3 + 3*IQR, 按 车间×能源 分组) ---------------------

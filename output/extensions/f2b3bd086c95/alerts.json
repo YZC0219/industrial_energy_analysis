@@ -1,0 +1,162 @@
+[
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:11:00",
+    "window_end": "2026-09-27 00:26:00",
+    "mean_kw": 124.0,
+    "slope_kw_per_minute": 5.785714285714286,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:12:00",
+    "window_end": "2026-09-27 00:27:00",
+    "mean_kw": 128.0,
+    "slope_kw_per_minute": 6.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:13:00",
+    "window_end": "2026-09-27 00:28:00",
+    "mean_kw": 132.0,
+    "slope_kw_per_minute": 6.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:14:00",
+    "window_end": "2026-09-27 00:29:00",
+    "mean_kw": 136.0,
+    "slope_kw_per_minute": 5.785714285714286,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:15:00",
+    "window_end": "2026-09-27 00:30:00",
+    "mean_kw": 140.0,
+    "slope_kw_per_minute": 5.357142857142857,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:16:00",
+    "window_end": "2026-09-27 00:31:00",
+    "mean_kw": 144.0,
+    "slope_kw_per_minute": 4.714285714285714,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:17:00",
+    "window_end": "2026-09-27 00:32:00",
+    "mean_kw": 148.0,
+    "slope_kw_per_minute": 3.857142857142857,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:18:00",
+    "window_end": "2026-09-27 00:33:00",
+    "mean_kw": 152.0,
+    "slope_kw_per_minute": 2.7857142857142856,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:19:00",
+    "window_end": "2026-09-27 00:34:00",
+    "mean_kw": 156.0,
+    "slope_kw_per_minute": 1.5,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:20:00",
+    "window_end": "2026-09-27 00:35:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:21:00",
+    "window_end": "2026-09-27 00:36:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:22:00",
+    "window_end": "2026-09-27 00:37:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:23:00",
+    "window_end": "2026-09-27 00:38:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:24:00",
+    "window_end": "2026-09-27 00:39:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:25:00",
+    "window_end": "2026-09-27 00:40:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:26:00",
+    "window_end": "2026-09-27 00:41:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:27:00",
+    "window_end": "2026-09-27 00:42:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:28:00",
+    "window_end": "2026-09-27 00:43:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:29:00",
+    "window_end": "2026-09-27 00:44:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  },
+  {
+    "workshop_code": "W01",
+    "window_start": "2026-09-27 00:30:00",
+    "window_end": "2026-09-27 00:45:00",
+    "mean_kw": 160.0,
+    "slope_kw_per_minute": 0.0,
+    "sample_count": 15
+  }
+]

@@ -76,8 +76,9 @@ def main() -> None:
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
             page.get_by_text("车间能源费用排名", exact=True).wait_for(timeout=30000)
             page.get_by_text("每日能源费用趋势", exact=True).wait_for(timeout=30000)
-            page.wait_for_function(
-                "document.body.innerText.includes('400,000.00')", timeout=30000)
+            # Prefer a locator over page.wait_for_function: Metabase's CSP blocks
+            # string-evaluated predicates in newer browser/runtime combinations.
+            page.get_by_text("400,000.00", exact=False).wait_for(timeout=30000)
             body = page.locator("body").inner_text()
             if "W04" not in body or "2025年1月1日 - 2025年1月31日" not in body:
                 raise AssertionError("workshop filter W04 not visible in dashboard")

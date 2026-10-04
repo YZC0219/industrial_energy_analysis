@@ -1,0 +1,23 @@
+{
+  "checked_at_utc": "2026-09-28T07:41:41.107736+00:00",
+  "dashboard_id": 2,
+  "filter": {
+    "workshop_code": "W04",
+    "date_from": "2025-01-01",
+    "date_to": "2025-01-31",
+    "rows": 93,
+    "cost_yuan": "375635.34"
+  },
+  "api_verified_cost_yuan": "375635.34",
+  "browser_checked": [
+    "date filter",
+    "workshop filter",
+    "ranking chart",
+    "daily trend chart",
+    "drill-through row count"
+  ],
+  "screenshot": "phase4_browser_dashboard_20260928.png",
+  "drill_screenshot": "phase4_browser_drill_20260928.png",
+  "drillthrough_rows": 93,
+  "result": "pass"
+}

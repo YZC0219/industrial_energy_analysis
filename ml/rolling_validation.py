@@ -15,6 +15,11 @@ WARMUP_DAYS = 28
 
 def rolling_splits(dates, train_days=365, test_days=30, step_days=30,
                    warmup_days=WARMUP_DAYS, include_partial=False):
+    for name, value in (("train_days", train_days), ("test_days", test_days),
+                        ("step_days", step_days), ("warmup_days", warmup_days)):
+        minimum = 0 if name == "warmup_days" else 1
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < minimum:
+            raise ValueError(f"{name} must be an integer >= {minimum}")
     values = pd.DatetimeIndex(sorted(pd.to_datetime(pd.Series(dates).dropna().unique())))
     if not len(values):
         return

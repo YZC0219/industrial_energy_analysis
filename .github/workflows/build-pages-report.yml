@@ -51,6 +51,14 @@ on:
       - "tools/reconcile_kafka_snapshot.py"
       - "tests/test_kafka_snapshot_reconciliation.py"
       - "requirements.txt"
+      - "requirements-extensions.txt"
+      - "governance/**"
+      - "optimization/**"
+      - "lakehouse/**"
+      - "src/analysis_formulas.js"
+      - "src/semantic_metrics.js"
+      - "src/diagnostics*"
+      - "tests/**"
   workflow_dispatch:
 
 permissions:
@@ -84,7 +92,7 @@ jobs:
           cache: pip
 
       - name: Install project dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt -r requirements-extensions.txt
 
       # ---- 守卫: 基线必须先被证明是"当前正确的答案" ----
       #

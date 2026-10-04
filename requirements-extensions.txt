@@ -1,0 +1,5 @@
+# Base requirements.txt already supplies numpy/scikit-learn/PyYAML/FastAPI.
+scipy>=1.11,<2
+redis>=5,<7  # optional cache dispatch and durable outbox; no connection in local runner
+# Iceberg uses the existing Spark 3.5 runtime plus a matching Iceberg jar.
+# No additional engine is installed by the local POC runner.

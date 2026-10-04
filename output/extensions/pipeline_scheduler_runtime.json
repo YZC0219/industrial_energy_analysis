@@ -1,0 +1,352 @@
+{
+  "success": true,
+  "generated_at": "2026-10-04T07:14:01.593913+00:00",
+  "dag_id": "energy_pipeline_probe_96e41146ee2a",
+  "metadata_database": "airflow_pipeline_probe_96e41146ee2a",
+  "mysql_database": "industrial_energy_pipeline_probe_96e41146ee2a",
+  "scheduler_container": "energy-pipeline-scheduler-96e41146ee2a",
+  "source_dag_sha256": "4ca02e6701efd08247ac33d39ffee1141ef59b0300689dd8b72d6cb280f41b68",
+  "evidence_directory": "D:\\industrial_energy_analysis\\output\\extensions\\scheduler_96e41146ee2a",
+  "scope": "main DAG graph and scripts in isolated scheduler/databases; main deployment unchanged",
+  "disabled": [
+    "Hive/Spark branch",
+    "Kafka history reconciliation",
+    "deep models"
+  ],
+  "runs": [
+    {
+      "phase": "initial",
+      "run_id": "verify_96e41146ee2a_initial",
+      "state": "success",
+      "tasks": [
+        {
+          "task_id": "build_ads",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:32.004713+00:00",
+          "end_date": "2026-10-04T07:15:32.410424+00:00"
+        },
+        {
+          "task_id": "build_dwd",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:17.997104+00:00",
+          "end_date": "2026-10-04T07:15:18.440459+00:00"
+        },
+        {
+          "task_id": "build_dws",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:21.983669+00:00",
+          "end_date": "2026-10-04T07:15:22.394831+00:00"
+        },
+        {
+          "task_id": "build_report",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:38.157159+00:00",
+          "end_date": "2026-10-04T07:15:48.720346+00:00"
+        },
+        {
+          "task_id": "clean_data",
+          "state": "success",
+          "start_date": "2026-10-04T07:14:45.39188+00:00",
+          "end_date": "2026-10-04T07:14:48.304052+00:00"
+        },
+        {
+          "task_id": "ensure_hive_soft_delete_schema",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:04.493818+00:00",
+          "end_date": "2026-10-04T07:15:04.799462+00:00"
+        },
+        {
+          "task_id": "ensure_mysql_soft_delete_schema",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:04.443098+00:00",
+          "end_date": "2026-10-04T07:15:05.231972+00:00"
+        },
+        {
+          "task_id": "generate_raw_data",
+          "state": "success",
+          "start_date": "2026-10-04T07:14:41.439991+00:00",
+          "end_date": "2026-10-04T07:14:44.034836+00:00"
+        },
+        {
+          "task_id": "load_warehouse",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:06.725951+00:00",
+          "end_date": "2026-10-04T07:15:09.542705+00:00"
+        },
+        {
+          "task_id": "quality_batch",
+          "state": "success",
+          "start_date": "2026-10-04T07:14:49.234398+00:00",
+          "end_date": "2026-10-04T07:14:58.964983+00:00"
+        },
+        {
+          "task_id": "quality_dwd",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:19.724114+00:00",
+          "end_date": "2026-10-04T07:15:20.130933+00:00"
+        },
+        {
+          "task_id": "quality_dws",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:26.822321+00:00",
+          "end_date": "2026-10-04T07:15:27.226603+00:00"
+        },
+        {
+          "task_id": "quality_energy_coverage",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:00.479845+00:00",
+          "end_date": "2026-10-04T07:15:02.438145+00:00"
+        },
+        {
+          "task_id": "reconcile_stream_batch",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:03.659806+00:00",
+          "end_date": "2026-10-04T07:15:03.967296+00:00"
+        },
+        {
+          "task_id": "run_analysis",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:24.029443+00:00",
+          "end_date": "2026-10-04T07:15:37.421687+00:00"
+        },
+        {
+          "task_id": "run_deep_validation",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:29.12644+00:00",
+          "end_date": "2026-10-04T07:15:29.564492+00:00"
+        },
+        {
+          "task_id": "run_phase2",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:06.80177+00:00",
+          "end_date": "2026-10-04T07:15:24.643577+00:00"
+        },
+        {
+          "task_id": "sync_ods_dimensions",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:11.79929+00:00",
+          "end_date": "2026-10-04T07:15:12.363668+00:00"
+        },
+        {
+          "task_id": "sync_ods_energy_incremental",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:14.572555+00:00",
+          "end_date": "2026-10-04T07:15:15.265715+00:00"
+        }
+      ],
+      "query_sha256": {
+        "Q01_能源消费总览.csv": "b823057d4ade14947e5306f4ae1d39f599cf7b7eeb1eee6084f8187258729ce8",
+        "Q02_剔除公用工程后的能耗总览.csv": "6b6986a37250362784371ae5e3db4bcdc3491d57e316d602a2ad1bea5f8d45da",
+        "Q03_各车间综合能耗排名.csv": "31378ba8af3446f870d61bd51afd6f8b1aa6d3ee29cac2bb91d92b4062454241",
+        "Q04_能源结构_折标煤与费用双口径.csv": "47e8b02b1aea3653cccc9cd1a5ae907d644f54e6b02d9dedc40b9d37b0ea2acc",
+        "Q05_月度能耗趋势与环比.csv": "c357f7fa73b7b8ab1d33eafe159762097f7c9650feaa4b7be8ca80358b2fc71c",
+        "Q06_各车间能耗同比.csv": "85795af35a584d6e659b75be9a68fe102074aff3e951245780f4766793620b4a",
+        "Q07_各车间单位产品能耗月度趋势.csv": "8900cb3b1004f9575cd5a20104f8c225466fa4d700c2b1aaac17c60137e2ce79",
+        "Q08_单位产品能耗同比_节能改造效果.csv": "44a151bf0f7de59268ae03aea782a8c129cbcc592ead53dc0e29d694d39e186f",
+        "Q09_能源费用帕累托分析.csv": "fa4782a9cd25e2885fa2b3b8358211f6a6c21d5dd7305a5802da15fccbb780a6",
+        "Q10_各车间能耗结构.csv": "5f8a5df157e2fdc9025274201eafa5adc3d81ec8b3a4ecfb184fbc1f30e7d79d",
+        "Q11_气温与能耗的关系_分档.csv": "3e456421326a62fa80958570c1957715af1d553ba5ec20563bc3e1a35bf8a4cc",
+        "Q12_气温与各能源相关系数.csv": "086db361248d422aee5219c51d66d51d828d08adcf52b5343919e6fe13f8b809",
+        "Q13_停产日待机损耗分析.csv": "d3c3c0ad954be8bbbf97796151494357695fb678925a97142b81ce59e0f676b7",
+        "Q14_工作日与周末节假日能耗对比.csv": "0ff840d81cd6656b208a638991927d4cb46c8f3845f0e860c813864b199cd146",
+        "Q15_各节假日能耗水平.csv": "9418d101fd1cdcc78050ae7759cc73e868545d18c6519e33aba22830f4429107",
+        "Q16_单耗异常日检测_2sigma.csv": "f4615b3baa7a8e10109a99507e7ecabc356b31180086bff7197a5624c1f34c33",
+        "Q17_能耗连续三日上涨.csv": "781af7cbb23d113b046938c15d3dd40de1061921d0592d21595b97c46a8edae7",
+        "Q18_全厂能耗7日移动平均.csv": "f15ff17440b908c90788c22c022c4b9a2d96116901d88ccddccb159355fa9e9b",
+        "Q19_能源采购单价月度波动.csv": "8a0bd9ef029188a849d9e9ba1736a252c8df8798618339db0be47531e36c4f5d",
+        "Q20_电耗强度月度趋势.csv": "fab3a17c300df7090f2b22970767ac31792619caff5bfc2947ed3d259cebf964",
+        "Q21_碳排放强度.csv": "9bde0852f324e6a31a698ccf5aa04c0089e28d5ae419b6cd0981a6df0c510f24",
+        "Q22_能耗突增预警_环比超25pct.csv": "3f76e8a353586a3964918bf6cc05062a4517c18795c2e18069de8d08b1705cfd",
+        "Q23_能耗最高的车间日TOP20.csv": "1165caaf7bfe18c36a64c27d84798e815d6d30186a9e25785507d17c436c22bb",
+        "Q24_单耗每日序列与2sigma带.csv": "e560afe2e99b4c1f5e0ac4e770b8e698acfc268cbbc8fddd15e345b72ba78e1c",
+        "Q25_产量基线单耗期望值.csv": "579ab586236194f857da8cd41aa9e577a7c88cefa0b4de694d425062d22b5a1f",
+        "Q26_三种检测方法对比.csv": "09340822bb0cedd3cf80a65d4ce4b775e1d70fdc785f1248249bb56198a7bdd1",
+        "Q27_单耗CUSUM累积和序列.csv": "ae9deb48f61d80be9e2f630160db75a736cd261221a968165ab11732e10d47c6",
+        "Q28_各车间日度能耗与产量.csv": "66df2d189f2a4ba93693911709b8e9e47fa58d42f69f40724fa40a34ee0f3ca5",
+        "Q29_各车间日度能耗结构.csv": "dbbcceaa615804442d96dc90fc28b58c244938f222d64a16c0fb4ecae7f709eb"
+      },
+      "warehouse": {
+        "active_rows": 19006,
+        "total_cost_yuan": "215364002.57"
+      },
+      "quality_before_load": true
+    },
+    {
+      "phase": "identical_replay",
+      "run_id": "verify_96e41146ee2a_identical_replay",
+      "state": "success",
+      "tasks": [
+        {
+          "task_id": "build_ads",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:37.910521+00:00",
+          "end_date": "2026-10-04T07:16:38.26583+00:00"
+        },
+        {
+          "task_id": "build_dwd",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:27.756461+00:00",
+          "end_date": "2026-10-04T07:16:28.11314+00:00"
+        },
+        {
+          "task_id": "build_dws",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:31.710476+00:00",
+          "end_date": "2026-10-04T07:16:32.074735+00:00"
+        },
+        {
+          "task_id": "build_report",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:45.807837+00:00",
+          "end_date": "2026-10-04T07:16:55.399262+00:00"
+        },
+        {
+          "task_id": "clean_data",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:59.476414+00:00",
+          "end_date": "2026-10-04T07:16:02.024341+00:00"
+        },
+        {
+          "task_id": "ensure_hive_soft_delete_schema",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:15.562069+00:00",
+          "end_date": "2026-10-04T07:16:15.962305+00:00"
+        },
+        {
+          "task_id": "ensure_mysql_soft_delete_schema",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:15.477882+00:00",
+          "end_date": "2026-10-04T07:16:16.478868+00:00"
+        },
+        {
+          "task_id": "generate_raw_data",
+          "state": "success",
+          "start_date": "2026-10-04T07:15:56.16871+00:00",
+          "end_date": "2026-10-04T07:15:58.596141+00:00"
+        },
+        {
+          "task_id": "load_warehouse",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:17.777623+00:00",
+          "end_date": "2026-10-04T07:16:20.893854+00:00"
+        },
+        {
+          "task_id": "quality_batch",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:03.371186+00:00",
+          "end_date": "2026-10-04T07:16:10.955611+00:00"
+        },
+        {
+          "task_id": "quality_dwd",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:29.189302+00:00",
+          "end_date": "2026-10-04T07:16:29.684108+00:00"
+        },
+        {
+          "task_id": "quality_dws",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:34.001092+00:00",
+          "end_date": "2026-10-04T07:16:34.321974+00:00"
+        },
+        {
+          "task_id": "quality_energy_coverage",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:11.52784+00:00",
+          "end_date": "2026-10-04T07:16:13.559224+00:00"
+        },
+        {
+          "task_id": "reconcile_stream_batch",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:14.646702+00:00",
+          "end_date": "2026-10-04T07:16:14.991695+00:00"
+        },
+        {
+          "task_id": "run_analysis",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:33.963894+00:00",
+          "end_date": "2026-10-04T07:16:45.497138+00:00"
+        },
+        {
+          "task_id": "run_deep_validation",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:35.754369+00:00",
+          "end_date": "2026-10-04T07:16:36.117002+00:00"
+        },
+        {
+          "task_id": "run_phase2",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:17.888286+00:00",
+          "end_date": "2026-10-04T07:16:32.944227+00:00"
+        },
+        {
+          "task_id": "sync_ods_dimensions",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:22.772044+00:00",
+          "end_date": "2026-10-04T07:16:23.157182+00:00"
+        },
+        {
+          "task_id": "sync_ods_energy_incremental",
+          "state": "success",
+          "start_date": "2026-10-04T07:16:24.965762+00:00",
+          "end_date": "2026-10-04T07:16:25.354507+00:00"
+        }
+      ],
+      "query_sha256": {
+        "Q01_能源消费总览.csv": "b823057d4ade14947e5306f4ae1d39f599cf7b7eeb1eee6084f8187258729ce8",
+        "Q02_剔除公用工程后的能耗总览.csv": "6b6986a37250362784371ae5e3db4bcdc3491d57e316d602a2ad1bea5f8d45da",
+        "Q03_各车间综合能耗排名.csv": "31378ba8af3446f870d61bd51afd6f8b1aa6d3ee29cac2bb91d92b4062454241",
+        "Q04_能源结构_折标煤与费用双口径.csv": "47e8b02b1aea3653cccc9cd1a5ae907d644f54e6b02d9dedc40b9d37b0ea2acc",
+        "Q05_月度能耗趋势与环比.csv": "c357f7fa73b7b8ab1d33eafe159762097f7c9650feaa4b7be8ca80358b2fc71c",
+        "Q06_各车间能耗同比.csv": "85795af35a584d6e659b75be9a68fe102074aff3e951245780f4766793620b4a",
+        "Q07_各车间单位产品能耗月度趋势.csv": "8900cb3b1004f9575cd5a20104f8c225466fa4d700c2b1aaac17c60137e2ce79",
+        "Q08_单位产品能耗同比_节能改造效果.csv": "44a151bf0f7de59268ae03aea782a8c129cbcc592ead53dc0e29d694d39e186f",
+        "Q09_能源费用帕累托分析.csv": "fa4782a9cd25e2885fa2b3b8358211f6a6c21d5dd7305a5802da15fccbb780a6",
+        "Q10_各车间能耗结构.csv": "5f8a5df157e2fdc9025274201eafa5adc3d81ec8b3a4ecfb184fbc1f30e7d79d",
+        "Q11_气温与能耗的关系_分档.csv": "3e456421326a62fa80958570c1957715af1d553ba5ec20563bc3e1a35bf8a4cc",
+        "Q12_气温与各能源相关系数.csv": "086db361248d422aee5219c51d66d51d828d08adcf52b5343919e6fe13f8b809",
+        "Q13_停产日待机损耗分析.csv": "d3c3c0ad954be8bbbf97796151494357695fb678925a97142b81ce59e0f676b7",
+        "Q14_工作日与周末节假日能耗对比.csv": "0ff840d81cd6656b208a638991927d4cb46c8f3845f0e860c813864b199cd146",
+        "Q15_各节假日能耗水平.csv": "9418d101fd1cdcc78050ae7759cc73e868545d18c6519e33aba22830f4429107",
+        "Q16_单耗异常日检测_2sigma.csv": "f4615b3baa7a8e10109a99507e7ecabc356b31180086bff7197a5624c1f34c33",
+        "Q17_能耗连续三日上涨.csv": "781af7cbb23d113b046938c15d3dd40de1061921d0592d21595b97c46a8edae7",
+        "Q18_全厂能耗7日移动平均.csv": "f15ff17440b908c90788c22c022c4b9a2d96116901d88ccddccb159355fa9e9b",
+        "Q19_能源采购单价月度波动.csv": "8a0bd9ef029188a849d9e9ba1736a252c8df8798618339db0be47531e36c4f5d",
+        "Q20_电耗强度月度趋势.csv": "fab3a17c300df7090f2b22970767ac31792619caff5bfc2947ed3d259cebf964",
+        "Q21_碳排放强度.csv": "9bde0852f324e6a31a698ccf5aa04c0089e28d5ae419b6cd0981a6df0c510f24",
+        "Q22_能耗突增预警_环比超25pct.csv": "3f76e8a353586a3964918bf6cc05062a4517c18795c2e18069de8d08b1705cfd",
+        "Q23_能耗最高的车间日TOP20.csv": "1165caaf7bfe18c36a64c27d84798e815d6d30186a9e25785507d17c436c22bb",
+        "Q24_单耗每日序列与2sigma带.csv": "e560afe2e99b4c1f5e0ac4e770b8e698acfc268cbbc8fddd15e345b72ba78e1c",
+        "Q25_产量基线单耗期望值.csv": "579ab586236194f857da8cd41aa9e577a7c88cefa0b4de694d425062d22b5a1f",
+        "Q26_三种检测方法对比.csv": "09340822bb0cedd3cf80a65d4ce4b775e1d70fdc785f1248249bb56198a7bdd1",
+        "Q27_单耗CUSUM累积和序列.csv": "ae9deb48f61d80be9e2f630160db75a736cd261221a968165ab11732e10d47c6",
+        "Q28_各车间日度能耗与产量.csv": "66df2d189f2a4ba93693911709b8e9e47fa58d42f69f40724fa40a34ee0f3ca5",
+        "Q29_各车间日度能耗结构.csv": "dbbcceaa615804442d96dc90fc28b58c244938f222d64a16c0fb4ecae7f709eb"
+      },
+      "warehouse": {
+        "active_rows": 19006,
+        "total_cost_yuan": "215364002.57"
+      },
+      "quality_before_load": true
+    }
+  ],
+  "source_hashes": {
+    "src/import_mysql.py": "8a07f62f5b05f26a3b0adf3ebfc095b4e850b45706b57b44275e8e7c04f21973",
+    "src/clean_data.py": "8dbb59a163459c0217e5e867e5b43b65898df91dd3ba339366c64b3d1640e175",
+    "src/generate_data.py": "1d2d4f8b2eed10e7f3c0427c4d0d6f9b05b84bf8f97272935baa423cae9840ef",
+    "src/make_report.py": "78330b2c07c4e1024a56087cc56ca7935b1258b8eedb9dc2edd54bd4b6b92e7f",
+    "governance/consumers.py": "d8f38236159b140400f5f4f14a148f1d1cabb10a456b764bbb33c448696dfaf6",
+    "governance/catalog.py": "1f2bed6e05a225ecc7a060137d361342ca63f5079a86ba9d58e8af3a37678070",
+    "governance/metrics.yaml": "5b7508a3f2ace0be87ee16995331ec05a9511a299c6df3929feede32fb90d336",
+    "governance/browser.py": "b383dd6dc8722aa47ecfd97ad480fd117d83f2419004833a7e12d33f5c97122e",
+    "src/semantic_metrics.js": "41bef7eb613492a7f80f24bb8adeec8f94724313c9928dca09a3593d140b3986",
+    "src/report_template.html": "a3daf7d5f151d2c79678a209b387f9680572a46c0f7c75fa0077d913d48a7e41",
+    "tools/check_energy_coverage.py": "27b02e7a4b9b5c01b924aaf98c0f16778a60be41baec66f77e97aff1fa105cae",
+    "tools/check_data_quality.py": "7f9c053a48619c05d8ed217541270c8e021f4920d34556b755792e8e98eccf7e",
+    "tools/run_phase2.py": "cdbbf1419a2eafef7162d4201b866373a1c075fec3fedfc4e3e726cb6b7c6671",
+    "quality/rules/energy_batch.json": "edfcc2186946fb4b45f73b03d5134ae71405af228312a8cfb246362368ee28ee",
+    "quality/rules/workshop_energy_coverage.json": "b0165dbfa93d0cb5cb3a1f16a42269135add8ebb32794a1e23863ed1f1b5064d",
+    "sql/create_table.sql": "d676699c290260b492a09a08676dbcf25912eeee53fe6d27d67b1a4503f5e3a3",
+    "sql/analysis.sql": "058a52ec4473e2b99310566f2da518e777a0b7093a4ea02ca0c3baaffd7badb0"
+  },
+  "identical_replay_verified": true
+}

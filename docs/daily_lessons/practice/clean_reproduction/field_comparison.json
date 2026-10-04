@@ -1,0 +1,32 @@
+{
+  "same_business_keys": true,
+  "existing_only_columns": [],
+  "reproduced_only_columns": [
+    "is_deleted"
+  ],
+  "different_rows_in_shared_columns": 0,
+  "differences_by_column": {},
+  "existing_column_order": [
+    "consumption",
+    "unit",
+    "unit_price",
+    "cost",
+    "record_status",
+    "avg_temperature",
+    "data_source",
+    "is_production_day",
+    "updated_at"
+  ],
+  "reproduced_column_order": [
+    "consumption",
+    "unit",
+    "unit_price",
+    "cost",
+    "record_status",
+    "avg_temperature",
+    "data_source",
+    "is_production_day",
+    "updated_at",
+    "is_deleted"
+  ]
+}

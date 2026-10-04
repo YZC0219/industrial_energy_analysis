@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "source_sha256": "a9a894afa101d6d27b1bcbc60707f2a2a59cd8054ee06006710a522264e4ee24",
+  "process_crash_after_remote_ack_recovered": true,
+  "receiver_deduplicated": true,
+  "automatic_retry_recovered": true,
+  "retry_exhaustion_attempts": 3,
+  "permanent_error_attempts": 1,
+  "manual_requeue_recovered": true,
+  "final_states": {
+    "dead": 1,
+    "sent": 3
+  },
+  "http_attempts": 9,
+  "unique_received": 3,
+  "evidence_directory": "output\\extensions\\outbox_1791097867679172200"
+}

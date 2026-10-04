@@ -1,0 +1,10 @@
+{
+  "role": "worker",
+  "db": "D:/industrial_energy_analysis/output/alerts/redis-queue.sqlite",
+  "log_dir": "D:/industrial_energy_analysis/output/alerts/worker-logs",
+  "webhook_env": "ENERGY_ALERT_WEBHOOK_URL",
+  "redis_env": "ENERGY_ALERT_REDIS_URL",
+  "restart_limit": 5,
+  "base_delay": 1,
+  "max_delay": 30
+}

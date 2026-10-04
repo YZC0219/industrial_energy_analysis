@@ -1,0 +1,5 @@
+{
+  "state": "dead",
+  "attempts": 1,
+  "error": "Redis AuthenticationError"
+}

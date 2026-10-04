@@ -1,0 +1,61 @@
+{
+  "success": true,
+  "checked_at_utc": "2026-10-04T07:13:26.623878+00:00",
+  "http_cases": [
+    {
+      "http_status": 200,
+      "queue_state": "sent",
+      "post_attempts": 1
+    },
+    {
+      "http_status": 204,
+      "queue_state": "sent",
+      "post_attempts": 1
+    },
+    {
+      "http_status": 301,
+      "queue_state": "dead",
+      "post_attempts": 1
+    },
+    {
+      "http_status": 302,
+      "queue_state": "dead",
+      "post_attempts": 1
+    },
+    {
+      "http_status": 303,
+      "queue_state": "dead",
+      "post_attempts": 1
+    },
+    {
+      "http_status": 307,
+      "queue_state": "dead",
+      "post_attempts": 1
+    },
+    {
+      "http_status": 308,
+      "queue_state": "dead",
+      "post_attempts": 1
+    },
+    {
+      "http_status": 400,
+      "queue_state": "dead",
+      "post_attempts": 1
+    },
+    {
+      "http_status": 503,
+      "queue_state": "pending",
+      "post_attempts": 1
+    }
+  ],
+  "redirects_not_followed": true,
+  "lowered_budget_after_process_restart_blocks_delivery": true,
+  "manual_requeue_resets_budget": true,
+  "scope": "127.0.0.1 receiver only",
+  "source_hashes": {
+    "streaming/alert_outbox.py": "a9a894afa101d6d27b1bcbc60707f2a2a59cd8054ee06006710a522264e4ee24",
+    "streaming/dispatch.py": "b9191192b04433f7952ab0492530d5b17ac271c4e96456fbb977f6975aebfcef",
+    "tools/verify_delivery_guards.py": "869b1b6eecbe6669fb96d76e950f0d7b3c278eb7a13e979f28f932bd96126a84"
+  },
+  "evidence_directory": "output\\extensions\\delivery_guards_3e684a76e9fc"
+}

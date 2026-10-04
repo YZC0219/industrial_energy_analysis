@@ -1,9 +1,0 @@
-{
-  "success": true,
-  "expected_sha": "340db0037eabfe2d8c1783e96c236330132f896d",
-  "source_snapshot_sha256": "b5a95374d6656e27f5451060a7f6433d9df5c018d04896ca8ba0ba8bf022e85a",
-  "upload_verified": true,
-  "identical_retry_verified": true,
-  "different_bytes_overwrite_rejected": true,
-  "scope": "real Airflow-image Paramiko -> pinned isolated VM checkout; input transfer and read only; no production DAG run"
-}

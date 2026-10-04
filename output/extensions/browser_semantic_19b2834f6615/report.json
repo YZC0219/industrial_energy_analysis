@@ -1,0 +1,108 @@
+{
+  "success": true,
+  "checked_at_utc": "2026-10-04T07:16:44.560602+00:00",
+  "contract_sha256": "c32d0920c6c1c0cd31eec362bf9fe63fdfadc52d5a522094e1d8b4fef74a9b14",
+  "scalar_cases": [
+    {
+      "filters": {},
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "workshop_code": "W01",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31"
+      },
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "workshop_code": "W02",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31"
+      },
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "workshop_code": "W03",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31"
+      },
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "workshop_code": "W04",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31"
+      },
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "workshop_code": "W05",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31"
+      },
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "workshop_code": "W06",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31"
+      },
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "workshop_code": "W07",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31"
+      },
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "workshop_code": "W08",
+        "date_from": "2025-01-01",
+        "date_to": "2025-01-31"
+      },
+      "metrics": 7,
+      "passed": true
+    },
+    {
+      "filters": {
+        "date_from": "2030-01-01",
+        "date_to": "2030-01-02"
+      },
+      "metrics": 7,
+      "passed": true
+    }
+  ],
+  "cost_shares_reconciled": true,
+  "actual_ui_single_workshop_and_reset": true,
+  "day_type_totals_reconciled": true,
+  "net_energy_share_follows_filter": true,
+  "zero_empty_nonproduction_and_invalid_values_checked": true,
+  "browser_errors": [],
+  "evidence_directory": "output\\extensions\\browser_semantic_19b2834f6615",
+  "source_semantic_report_sha256": "4ac247016759eb4f50941f8ba016bd0822d971404c4cdb18da6d08d6b5766909",
+  "source_hashes": {
+    "governance/browser.py": "b383dd6dc8722aa47ecfd97ad480fd117d83f2419004833a7e12d33f5c97122e",
+    "governance/metrics.yaml": "5b7508a3f2ace0be87ee16995331ec05a9511a299c6df3929feede32fb90d336",
+    "src/semantic_metrics.js": "41bef7eb613492a7f80f24bb8adeec8f94724313c9928dca09a3593d140b3986",
+    "src/report_template.html": "a3daf7d5f151d2c79678a209b387f9680572a46c0f7c75fa0077d913d48a7e41",
+    "src/make_report.py": "78330b2c07c4e1024a56087cc56ca7935b1258b8eedb9dc2edd54bd4b6b92e7f",
+    "tools/verify_browser_semantics.py": "03b70cdf7c4cc8e575562c4e2d78f80f25a7bc79e55fc8c2faadeb11c314c180"
+  }
+}

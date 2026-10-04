@@ -28,13 +28,23 @@ htmlcov/
 Thumbs.db
 
 # Local logs and temporary files
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 *.log
 *.tmp
 ~$*
 streaming/build/
+dependencies/
 
 # 验收脚本的截图产物 (tools/check_filter_ui.py 每次运行都会重写)
 tools/_shot_*.png
+
+# Manuscripts and resume deliverables (archive separately); rendered previews
+# are reproducible from the source documents.
+*.docx
+*_render*/
+thesis_final_render/
 
 # Generated artifacts — all reproducible from source, so not versioned.
 #
@@ -55,6 +65,23 @@ data/real/asset_energy/**/*.parquet
 data/real/asset_energy/**/*.part
 # 大部分 output/ 仍是可重建产物；阶段一真集群验收证据例外，随代码版本留存。
 output/*
+!output/extensions/
+output/extensions/*
+!output/extensions/power_runtime.json
+!output/extensions/iceberg_report.json
+!output/extensions/airflow_quality_runtime.json
+!output/extensions/runtime_summary.json
+!output/extensions/sink_runtime.json
+!output/extensions/pipeline_scheduler_runtime.json
+!output/extensions/sinks_621f5c6daf9b/
+output/extensions/sinks_621f5c6daf9b/*
+!output/extensions/sinks_621f5c6daf9b/receiver_attempts.json
+!output/extensions/sinks_621f5c6daf9b/receiver_unique.json
+!output/extensions/sinks_621f5c6daf9b/minute_expected.json
+!output/extensions/sinks_621f5c6daf9b/minute_actual.json
+!output/extensions/sinks_621f5c6daf9b/clickhouse-poc.xml
+!output/extensions/f2b3bd086c95/
+!output/extensions/airflow_a82644ccd602/
 !output/phase5_itac/
 !output/phase5_asset_energy/
 !output/phase5_asset_review/
@@ -78,6 +105,10 @@ output/phase5_asset_review/asset_daily_comparison.csv
 !output/isolated_datax_sync_20260927.json
 !output/datax_to_ads_20260927.json
 !output/lakehouse_ssh_smoke_20260927.json
+!output/phase4_runtime_verification_20260928.json
+!output/phase4_browser_verification_20260928.json
+!output/phase4_browser_dashboard_20260928.png
+!output/phase4_browser_drill_20260928.png
 !output/engine_comparison.json
 !output/lakehouse_validation.json
 !output/pandas_daily.csv
@@ -104,6 +135,58 @@ output/phase5_asset_review/asset_daily_comparison.csv
 !output/kafka_snapshot_smoke_20260926.jsonl
 
 # 临时调试产物(非项目文件)
+!output/extensions/outbox_runtime.json
+!output/extensions/kafka_outbox_runtime.json
+!output/extensions/redis_outbox_runtime.json
+!output/extensions/outbox_operations_runtime.json
+!output/extensions/semantic_runtime.json
+!output/extensions/semantic_consumers_runtime.json
+!output/extensions/quarantine_runtime.json
+!output/extensions/equipment_runtime.json
+!output/extensions/semantic_*/
+output/extensions/semantic_*/*
+!output/extensions/semantic_*/semantic_manifest.json
+!output/extensions/quarantine_*/
+output/extensions/quarantine_*/*
+!output/extensions/quarantine_*/quarantine_audit.json
+!output/extensions/equipment_*/
+output/extensions/equipment_*/*
+!output/extensions/equipment_*/schedule.json
+!output/extensions/kafka_outbox_20200ada8444/
+output/extensions/kafka_outbox_20200ada8444/*
+!output/extensions/kafka_outbox_20200ada8444/audit.json
+!output/extensions/kafka_outbox_20200ada8444/received.json
+!output/extensions/outbox_operations_*/
+output/extensions/outbox_operations_*/*
+!output/extensions/outbox_operations_*/inspection.json
+!output/extensions/outbox_operations_*/process_acceptance.json
+!output/extensions/outbox_operations_2b105d0f257e/
+output/extensions/outbox_operations_2b105d0f257e/*
+!output/extensions/outbox_operations_2b105d0f257e/inspection.json
+!output/extensions/redis_outbox_ea76bfbf58ad/
+output/extensions/redis_outbox_ea76bfbf58ad/*
+!output/extensions/redis_outbox_ea76bfbf58ad/audit.json
+!output/extensions/redis_outbox_ea76bfbf58ad/http_attempts.json
+!output/extensions/redis_outbox_ea76bfbf58ad/received.json
+!output/extensions/redis_outbox_ea76bfbf58ad/auth_failure.json
+!output/extensions/outbox_1790963239199253900/
+output/extensions/outbox_1790963239199253900/*
+!output/extensions/outbox_1790963239199253900/audit.json
+!output/extensions/outbox_1790963239199253900/http_attempts.json
+!output/extensions/outbox_1790963239199253900/before_manual_requeue.json
+!output/extensions/kafka_outbox_6b8c60e2327f/
+output/extensions/kafka_outbox_6b8c60e2327f/*
+!output/extensions/kafka_outbox_6b8c60e2327f/audit.json
+!output/extensions/kafka_outbox_6b8c60e2327f/received.json
+!output/extensions/kafka_outbox_66f208daea43/
+output/extensions/kafka_outbox_66f208daea43/*
+!output/extensions/kafka_outbox_66f208daea43/audit.json
+!output/extensions/kafka_outbox_66f208daea43/received.json
+!output/extensions/outbox_1790952523365863700/
+output/extensions/outbox_1790952523365863700/*
+!output/extensions/outbox_1790952523365863700/audit.json
+!output/extensions/outbox_1790952523365863700/http_attempts.json
+!output/extensions/outbox_1790952523365863700/before_manual_requeue.json
 _runs.json
 _sweep.txt
 _ann.json
@@ -112,3 +195,34 @@ _log.txt
 _r2.json
 _run.json
 _run_*.json
+!output/extensions/metabase_semantic_runtime.json
+!output/extensions/metabase_semantic_4bec720a7d3c/
+output/extensions/metabase_semantic_4bec720a7d3c/*
+!output/extensions/metabase_semantic_4bec720a7d3c/report.json
+!output/extensions/metabase_semantic_4bec720a7d3c/browser.json
+!output/extensions/browser_semantic_runtime.json
+!output/extensions/delivery_guards_runtime.json
+!output/extensions/delivery_guards_3e684a76e9fc/
+output/extensions/delivery_guards_3e684a76e9fc/*
+!output/extensions/delivery_guards_3e684a76e9fc/report.json
+!output/extensions/delivery_guards_3e684a76e9fc/http_requests.json
+!output/extensions/browser_semantic_19b2834f6615/
+output/extensions/browser_semantic_19b2834f6615/*
+!output/extensions/browser_semantic_19b2834f6615/report.json
+!output/extensions/browser_semantic_ef2a191c0f23/
+output/extensions/browser_semantic_ef2a191c0f23/*
+!output/extensions/browser_semantic_ef2a191c0f23/report.json
+
+# Local experiment copies, scratch space and reproducible paper packages
+/tmp/
+pytest_cache/
+/docs/daily_lessons/practice/from_zero/*
+!/docs/daily_lessons/practice/from_zero/*.md
+/docs/daily_lessons/practice/pytest_cache/
+/docs/daily_lessons/practice/**/output/
+/docs/daily_lessons/practice/**/browser_temp/
+/IEJ_separate_figure_files.zip
+/thesis_assets/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm

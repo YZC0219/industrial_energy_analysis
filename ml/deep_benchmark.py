@@ -24,8 +24,18 @@ def _torch():
 
 
 def build_sequences(features: pd.DataFrame, sequence_days: int=28):
+    if isinstance(sequence_days, bool) or not isinstance(sequence_days, (int, np.integer)) or sequence_days < 1:
+        raise ValueError("sequence_days must be a positive integer")
     columns=["record_date","workshop_code","tce",*NUMERIC_FEATURES]
     frame=features[columns].copy(); frame["record_date"]=pd.to_datetime(frame["record_date"])
+    if frame[["record_date", "workshop_code"]].isna().any().any() or frame["workshop_code"].map(
+            lambda value: isinstance(value, str) and not value.strip()).any():
+        raise ValueError("Missing sequence business key")
+    if frame.duplicated(["record_date", "workshop_code"]).any():
+        raise ValueError("Duplicate sequence business key")
+    gaps = frame.sort_values(["workshop_code", "record_date"]).groupby("workshop_code")["record_date"].diff().dropna()
+    if (gaps != pd.Timedelta(days=1)).any():
+        raise ValueError("Sequence history requires consecutive calendar days")
     workshops=sorted(frame["workshop_code"].dropna().astype(str).unique())
     rows=[]
     eligible=eligible_rows(frame,NUMERIC_FEATURES)
@@ -74,6 +84,8 @@ def evaluate_deep_model(features: pd.DataFrame, kind: str, train_days: int=365,
                         epochs: int=12, random_state: int=20240918, warmup_days: int=28):
     if kind not in {"lstm","transformer"}:
         raise ValueError("kind 必须是 lstm 或 transformer")
+    if isinstance(epochs, bool) or not isinstance(epochs, (int, np.integer)) or epochs < 1:
+        raise ValueError("epochs must be a positive integer")
     torch,nn=_torch(); torch.set_num_threads(1)
     random.seed(random_state); np.random.seed(random_state); torch.manual_seed(random_state)
     frame=features.copy(); frame["record_date"]=pd.to_datetime(frame["record_date"])

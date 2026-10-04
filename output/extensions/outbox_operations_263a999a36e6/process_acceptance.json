@@ -1,0 +1,45 @@
+{
+  "recovered": {
+    "state": "completed",
+    "attempts": [
+      {
+        "attempt": 1,
+        "exit_code": 17
+      },
+      {
+        "attempt": 2,
+        "exit_code": 17
+      },
+      {
+        "attempt": 3,
+        "exit_code": 0
+      }
+    ]
+  },
+  "bounded": {
+    "state": "restart_limit_reached",
+    "attempts": [
+      {
+        "attempt": 1,
+        "exit_code": 18
+      },
+      {
+        "attempt": 2,
+        "exit_code": 18
+      },
+      {
+        "attempt": 3,
+        "exit_code": 18
+      }
+    ]
+  },
+  "cancelled": {
+    "state": "stopped",
+    "attempts": [
+      {
+        "attempt": 1,
+        "exit_code": 1
+      }
+    ]
+  }
+}

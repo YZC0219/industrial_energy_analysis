@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "topic": "energy-quarantine-test-c151f4053be7",
+  "group_id": "quarantine-test-c151f4053be7",
+  "published": 7,
+  "committed_offset": 7,
+  "quarantined": 4,
+  "valid_alerts": 3,
+  "after_repair_alerts": 4,
+  "crash_before_offset_commit_recovered": true,
+  "raw_bytes_preserved": true,
+  "repair_replay_idempotent": true,
+  "repair_requires_explicit_input": true,
+  "source_hashes": {
+    "streaming/kafka_outbox.py": "02598a6cceb0d7ed61bfa8ca47b448f5b72fedc61fdb347a4a696bc75497f5f9",
+    "streaming/alert_quarantine.py": "606f84e660a95ef57277a5515b41b86ae461d5f55788426895e9815c5bcdefa6"
+  },
+  "evidence_directory": "output\\extensions\\quarantine_c151f4053be7",
+  "notification_scope": "no notifications sent; queued only"
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "599f05feba23f0dd25ca3409331fab9cbf77630f8102bcfdebda8374195f507f",
+    "namespace": "localhost:29092:quarantine-test-656e97867445",
+    "topic": "energy-quarantine-test-656e97867445",
+    "partition_no": 0,
+    "offset_no": 0,
+    "error": "JSONDecodeError",
+    "state": "replayed",
+    "repair_id": "2116266730465ee174dc84cf13fe0a8c499ef6a57d249e1cbcb1903805e76d6c"
+  },
+  {
+    "id": "5869aae44497944ff6a4f5ccdd4511493a4287ddcbd7a5615363656e7ba5cf38",
+    "namespace": "localhost:29092:quarantine-test-656e97867445",
+    "topic": "energy-quarantine-test-656e97867445",
+    "partition_no": 0,
+    "offset_no": 2,
+    "error": "UnicodeDecodeError",
+    "state": "quarantined",
+    "repair_id": null
+  },
+  {
+    "id": "79a207788ffbb91a4c3166abc5c7c214b0bc8b3be561fec8156eb1f3c29d0349",
+    "namespace": "localhost:29092:quarantine-test-656e97867445",
+    "topic": "energy-quarantine-test-656e97867445",
+    "partition_no": 0,
+    "offset_no": 3,
+    "error": "ValueError",
+    "state": "quarantined",
+    "repair_id": null
+  },
+  {
+    "id": "0e4ecfb476c0a3f0b53d421591a7c822b6d285d10b760a459c0293b6ec67943d",
+    "namespace": "localhost:29092:quarantine-test-656e97867445",
+    "topic": "energy-quarantine-test-656e97867445",
+    "partition_no": 0,
+    "offset_no": 5,
+    "error": "ValueError",
+    "state": "quarantined",
+    "repair_id": null
+  }
+]

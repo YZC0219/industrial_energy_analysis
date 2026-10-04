@@ -1,4 +1,4 @@
-"""Read-only FastAPI facade over the project's reproducible analysis outputs."""
+"""Analytics facade and diagnostic feedback over reproducible outputs."""
 from __future__ import annotations
 
 import csv
@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from governance.catalog import catalog as semantic_catalog, query as semantic_query, metric as semantic_metric
+from governance.catalog import UnsupportedFilter
+from governance.consumers import read_artifact, daily_totals
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,10 +19,45 @@ app = FastAPI(
     title="Industrial Energy Analysis API",
     version="1.0.0",
     description=(
-        "只读服务。指标、异常与摘要来自最近一次成功生成的 output/Q*.csv；"
-        "本 API 不连接或修改 MySQL/Hive。"
+        "指标、异常与摘要来自最近一次成功生成的 output/Q*.csv；"
+        "诊断反馈单独存储，本 API 不连接或修改 MySQL/Hive。"
     ),
 )
+
+from src.diagnostics import router as diagnostics_router
+app.include_router(diagnostics_router)
+
+
+@app.get("/api/v1/semantic/catalog", tags=["语义层"])
+def get_semantic_catalog():
+    return semantic_catalog()
+
+
+@app.get("/api/v1/semantic/queries/{query_id}", tags=["语义层"])
+def get_semantic_query(query_id: str):
+    try:
+        return semantic_query(query_id, output_dir())
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="未知指标查询") from exc
+    except (OSError, ValueError, csv.Error) as exc:
+        raise HTTPException(status_code=503, detail="指标产物缺失或无效") from exc
+
+
+@app.get("/api/v1/semantic/metrics/{metric_id}", tags=["语义层"])
+def get_semantic_metric(metric_id: str, date_from: date | None = None,
+                        date_to: date | None = None, workshop_code: str | None = None):
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=422, detail="起始日期晚于结束日期")
+    try:
+        return semantic_metric(metric_id, output_dir(), date_from, date_to, workshop_code)
+    except UnsupportedFilter as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except KeyError as exc:
+        if exc.args[0] == metric_id:
+            raise HTTPException(status_code=404, detail="未知指标") from exc
+        raise HTTPException(status_code=503, detail="指标产物字段缺失") from exc
+    except (OSError, ValueError, csv.Error) as exc:
+        raise HTTPException(status_code=503, detail="指标产物缺失或无效") from exc
 
 
 def output_dir() -> Path:
@@ -28,19 +66,15 @@ def output_dir() -> Path:
 
 
 def read_csv(filename: str) -> list[dict[str, str]]:
-    path = output_dir() / filename
     try:
-        with path.open(encoding="utf-8-sig", newline="") as stream:
-            return [
-                {(key or "").strip(): (value or "").strip()
-                 for key, value in row.items()}
-                for row in csv.DictReader(stream)
-            ]
+        return read_artifact(filename, output_dir())
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=503,
             detail=f"分析产物缺失：{filename}。请先运行数据仓库分析任务。",
         ) from exc
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=503, detail=f"分析产物字段缺失或无效：{filename}") from exc
     except (OSError, csv.Error, UnicodeError) as exc:
         raise HTTPException(status_code=503, detail=f"无法读取分析产物：{filename}") from exc
 
@@ -53,6 +87,18 @@ def number(row: dict[str, str], key: str) -> float:
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=503, detail=f"产物字段 {key} 缺失或无效") from exc
     return value
+
+
+def business_date(row: dict[str, str], key: str, *, monthly: bool = False) -> str:
+    value = row.get(key, "")
+    candidate = f"{value}-01" if monthly else value
+    try:
+        parsed = date.fromisoformat(candidate)
+        if parsed.isoformat() != candidate:
+            raise ValueError("non-canonical date")
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=f"产物字段 {key} 缺失或无效") from exc
+    return candidate
 
 
 def generated_at(filenames: list[str]) -> str | None:
@@ -82,16 +128,11 @@ def metrics(
     if date_from and date_to and date_from > date_to:
         raise HTTPException(status_code=422, detail="date_from 不能晚于 date_to")
     rows = read_csv("Q28_各车间日度能耗与产量.csv")
-    selected = []
-    for row in rows:
-        record_date = row.get("日期", "")
-        if date_from and record_date < date_from.isoformat():
-            continue
-        if date_to and record_date > date_to.isoformat():
-            continue
-        if workshop_code and row.get("车间编码") != workshop_code:
-            continue
-        selected.append(row)
+    try:
+        totals = daily_totals(rows, date_from, date_to, workshop_code)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail="车间日指标产物缺失或无效") from exc
+    selected = totals["rows"]
     dates = {row["日期"] for row in selected if row.get("日期")}
     return {
         "filters": {"date_from": date_from, "date_to": date_to,
@@ -99,9 +140,9 @@ def metrics(
         "record_days": len(dates),
         "workshop_days": len(selected),
         "workshops": len({row.get("车间编码") for row in selected if row.get("车间编码")}),
-        "tce": round(sum(number(row, "综合能耗_tce") for row in selected), 4),
-        "cost_yuan": round(sum(number(row, "能源费用_元") for row in selected), 2),
-        "co2_t": round(sum(number(row, "碳排放_tCO2") for row in selected), 3),
+        "tce": round(totals["total_energy_tce"], 4),
+        "cost_yuan": round(totals["total_cost_yuan"], 2),
+        "co2_t": round(totals["total_carbon_tco2"], 3),
         "data_as_of": max(dates) if dates else None,
         "generated_at": generated_at(["Q28_各车间日度能耗与产量.csv"]),
     }
@@ -126,15 +167,14 @@ def anomalies(
     for row in read_csv("Q16_单耗异常日检测_2sigma.csv"):
         code = row.get("车间编码") or workshop_codes.get(row.get("车间", ""))
         items.append({
-            "event_date": row.get("日期"), "period": "day", "workshop_code": code,
+            "event_date": business_date(row, "日期"), "period": "day", "workshop_code": code,
             "workshop": row.get("车间"), "alert_type": "unit_energy_2sigma",
             "metric": "单位产品能耗", "value": number(row, "单位产品能耗_kgce"),
             "expected": number(row, "车间均值"), "z_score": number(row, "Z值"),
             "evidence_source": "Q16_单耗异常日检测_2sigma.csv",
         })
     for row in read_csv("Q22_能耗突增预警_环比超25pct.csv"):
-        month = row.get("年月", "")
-        event_date = f"{month}-01" if len(month) == 7 else month
+        event_date = business_date(row, "年月", monthly=True)
         items.append({
             "event_date": event_date, "period": "month",
             "workshop_code": workshop_codes.get(row.get("车间", "")),
@@ -172,7 +212,7 @@ def report_summary() -> dict[str, Any]:
     totals, totals_ex = totals_rows[0], totals_ex_rows[0]
     workshops = read_csv("Q03_各车间综合能耗排名.csv")
     daily = read_csv("Q28_各车间日度能耗与产量.csv")
-    dates = [row.get("日期", "") for row in daily if row.get("日期")]
+    dates = [business_date(row, "日期") for row in daily]
     return {
         "totals": {
             "days": int(number(totals, "统计天数")),

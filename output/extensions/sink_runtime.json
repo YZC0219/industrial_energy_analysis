@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "run_id": "512c7c1cb79b",
+  "generated_at": "2026-10-04T07:11:07.885718+00:00",
+  "evidence_directory": "D:\\industrial_energy_analysis\\output\\extensions\\sinks_512c7c1cb79b",
+  "webhook_scope": "127.0.0.1 test receiver only",
+  "containers": [
+    "energy-poc-redis-512c7c1cb79b",
+    "energy-poc-clickhouse-512c7c1cb79b"
+  ],
+  "source_power_report_sha256": "c4f06caa721bc44a384a812f806a69687a696f1ea863c1bfc5c481ab05289888",
+  "source_hashes": {
+    "streaming/dispatch.py": "b9191192b04433f7952ab0492530d5b17ac271c4e96456fbb977f6975aebfcef",
+    "streaming/minute_store.py": "f9d13ffc4a361805a8a628f58618b183e73358e33f1413c53c44f5b28858a9be",
+    "streaming/clickhouse.sql": "b8eb6b49f5f6aa32b9836fe205525a9186b8a0d9e2a178d894702b9c76964449"
+  },
+  "phase": "complete",
+  "clickhouse_volume": "energy-poc-clickhouse-data-512c7c1cb79b",
+  "clickhouse_storage": "native Docker volume in D:/Docker/wsl/disk/docker_data.vhdx",
+  "redis": {
+    "version": "7.4.11",
+    "alert_keys": 20,
+    "ttl_min_seconds": 86399,
+    "ttl_max_seconds": 86400
+  },
+  "webhook": {
+    "alert_attempts": 40,
+    "unique_alerts": 20,
+    "idempotency_scope": "test receiver",
+    "failure_503_propagated": true,
+    "partial_redis_success_observed": true,
+    "explicit_retry_recovered": true
+  },
+  "clickhouse": {
+    "version": "25.8.33.6",
+    "unique_minute_rows": 91,
+    "physical_rows": 182,
+    "identical_replay_final_reconciled": true,
+    "missing_table_failed": true,
+    "database": "energy_sink_probe_512c7c1cb79b"
+  },
+  "image_ids": {
+    "energy-poc-redis-512c7c1cb79b": "sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499",
+    "energy-poc-clickhouse-512c7c1cb79b": "sha256:87e0a5b72f5465b18eacca7c76850e7ff551c9795c50e451f5646299e5e24146"
+  }
+}

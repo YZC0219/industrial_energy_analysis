@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "run_id": "d4df4a594914",
+  "container": "energy-outbox-redis-d4df4a594914",
+  "source_hashes": {
+    "streaming/alert_outbox.py": "a9a894afa101d6d27b1bcbc60707f2a2a59cd8054ee06006710a522264e4ee24",
+    "streaming/dispatch.py": "b9191192b04433f7952ab0492530d5b17ac271c4e96456fbb977f6975aebfcef"
+  },
+  "source_alerts_sha256": "a04c8baea2fdf7799294dfac2634e1078a2f6483cae433f477c87980f52d9eca",
+  "redis_cached_webhook_503_observed": true,
+  "redis_outage_durable_retry_observed": true,
+  "process_restart_recovered": true,
+  "pending_after_outage": 18,
+  "http_attempts_before_recovery": 1,
+  "http_attempts": 40,
+  "unique_received": 20,
+  "redis_keys": 20,
+  "ttl_min_seconds": 86338,
+  "ttl_max_seconds": 86400,
+  "final_states": {
+    "sent": 20
+  },
+  "all_payloads_match": true,
+  "auth_failure_dead_without_http": true,
+  "redis_version": "7.4.11",
+  "evidence_directory": "output\\extensions\\redis_outbox_d4df4a594914"
+}

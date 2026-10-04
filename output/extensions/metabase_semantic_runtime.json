@@ -1,0 +1,94 @@
+{
+  "success": true,
+  "applied": true,
+  "checked_at_utc": "2026-10-03T09:32:37.222966+00:00",
+  "contract": {
+    "metric_id": "total_cost_yuan",
+    "unit": "CNY",
+    "definition": "能源总费用按车间日记录求和",
+    "sql_sha256": "eefe55f4c22c6139f722a5320db31f5eae592aa8c13cff604aeb9cb491e3c0a3",
+    "metric_sha256": "a795f853b14762e009d2e1d45c73b8f5ff7e7b5cfcefd03fb126aa4b43b5761b",
+    "raw_field": "cost"
+  },
+  "canonical_daily_groups": 5848,
+  "checks": [
+    {
+      "card_id": 40,
+      "dimension": "workshop_code",
+      "workshop": null,
+      "groups": 8,
+      "cost_yuan": "215364002.57",
+      "passed": true
+    },
+    {
+      "card_id": 40,
+      "dimension": "workshop_code",
+      "workshop": "W04",
+      "groups": 1,
+      "cost_yuan": "375635.34",
+      "passed": true
+    },
+    {
+      "card_id": 40,
+      "dimension": "workshop_code",
+      "workshop": "W01",
+      "groups": 1,
+      "cost_yuan": "2410864.55",
+      "passed": true
+    },
+    {
+      "card_id": 41,
+      "dimension": "record_date",
+      "workshop": null,
+      "groups": 731,
+      "cost_yuan": "215364002.57",
+      "passed": true
+    },
+    {
+      "card_id": 41,
+      "dimension": "record_date",
+      "workshop": "W04",
+      "groups": 31,
+      "cost_yuan": "375635.34",
+      "passed": true
+    },
+    {
+      "card_id": 41,
+      "dimension": "record_date",
+      "workshop": "W01",
+      "groups": 31,
+      "cost_yuan": "2410864.55",
+      "passed": true
+    }
+  ],
+  "permissions": {
+    "checked_at_utc": "2026-10-03T09:32:37.222930+00:00",
+    "metabase_base": "http://127.0.0.1:3000",
+    "database_id": 2,
+    "dashboard_id": 2,
+    "visible_tables": [
+      "v_energy_enriched"
+    ],
+    "view_rows": 19006,
+    "sample_filter": {
+      "workshop_code": "W04",
+      "date_from": "2025-01-01",
+      "date_to": "2025-01-31",
+      "rows": 93,
+      "cost_yuan": "375635.34"
+    },
+    "metabase_cost_yuan": "375635.34",
+    "dashboard_cards_with_both_filters": 2,
+    "native_sql_http_status": 403,
+    "dashboard_edit_http_status": 403,
+    "fact_table_read_denied": true,
+    "mysql_write_denied": true,
+    "result": "pass"
+  },
+  "backup": "D:\\industrial_energy_analysis\\output\\extensions\\metabase_semantic_4bec720a7d3c\\backup.json",
+  "source_hashes": {
+    "governance/metabase.py": "bd8afce32dbe39f492d4951bb50cd52f8482de12dc2eb0893da25a087917be10",
+    "governance/metrics.yaml": "5b7508a3f2ace0be87ee16995331ec05a9511a299c6df3929feede32fb90d336",
+    "tools/migrate_metabase_semantics.py": "ddab60ab765dcb100f2da8a2965fce1c3fe00dc1bad2ae0a38d36fbf9da14ba6"
+  }
+}

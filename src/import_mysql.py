@@ -520,8 +520,12 @@ def main() -> None:
     wm_col = "updated_at"
     wm_val, wm_batch = read_watermark(conn, args.db, wm_table)
 
-    # 增量还是全量。--full 显式要求全量; 否则看水位线: 有值就走增量, 无值等价于冷启动。
-    use_incremental = (not args.full) and (wm_val is not None)
+    # 显式 --incremental 始终读取批次，包括空水位线冷启动。
+    # Airflow --batch-all 只生成批次文件，不能回退到可能缺失/陈旧的全量 CSV。
+    use_incremental = (not args.full) and (args.incremental or wm_val is not None)
+    if use_incremental and wm_val is None:
+        wm_val = "1970-01-01 00:00:00"
+        log("      空水位线冷启动: 从当前批次初始化，不读取旧全量 CSV")
 
     # dim_calendar 必须最先装载 (事实表有指向它的外键); 它是静态维表, 两种模式都全量灌
     n_cal = load_csv(conn, "dim_calendar", "dim_calendar.csv", CAL_COLS, args.db)

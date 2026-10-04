@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "topic": "energy-outbox-test-2dcb98423325",
+  "group_id": "outbox-test-2dcb98423325",
+  "bootstrap": "localhost:29092",
+  "records_published": 22,
+  "unique_durable_alerts": 20,
+  "offset_before_restart": null,
+  "offset_after_replay": 21,
+  "crash_after_persist_before_commit_recovered": true,
+  "duplicate_replay_deduplicated": true,
+  "poison_offset": 21,
+  "poison_restarts_blocked_without_commit": true,
+  "webhook_unique_received": 20,
+  "final_states": {
+    "sent": 20
+  },
+  "all_flink_alert_payloads_match": true,
+  "source_alerts_sha256": "a04c8baea2fdf7799294dfac2634e1078a2f6483cae433f477c87980f52d9eca",
+  "source_hashes": {
+    "streaming/kafka_outbox.py": "02598a6cceb0d7ed61bfa8ca47b448f5b72fedc61fdb347a4a696bc75497f5f9",
+    "streaming/alert_outbox.py": "a9a894afa101d6d27b1bcbc60707f2a2a59cd8054ee06006710a522264e4ee24",
+    "streaming/dispatch.py": "b9191192b04433f7952ab0492530d5b17ac271c4e96456fbb977f6975aebfcef"
+  },
+  "evidence_directory": "output\\extensions\\kafka_outbox_2dcb98423325"
+}

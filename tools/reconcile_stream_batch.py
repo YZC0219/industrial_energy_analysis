@@ -127,7 +127,10 @@ def read_events(path: Path, *, required_schema_version: int | None = None
             if not _valid_business_key(tuple(event[field] for field in KEY_FIELDS)):
                 invalid.append({"line": line_number, "reason": "invalid_business_key"})
                 continue
-            if event["op"] not in {"UPSERT", "DELETE"}:
+            if not isinstance(event["event_id"], str) or not event["event_id"].strip():
+                invalid.append({"line": line_number, "reason": "invalid_event_id"})
+                continue
+            if not isinstance(event["op"], str) or event["op"] not in {"UPSERT", "DELETE"}:
                 invalid.append({"line": line_number, "reason": "invalid_op"})
                 continue
             if _timestamp(event.get("updated_at")) is None or _timestamp(event.get("event_time")) is None:
@@ -138,7 +141,7 @@ def read_events(path: Path, *, required_schema_version: int | None = None
                 or _number(event.get("consumption")) < 0
                 or _number(event.get("unit_price")) <= 0
                 or _number(event.get("cost")) < 0
-                or not event.get("unit")
+                or not isinstance(event.get("unit"), str) or not event["unit"].strip()
             ):
                 invalid.append({"line": line_number, "reason": "invalid_upsert_values"})
                 continue

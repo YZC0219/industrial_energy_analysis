@@ -1,0 +1,47 @@
+{
+  "success": true,
+  "generated_at": "2026-10-04T07:17:37.902187+00:00",
+  "evidence_sha256": {
+    "power_runtime.json": "c4f06caa721bc44a384a812f806a69687a696f1ea863c1bfc5c481ab05289888",
+    "iceberg_report.json": "2f0d330ac64480c83064a4fdb701cf5c416ae1b1c84f7ce8147a78e01c9a753e",
+    "airflow_quality_runtime.json": "aa7e21f6fd0e230ce44076bcc88c59b1023ac7dcdd161de1880c2998e7d57721",
+    "sink_runtime.json": "37adec275759f94ff447ea6946fe5c06a9a45f7350ee1c2a4efe209c0d4bd1e5",
+    "pipeline_scheduler_runtime.json": "b4562ff7d07cb1904a0d13a7ab8aaf5b53bc8c5fb8569f49bbbd10da3f289698",
+    "outbox_runtime.json": "56c8eb6b140d35b5d0873ec919b930281f683a9c87bc69af9d0ea4e3be697cba",
+    "kafka_outbox_runtime.json": "c7c411fbf37cd089329e7bd35c2f09db7dd56788e346bbd7b2a3f3fe84e82c6b",
+    "redis_outbox_runtime.json": "47db9ae4165645b046dfa597d1cde89462ebbfc34b215528ecba9a30e7e8fb81",
+    "outbox_operations_runtime.json": "386891cd411da4b72896ab45bdec8282cdcb48810bb89149d861e7ce098468c2",
+    "semantic_runtime.json": "4ac247016759eb4f50941f8ba016bd0822d971404c4cdb18da6d08d6b5766909",
+    "quarantine_runtime.json": "08a444866fc71db3498f1688fff95bce3c24cf08636f4d32dbc2bb7695ee96ab",
+    "equipment_runtime.json": "0d571f4bd9e3f9a2851476cb978b3c05e356e447a8a0cf66a2531aed6acdef1b",
+    "semantic_consumers_runtime.json": "841e8fda2a950d35dcef07f90d3a4f8519ff074c8b67ff9f3cfca396db82b751",
+    "metabase_semantic_runtime.json": "cb6f20b04a2c248a7c42943353ace7c6c3a27e91343cf0447b9f71d5cba8c6f3",
+    "metabase_semantic_4bec720a7d3c\\browser.json": "cf04998c61f052cc3e111f20b42359ebdcd8a5a299156c3dd606cafefee902c2",
+    "browser_semantic_runtime.json": "22a8d0a04707735aab7388de8cdbc8abde1a88496bb673fe643d343c9ed839f3",
+    "delivery_guards_runtime.json": "15afc3c06d31671f12132e0e832a2843bcaeb4c1efb4b1cc4938a615e5a30a48"
+  },
+  "verified": [
+    "Kafka/Flink 20 event-time windows",
+    "Iceberg late merge/replay/time travel",
+    "Airflow isolated good/bad gate and downstream states",
+    "Redis/Webhook/ClickHouse replay and failures",
+    "Two full main-DAG graph runs through isolated LocalExecutor scheduler",
+    "Durable Webhook outbox process-crash recovery, automatic retries and dead-letter recovery",
+    "Real Kafka outbox persist-before-commit crash/replay, poison blocking and 20 Webhook deliveries",
+    "Durable Redis/Webhook partial failure, Redis outage, process restart and auth rejection",
+    "Read-only outbox diagnostics and bounded process supervisor restart/cancellation",
+    "29 canonical semantic SQL analyses and API reconciliation in live read-only MySQL snapshot",
+    "Real Kafka poison quarantine, raw retention, crash recovery and explicit repair replay",
+    "Equipment MILP binary starts/min-up/ramp/site/process constraints and known optimum",
+    "Existing HTML report payload and legacy API migrated to semantic adapter without changing results",
+    "Two saved Metabase cost cards governed by semantic compiler, all workshop/day costs reconciled, filters/read-only permissions/browser drill verified",
+    "Seven offline browser scalar metrics reconciled in ten scopes, cost shares, actual controls/reset and net energy share checked",
+    "Direct HTTP 2xx acknowledgement, redirect rejection and restarted worker reduced retry budget verified"
+  ],
+  "pending": [
+    "live production deployment with enabled Hive/CDC/deep branches",
+    "real authorized notification receiver; browser analytical formulas beyond basic scalar metrics and additional BI metrics",
+    "real factory hourly forecast and realized savings",
+    "multi-node HA"
+  ]
+}

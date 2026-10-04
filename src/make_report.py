@@ -12,6 +12,7 @@ make_report.py — 把 analysis.sql 导出的查询结果渲染成一份可视�
 """
 
 import calendar
+import argparse
 import collections
 import csv
 import json
@@ -19,11 +20,14 @@ import os
 import statistics
 import sys
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TEMPLATE = os.path.join(BASE_DIR, "src", "report_template.html")
 TARGET = os.path.join(OUT_DIR, "report.html")
@@ -57,6 +61,9 @@ def read(name: str):
     path = os.path.join(OUT_DIR, name)
     if not os.path.exists(path):
         raise SystemExit(f"[错误] 找不到 {name}, 请先执行: python src/import_mysql.py --run-analysis")
+    if name in Q.values():
+        from governance.consumers import read_artifact
+        return read_artifact(name, OUT_DIR)
     with open(path, encoding="utf-8-sig", newline="") as f:
         return [
             {(k or "").strip(): (v or "").strip() for k, v in row.items()}
@@ -872,8 +879,7 @@ def _clean_volumes() -> dict:
     }
 
 
-def main() -> None:
-    data = build()
+def render(data):
     with open(TEMPLATE, encoding="utf-8") as fh:
         html = fh.read()
 
@@ -888,12 +894,33 @@ def main() -> None:
     if i == -1 or j == -1:
         raise SystemExit(f"[错误] 模板 {TEMPLATE} 缺少 {start} ... {end} 占位区间")
     html = html[:i + len(start)] + payload + html[j + len(end):]
+    from governance.browser import contract
+    semantic = json.dumps(contract(), ensure_ascii=False, allow_nan=False).replace('<', '\\u003c')
+    engine = (Path(BASE_DIR) / 'src/semantic_metrics.js').read_text(encoding='utf-8')
+    marker = '/*__SEMANTIC_ENGINE__*/'
+    if html.count(marker) != 1:
+        raise ValueError('Semantic engine placeholder missing or duplicated')
+    html = html.replace(marker, 'window.ENERGY_SEMANTIC_CONTRACT = ' + semantic + ';\n' + engine)
+    from governance.analysis_report import integrate
+    return integrate(html)
 
-    with open(TARGET, "w", encoding="utf-8") as fh:
+
+def main(argv=None) -> None:
+    global OUT_DIR
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--input-dir', type=Path, default=Path(OUT_DIR), help='Existing analysis artifact directory')
+    parser.add_argument('--output', type=Path, default=Path(TARGET), help='Generated HTML destination')
+    args = parser.parse_args(argv)
+    OUT_DIR = str(args.input_dir)
+    data = build()
+    html = render(data)
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("w", encoding="utf-8") as fh:
         fh.write(html)
 
     d = data["derived"]
-    print(f"[完成] 报告已生成 -> {os.path.relpath(TARGET, BASE_DIR)}")
+    print(f"[完成] 报告已生成 -> {os.path.relpath(args.output, BASE_DIR)}")
     print(f"       期间      {data['monthly'][0]['ym']} ~ {data['monthly'][-1]['ym']}"
           f" ({data['totals']['days']} 天)")
     print(f"       综合能耗  {data['totals']['tce']:,.2f} tce"

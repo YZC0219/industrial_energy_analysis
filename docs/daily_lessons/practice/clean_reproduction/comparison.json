@@ -1,0 +1,16 @@
+[
+  {
+    "existing": "clean_energy.csv",
+    "reproduced": "clean_batch_energy.csv",
+    "existing_sha256": "BC6DE7FC4F332EB05F3BB07DD7FC7A55858E1FF23D6C8565652F6A9FA98C8551",
+    "reproduced_sha256": "FD58541FE6B6A6C684106988CB9E3BEC9D156347E44F18DABEAE84B27FE35163",
+    "identical": false
+  },
+  {
+    "existing": "clean_production.csv",
+    "reproduced": "clean_batch_production.csv",
+    "existing_sha256": "DF612B1EE53565C554BF5FFB62DC486E2816A4AE12469A80AE5E1E6596DE81CB",
+    "reproduced_sha256": "DF612B1EE53565C554BF5FFB62DC486E2816A4AE12469A80AE5E1E6596DE81CB",
+    "identical": true
+  }
+]

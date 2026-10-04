@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "source_sha256": "bd35fbafcd848040a9bcce98d4ad9b55edb52089979c387973b9148929500ba8",
+  "binary_states_min_up_ramp_site_and_precedence_reconciled": true,
+  "known_optimum_yuan": 0.2,
+  "data_source": "synthetic",
+  "baseline_cost_yuan": 2878.0,
+  "optimized_cost_yuan": 1994.6249999999995,
+  "daily_saving_yuan": 883.3750000000005,
+  "mip_gap": 0.0,
+  "evidence_directory": "output\\extensions\\equipment_95673e864002"
+}

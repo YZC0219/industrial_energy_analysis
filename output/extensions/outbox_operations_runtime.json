@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "source_hashes": {
+    "streaming/outbox_inspect.py": "6605f054d1e907cf4bf7b9edabdb857454b91949398b7c79b43a3ac091b6e985",
+    "streaming/outbox_supervisor.py": "c6d4d11be73a7f8fc15a17eba43a66f134f0adbe47b9b60bfef3a1648221ca42"
+  },
+  "automatic_restart_exit_codes": [
+    17,
+    17,
+    0
+  ],
+  "bounded_failure_attempts": 3,
+  "stop_terminated_child_without_restart": true,
+  "read_only_inspection": true,
+  "inspected_sent_count": 20,
+  "queue_database_sha256": "9cfea05707698d0587f1accc181a61d0b75ca7483b4d1211c6f2a9bd019aa84b",
+  "source_redis_report_sha256": "47db9ae4165645b046dfa597d1cde89462ebbfc34b215528ecba9a30e7e8fb81",
+  "evidence_directory": "output\\extensions\\outbox_operations_263a999a36e6",
+  "scope": "real isolated child processes; OS service registration not performed"
+}
