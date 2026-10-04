@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "checked_at_utc": "2026-10-04T07:34:22.367940+00:00",
+  "database": "energy",
+  "source_topic": "energy-cdc-main-readonly-20261002012039.industrial_energy.fact_energy_consumption",
+  "end_offset": 19006,
+  "source_snapshot_sha256": "8d18b6ed3ee33f109c93ddaa913c734d6dfa82784192a774daf4914c3d680f4a",
+  "dwd_rows": 19006,
+  "active_rows": 19006,
+  "costs": {
+    "dws_day": "215364002.57",
+    "dws_month": "215364002.57",
+    "ads_day": "215364002.57"
+  },
+  "sql_sha256": {
+    "spark/sql/10_dwd_energy.sql": "51b649c15f02dbea8de784ef6567733b4183892ece1874c67b744183f81df585",
+    "spark/sql/20_dws.sql": "8effb6a6255d585f31473eb7ac9dbc5445b4d6c1997f0c6a287b068a9ec48dc7",
+    "spark/sql/30_ads.sql": "79c0132db9417b8495719af690e60beda7207ebfbc755444898213fef56064a3"
+  },
+  "scope": "CDC business snapshot through project DWD/DWS/ADS SQL; full snapshot source mode"
+}

@@ -1,0 +1,70 @@
+{
+  "checked_at": "2026-10-04T15:11:11.674112+08:00",
+  "deployment": "D:\\industrial_energy_analysis\\tmp\\cdc_main_daily_20261003103045",
+  "scope": "Read-only point-in-time availability; no warehouse reconciliation or repairs",
+  "checks": {
+    "docker_services": {
+      "passed": true,
+      "services": {
+        "cdc-main-scheduler": {
+          "state": "running",
+          "health": ""
+        },
+        "debezium-connect": {
+          "state": "running",
+          "health": ""
+        },
+        "kafka": {
+          "state": "running",
+          "health": "healthy"
+        },
+        "mysql": {
+          "state": "running",
+          "health": "healthy"
+        },
+        "postgres": {
+          "state": "running",
+          "health": "healthy"
+        }
+      }
+    },
+    "scheduler": {
+      "passed": false,
+      "old_writer_paused": true,
+      "active_cdc_runs": 1,
+      "recent_runs": [
+        "scheduled__2026-10-02T18:00:00+00:00:running",
+        "main_cutover_20261003002141:success",
+        "scheduled__2026-10-01T18:00:00+00:00:success"
+      ],
+      "schedule": "0 2 * * *",
+      "timezone": "Asia/Shanghai",
+      "next_run_local": null,
+      "cdc_paused": false,
+      "latest_batch_state": "running",
+      "recent_scheduler_heartbeat": true
+    },
+    "connector": {
+      "passed": true,
+      "connector": "RUNNING",
+      "tasks": [
+        "RUNNING"
+      ]
+    },
+    "source_history_retention": {
+      "passed": true,
+      "topic": "energy-cdc-main-readonly-20261002012039.industrial_energy.fact_energy_consumption",
+      "retention": {
+        "cleanup.policy": "delete",
+        "retention.ms": "-1",
+        "retention.bytes": "-1"
+      }
+    },
+    "vm_hdfs": {
+      "passed": true,
+      "hdfs_safe_mode_off": true,
+      "warehouse_directory_reachable": true
+    }
+  },
+  "success": false
+}
