@@ -17,6 +17,8 @@ def main():
     parser.add_argument('--deployment-evidence', required=True)
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--stamp', required=True)
+    parser.add_argument('--recovery-note', action='append', default=[],
+                        help='Observed recovery detail for this specific run; repeat as needed')
     args = parser.parse_args()
     import re
     if not re.fullmatch(r'[0-9]{14}', args.stamp):
@@ -31,7 +33,7 @@ def main():
     if run([*sql, 'airflow', '-c', "SELECT is_paused FROM dag WHERE dag_id='energy_pipeline'"]) != 't':
         raise ValueError('Old writer must remain paused')
     record = json.loads(run([*sql, 'airflow_cdc_main', '-c',
-        "SELECT row_to_json(r) FROM (SELECT state,run_type,execution_date,start_date,end_date "
+        "SELECT row_to_json(r) FROM (SELECT state,run_type,execution_date,data_interval_end,start_date,end_date "
         "FROM dag_run WHERE dag_id='energy_cdc_warehouse' AND run_id='" + args.run_id + "') r"]))
     tasks = run([*sql, 'airflow_cdc_main', '-c',
         "SELECT task_id||':'||COALESCE(state,'null') FROM task_instance "
@@ -40,6 +42,8 @@ def main():
         raise ValueError('Scheduled batch has not succeeded')
     from datetime import datetime
     logical = datetime.fromisoformat(record['execution_date'])
+    planned = datetime.fromisoformat(record['data_interval_end'])
+    started = datetime.fromisoformat(record['start_date'])
     tag = logical.strftime('%Y%m%dT%H%M%S')
     snapshot = f'output/mysql_cdc_snapshot_{tag}.json'
     report_path = f'output/mysql_cdc_business_{tag}.json'
@@ -54,12 +58,13 @@ def main():
     evidence = {'success': True, 'deployment_evidence': args.deployment_evidence,
         'git_sha': deployment['git_sha'], 'run_id': args.run_id, 'run': record, 'tasks': tasks,
         'schedule': deployment['schedule'], 'timezone': deployment['timezone'],
+        'planned_start_local': planned.astimezone(ZoneInfo('Asia/Shanghai')).isoformat(),
+        'actual_start_local': started.astimezone(ZoneInfo('Asia/Shanghai')).isoformat(),
+        'start_delay_seconds': (started - planned).total_seconds(),
         'business_date': logical.astimezone(ZoneInfo('Asia/Shanghai')).date().isoformat(),
         'snapshot': snapshot, 'warehouse_report': report_path, 'source_rows': report['active_rows'],
         'costs': report['costs'], 'old_writer_paused': True,
-        'recovery_context': ['Initial scheduled attempt failed on SSH banner during environment interruption.',
-            'A recovery attempt exposed shell quoting in the timezone template; fixed before warehouse apply.',
-            'The same scheduled run was cleared and rerun; this proves scheduled execution, not punctual 02:00 availability.']}
+        'recovery_context': args.recovery_note}
     path = ROOT / f'output/mysql_cdc_business_main_daily_runtime_{args.stamp}.json'
     with path.open('x', encoding='utf-8') as stream:
         json.dump(evidence, stream, ensure_ascii=False, indent=2)

@@ -53,7 +53,10 @@ def main():
         paused = command([*sql, 'airflow_cdc_main', '-c', "SELECT is_paused FROM dag WHERE dag_id='energy_cdc_warehouse'"])
         latest = command([*sql, 'airflow_cdc_main', '-c', "SELECT state FROM dag_run WHERE dag_id='energy_cdc_warehouse' ORDER BY execution_date DESC LIMIT 1"])
         heartbeat = command([*sql, 'airflow_cdc_main', '-c', "SELECT COUNT(*) FROM job WHERE job_type='SchedulerJob' AND state='running' AND latest_heartbeat > NOW()-INTERVAL '120 seconds'"])
-        return {'passed': status['old_writer_paused'] and paused == 'f' and int(heartbeat) > 0 and latest in ('success', 'running', 'queued') and status['schedule'] == '0 2 * * *' and bool(status['next_run_local']),
+        stale = int(command([*sql, 'airflow_cdc_main', '-c', "SELECT COUNT(*) FROM dag_run WHERE dag_id='energy_cdc_warehouse' AND state IN ('running','queued') AND COALESCE(start_date,queued_at,execution_date)<NOW()-INTERVAL '45 minutes'"]))
+        plan_visible = bool(status['next_run_local']) or status['active_cdc_runs'] == 1
+        return {'passed': status['old_writer_paused'] and paused == 'f' and int(heartbeat) > 0 and latest in ('success', 'running', 'queued') and status['schedule'] == '0 2 * * *' and plan_visible and stale == 0,
+                'stale_active_batches': stale,
                 **status, 'cdc_paused': paused != 'f', 'latest_batch_state': latest, 'recent_scheduler_heartbeat': int(heartbeat) > 0}
 
     def connector():
