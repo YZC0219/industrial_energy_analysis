@@ -253,7 +253,49 @@ class TestAliasTables:
 
 
 # =============================================================================
-# 5. 清洗产物的一致性 (需要管道已跑过一次)
+# 5. 重复业务键版本选择
+# =============================================================================
+
+class TestDeduplicateByUpdatedAt:
+    KEY = ["record_date", "workshop_code", "energy_code"]
+
+    @staticmethod
+    def _rows(updated_at, consumption):
+        return pd.DataFrame({
+            "record_date": ["2025-01-01"] * len(updated_at),
+            "workshop_code": ["W01"] * len(updated_at),
+            "energy_code": ["E01"] * len(updated_at),
+            "updated_at": pd.to_datetime(updated_at),
+            "consumption": consumption,
+        })
+
+    def test_keeps_latest_timestamp(self):
+        rows = self._rows(["2025-01-01 10:00", "2025-01-01 15:00"], [10, 15])
+
+        kept, rejected = cd._deduplicate_by_updated_at(rows, self.KEY)
+
+        assert kept["consumption"].tolist() == [15]
+        assert rejected["consumption"].tolist() == [10]
+
+    def test_valid_timestamp_wins_over_missing_timestamp(self):
+        rows = self._rows([None, "2025-01-01 10:00"], [99, 10])
+
+        kept, rejected = cd._deduplicate_by_updated_at(rows, self.KEY)
+
+        assert kept["consumption"].tolist() == [10]
+        assert rejected["consumption"].tolist() == [99]
+
+    def test_equal_timestamps_keep_first_input_row(self):
+        rows = self._rows(["2025-01-01 10:00"] * 2, [10, 11])
+
+        kept, rejected = cd._deduplicate_by_updated_at(rows, self.KEY)
+
+        assert kept["consumption"].tolist() == [10]
+        assert rejected["consumption"].tolist() == [11]
+
+
+# =============================================================================
+# 6. 清洗产物的一致性 (需要管道已跑过一次)
 # =============================================================================
 
 pytestmark_artifacts = pytest.mark.skipif(

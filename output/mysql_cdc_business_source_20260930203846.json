@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "source_database": "industrial_energy_cdc_business_20260930203846",
+  "source_topic": "energy-cdc-business-20260930203846.industrial_energy_cdc_business_20260930203846.fact_energy_consumption",
+  "source_rows_after_delete": 0,
+  "connector": "energy-cdc-business-20260930203846",
+  "snapshots": {
+    "insert": "output/mysql_cdc_snapshot_20260930203846_insert.json",
+    "correction": "output/mysql_cdc_snapshot_20260930203846_correction.json",
+    "physical_delete": "output/mysql_cdc_snapshot_20260930203846_physical_delete.json",
+    "source_replay": "output/mysql_cdc_snapshot_20260930203846_source_replay.json"
+  },
+  "physical_delete_preserves_updated_at": true,
+  "old_insert_appended_after_delete_offset": 5,
+  "replay_injection_scope": "only this new isolated source topic"
+}

@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "plan": "output/mysql_cdc_business_duplicate_plan_20261002002842.json",
+  "backup_database": "industrial_energy_repair_backup_20261002011951",
+  "backup_archive": "output/mysql_cdc_business_repair_backup_20261002011951.json.gz",
+  "backup_archive_sha256": "995b0d75fa9b47c115e22e6456378e706c5a88051913db3ecc21e096195d3010",
+  "before_rows": 20704,
+  "deleted_exact_duplicates": 1698,
+  "after_rows": 19006,
+  "distinct_business_keys": 19006,
+  "before_sha256": "32f7eccb32d551a78f5ae5db4ff00308b4469db018fc1e08426965d9008ac7e4",
+  "after_sha256": "40f3afc5449aec1b066b8df00852e72957c5c9b9d13e39050ebc3d2c3a9056d0",
+  "canonical_active_cost": "215364002.57",
+  "actual_active_cost": "215364002.57",
+  "remaining_all_fields_unchanged": true,
+  "full_backup_reconciled": true,
+  "warehouse_cutover": false,
+  "previous_main_dag_paused": false
+}
