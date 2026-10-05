@@ -44,6 +44,11 @@ def main():
     logical = datetime.fromisoformat(record['execution_date'])
     planned = datetime.fromisoformat(record['data_interval_end'])
     started = datetime.fromisoformat(record['start_date'])
+    timeline = json.loads(run([*sql, 'airflow_cdc_main', '-c',
+        "SELECT json_agg(r ORDER BY r.task_id) FROM (SELECT task_id,state,start_date,end_date,try_number "
+        "FROM task_instance WHERE dag_id='energy_cdc_warehouse' AND run_id='" + args.run_id + "') r"]))
+    # TaskInstance.start_date may describe the latest retry, not the first attempt.
+    first_retained = min(datetime.fromisoformat(t['start_date']) for t in timeline)
     tag = logical.strftime('%Y%m%dT%H%M%S')
     snapshot = f'output/mysql_cdc_snapshot_{tag}.json'
     report_path = f'output/mysql_cdc_business_{tag}.json'
@@ -61,6 +66,10 @@ def main():
         'planned_start_local': planned.astimezone(ZoneInfo('Asia/Shanghai')).isoformat(),
         'actual_start_local': started.astimezone(ZoneInfo('Asia/Shanghai')).isoformat(),
         'start_delay_seconds': (started - planned).total_seconds(),
+        'task_timeline': timeline,
+        'earliest_retained_task_start_local': first_retained.astimezone(ZoneInfo('Asia/Shanghai')).isoformat(),
+        'earliest_retained_task_delay_seconds': (first_retained - planned).total_seconds(),
+        'task_time_scope': 'TaskInstance times reflect retained attempts; consult logs for earlier retries.',
         'business_date': logical.astimezone(ZoneInfo('Asia/Shanghai')).date().isoformat(),
         'snapshot': snapshot, 'warehouse_report': report_path, 'source_rows': report['active_rows'],
         'costs': report['costs'], 'old_writer_paused': True,
