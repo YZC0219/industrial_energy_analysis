@@ -1,4 +1,4 @@
-version: 1
+version: 3
 scope: selected daily rows; no recalculation of historical anomaly baselines
 formulas:
   monthly_energy_change:
@@ -23,3 +23,43 @@ formulas:
     threshold_percent: 80
     zero_total: zero_shares_no_threshold
     definition: Sort descending by selected energy costs; ties preserve input order; first cumulative share reaching 80 percent is the threshold.
+  unit_energy_dispersion:
+    operation: fixed_baseline_dispersion
+    field: unit_energy
+    sigma_multiplier: 2
+    zero_mean: null_cv
+    lower_bound: clamp_zero
+    definition: CV is sigma / mean times 100; for the same absolute deviation a larger sigma reduces Z. Historical SQL anomaly labels remain unchanged.
+  historical_intensity_difference:
+    operation: production_adjusted_difference
+    field: unit_energy
+    kgce_per_tce: 1000
+    negative_difference: preserve
+    definition: Current production times baseline unit energy minus current unit energy, converted from kgce to tce within the same workshop and production unit; arithmetic comparison without causal attribution.
+  energy_difference_conversion:
+    operation: full_period_average_conversion
+    field: tce
+    zero_energy: null_conversion
+    coefficient_source: original_totals
+    definition: Signed energy difference times original full-period carbon or cost divided by original full-period tce; never infer factors from rounded savings totals. Gross estimate without implementation costs.
+  residual_control_band:
+    operation: signed_residual_band
+    field: residual
+    sigma_multiplier: 2
+    lower_bound: preserve_negative
+    definition: Signed residual mean plus or minus two nonnegative standard deviations; do not clamp negative residuals to zero or recompute historical labels.
+  historical_cusum_summary:
+    operation: stored_cusum_summary
+    field: cumulative_sigma
+    threshold_source: Q27
+    classification: stored_sql_flags
+    segment_rule: observed_false_to_true
+    definition: Summarize ordered exported trajectories and stored alarm flags; observed record count is not a new calibration sample size. Never reclassify rounded trajectories at the threshold.
+  proportional_energy_scenario:
+    operation: proportional_reduction
+    field: tce
+    report_year: 2025
+    report_rates_percent: [3, 5, 10]
+    exclude_workshop: W07
+    conversion: per_energy_observed_cost_and_carbon
+    definition: Scale each eligible energy record's energy, cost and carbon by a hypothetical reduction in [0, 100] percent; no average intensity factors, implementation cost or realized savings claims.

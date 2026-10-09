@@ -12,7 +12,8 @@ from governance.analysis_formulas import contract
 from governance.analysis_report import integrate  # Compatibility for existing callers.
 
 SOURCES = ('governance/analysis_formulas.yaml', 'governance/analysis_formulas.py',
-           'src/analysis_formulas.js', 'governance/analysis_report.py', 'src/report_template.html', 'src/make_report.py',
+           'src/analysis_formulas.js', 'src/analysis_scenarios.js', 'governance/analysis_report.py', 'src/report_template.html', 'src/make_report.py',
+           'tools/phase5_energy_assessment.py',
            'governance/catalog.py', 'governance/browser.py', 'governance/consumers.py',
            'governance/metrics.yaml', 'src/semantic_metrics.js', 'tools/build_analysis_report.py')
 

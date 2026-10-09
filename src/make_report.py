@@ -28,6 +28,7 @@ if hasattr(sys.stdout, "reconfigure"):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
+from governance.analysis_formulas import dispersion, intensity_difference, convert_difference, cusum_summary
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TEMPLATE = os.path.join(BASE_DIR, "src", "report_template.html")
 TARGET = os.path.join(OUT_DIR, "report.html")
@@ -188,8 +189,8 @@ def build() -> dict:
 
     # ---- 节能量: 把"单耗下降"翻译成 tce / tCO2 / 元 ----
     # 口径: 以 2024 单耗为基线, 乘 2025 实际产量 = "效率不提升本该消耗多少",
-    # 再减 2025 实际能耗。差额才是**可归因于能效提升**的部分 ——
-    # 产量增长带来的能耗不算功劳, 只有效率提升省下的才算。
+    # 再减按 2025 单耗推算的能耗。差额是历史强度的算术对照，
+    # 不能只凭这两年单耗确认改造因果或实测措施收益。
     #
     # 单位换算: Q08 的单耗是 kgce/产量单位, 产量单位随车间变(吨/件/台/平方米),
     # 所以 qty * kgce / 1000 = tce, **只在同一车间内成立**(跨车间相加无意义)。
@@ -200,27 +201,24 @@ def build() -> dict:
         q25 = prod.get((u["name"], "2025"), 0.0)
         if q25 <= 0:
             continue
-        should = q25 * u["y2024"] / 1000.0     # kgce -> tce
-        actual = q25 * u["y2025"] / 1000.0
         save_rows.append({
             "name": u["name"],
-            "save": round(should - actual, 1),
+            "save": round(intensity_difference(q25, u["y2024"], u["y2025"]), 1),
             "pct": u["pct"],
         })
     total_save = sum(r["save"] for r in save_rows)
 
     # 折算系数从**全期实测**取, 不写死: 碳强度 = 总碳排/总能耗,
     # 单位能耗成本 = 总费用/总能耗。换一批数据这两个数会变, 正文跟着变。
-    ci_all = out["totals"]["co2"] / out["totals"]["tce"] if out["totals"]["tce"] else 0.0
-    cost_per_tce = out["totals"]["cost"] / out["totals"]["tce"] if out["totals"]["tce"] else 0.0
+    converted = convert_difference(total_save, out["totals"])
     # 年度基准: 2025 全厂能耗, 用来算节能量占全厂能耗的比例
     tce_2025 = sum(r["tce"] for r in out["monthly"] if r["ym"].startswith("2025"))
 
     save_rows.sort(key=lambda r: -r["save"])
     out["savings"] = save_rows
     out["save_total"] = round(total_save, 1)
-    out["save_co2"] = round(total_save * ci_all, 1)
-    out["save_cost"] = round(total_save * cost_per_tce, 0)
+    out["save_co2"] = round(converted['co2'], 1) if converted['co2'] is not None else None
+    out["save_cost"] = round(converted['cost'], 0) if converted['cost'] is not None else None
     out["save_pct"] = round(total_save / tce_2025 * 100.0, 2) if tce_2025 else 0.0
     # 排名前两位的车间合计占比 —— 正文用它说明"高单耗车间杠杆最大"
     top2 = sum(r["save"] for r in save_rows[:2])
@@ -310,8 +308,8 @@ def build() -> dict:
     series = sorted(groups.values(), key=lambda g: -len([p for p in g["points"] if p["out"]]))
     for g in series:
         g["n_out"] = len([p for p in g["points"] if p["out"]])
-        # σ/μ 越大, Z 值越容易被小基数放大 —— 页面上要按这个比值排序提示
-        g["cv"] = round(g["sd"] / g["mu"] * 100, 1) if g["mu"] else 0.0
+        cv = dispersion(g["mu"], g["sd"])['cv']
+        g["cv"] = round(cv, 1) if cv is not None else None
     out["unit_series"] = series
 
     # ---- Q25 产量基线: 按车间分组, 每日带上期望值/残差与两法判定 ----
@@ -384,6 +382,8 @@ def build() -> dict:
         g = cgroups.setdefault(code, {
             "code": code, "name": r["车间"], "h": f(r["判定限"]), "points": [],
         })
+        if f(r["判定限"]) != g['h']:
+            raise ValueError('CUSUM threshold must be stable within each workshop')
         g["points"].append({
             "d": r["日期"],
             "z": f(r["白化残差Z值"]),
@@ -396,20 +396,8 @@ def build() -> dict:
         })
     cseries = sorted(cgroups.values(), key=lambda g: g["code"])
     for g in cseries:
-        g["n_alarm"] = len([p for p in g["points"] if p["alarm"]])
-        g["n_hi"] = len([p for p in g["points"] if p["side"] == "偏高"])
-        g["n_lo"] = len([p for p in g["points"] if p["side"] == "偏低"])
-        # 报警段数 = 报警状态由 0 变 1 的次数。Q26 里 SQL 已按同样口径算过一份,
-        # 这里再算一遍是为了让 CUSUM 图和副标题能独立于 Q26 渲染 —— 两处口径一致。
-        seg = 0
-        for j, p in enumerate(g["points"]):
-            if p["alarm"] and not (g["points"][j - 1]["alarm"] if j else False):
-                seg += 1
-        g["n_seg"] = seg
-        g["max_hi"] = max((p["hi"] for p in g["points"]), default=0.0)
-        g["max_lo"] = max((p["lo"] for p in g["points"]), default=0.0)
-        g["max_raw"] = max((max(p["hi_raw"], p["lo_raw"]) for p in g["points"]), default=0.0)
-        g["side"] = "偏低" if g["n_lo"] > g["n_hi"] else ("偏高" if g["n_hi"] else "无")
+        summary = cusum_summary(g['points'], g['h'])
+        g.update({key: value for key, value in summary.items() if key not in ('threshold', 'observed_points')})
     out["cusum"] = cseries
 
     # ---- Q28/Q29 前端动态筛选用的两套序列 ----
@@ -493,7 +481,7 @@ def build() -> dict:
         "us_total": sum(g["n_out"] for g in series),
         "us_pts": sum(len(g["points"]) for g in series),
         # 变异系数最高的车间 —— 小基数放大的典型案例, 文案里点名
-        "us_cv_top": max(series, key=lambda g: g["cv"])["name"] if series else "",
+        "us_cv_top": max(series, key=lambda g: g["cv"] if g["cv"] is not None else -1)["name"] if series else "",
         # 产量基线法的效果指标, 全部从 Q25/Q26 算出, 不写死
         "bl_fixed": sum(c["n_fixed"] for c in out["cmp"]),
         "bl_base": sum(c["n_base"] for c in out["cmp"]),
