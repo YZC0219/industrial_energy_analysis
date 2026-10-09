@@ -137,3 +137,80 @@ def test_online_scoped_answer_rejects_mapping_as_answer(client, monkeypatch, tmp
     monkeypatch.setattr('src.diagnostics.openai_compatible_llm',
                         lambda _: {'insufficient_evidence':False, 'evidence_ids':[mapping.evidence_id]})
     assert client.post('/api/v1/diagnostics/ask', json=body).status_code == 503
+
+
+def test_model_status_does_not_expose_credentials_or_call_model(client, monkeypatch):
+    monkeypatch.setenv('LLM_API_URL', 'https://example.invalid/v1/chat/completions')
+    monkeypatch.setenv('LLM_MODEL', 'configured-test')
+    monkeypatch.setenv('LLM_API_KEY', 'never-expose-test-secret')
+    monkeypatch.setattr('src.diagnostics.openai_compatible_llm', lambda _: pytest.fail('status called model'))
+    response = client.get('/api/v1/diagnostics-model')
+    assert response.json()['state'] == 'configured_unverified'
+    assert response.json()['key_present']
+    assert 'never-expose' not in response.text and 'example.invalid' not in response.text
+
+
+def test_invalid_configuration_fails_explicitly(client, monkeypatch):
+    monkeypatch.setenv('LLM_API_URL', 'file:///private')
+    monkeypatch.setenv('LLM_MODEL', 'test')
+    assert client.get('/api/v1/diagnostics-model').json()['state'] == 'invalid_configuration'
+    assert client.post('/api/v1/diagnostics/ask', json={'question':'异常证据'}).status_code == 503
+
+
+def test_starter_preserves_process_settings_and_loads_only_allowed_keys(monkeypatch, tmp_path):
+    from tools.start_diagnostics import configure
+    env = tmp_path / '.env'
+    env.write_text('LLM_API_URL=https://example.invalid/v1/chat/completions\nLLM_MODEL="file-model"\nLLM_API_KEY=test-secret\nUNRELATED_SECRET=not-loaded\n', encoding='utf-8')
+    for key in ('LLM_API_URL','LLM_API_KEY','UNRELATED_SECRET'):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv('LLM_MODEL', 'process-model')
+    monkeypatch.setenv('LLM_TIMEOUT_SECONDS', '90')
+    # Track keys configure may mutate so pytest restores the process afterwards.
+    monkeypatch.setenv('LLM_API_URL', '')
+    monkeypatch.setenv('LLM_API_KEY', '')
+    import os
+    assert configure(env, 'online')['configured']
+    assert os.environ['LLM_MODEL'] == 'process-model'
+    assert 'UNRELATED_SECRET' not in os.environ
+    assert configure(env, 'offline')['state'] == 'offline'
+
+
+def test_starter_online_requires_configuration(monkeypatch, tmp_path):
+    from tools.start_diagnostics import configure
+    monkeypatch.delenv('LLM_API_URL', raising=False)
+    monkeypatch.delenv('LLM_MODEL', raising=False)
+    with pytest.raises(ValueError, match='在线模式缺少配置'):
+        configure(tmp_path / 'missing.env', 'online')
+
+
+def test_deepseek_without_key_keeps_offline_workbench_available(client, monkeypatch):
+    monkeypatch.setenv('LLM_API_URL', 'https://api.deepseek.com/chat/completions')
+    monkeypatch.setenv('LLM_MODEL', 'deepseek-flash')
+    monkeypatch.delenv('LLM_API_KEY', raising=False)
+    assert client.get('/api/v1/diagnostics-model').json()['state'] == 'missing_credentials'
+    item = client.get('/api/v1/diagnostics').json()['items'][0]
+    response = client.post('/api/v1/diagnostics/ask', json={'incident_id':item['id'], 'question':'本次异常有哪些证据？'})
+    assert response.status_code == 200 and response.json()['mode'] == 'offline_guarded'
+
+
+def test_online_monthly_context_keeps_event_and_all_daily_records(client, monkeypatch, tmp_path):
+    from datetime import date, timedelta
+    path = tmp_path / 'Q28_各车间日度能耗与产量.csv'
+    path.write_text('日期,车间编码,车间,综合能耗_tce,能源费用_元,碳排放_tCO2,产量\n' +
+                   ''.join(f'{date(2025,1,1)+timedelta(days=i)},W02,装配车间,1,2,3,4\n'
+                           for i in range(31)), encoding='utf-8-sig')
+    monkeypatch.setenv('LLM_API_URL','https://example.invalid/v1/chat/completions')
+    monkeypatch.setenv('LLM_MODEL','test')
+    def model(prompt):
+        candidates = json.loads(prompt.split('\nEVIDENCE=',1)[1])
+        daily = [e for e in candidates if 'Q28_' in e['source_path']]
+        assert len(daily) == 31
+        assert any('Q22_' in e['source_path'] for e in candidates)
+        assert not any('Q24_' in e['source_path'] for e in candidates)
+        return {'insufficient_evidence':False,'evidence_ids':[e['evidence_id'] for e in daily]}
+    monkeypatch.setattr('src.diagnostics.openai_compatible_llm',model)
+    item=client.get('/api/v1/diagnostics',params={'workshop_code':'W02'}).json()['items'][0]
+    response=client.post('/api/v1/diagnostics/ask',json={'incident_id':item['id'],'question':'同期能源费用是多少？'})
+    assert response.status_code == 200
+    assert response.json()['answer_metrics'][0]['value'] == 62
+    assert response.json()['answer_metrics'][0]['record_days'] == 31

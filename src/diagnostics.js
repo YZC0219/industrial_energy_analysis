@@ -63,6 +63,7 @@ async function load() {
     $('count').textContent = total + ' 条';
     $('updated').textContent = '产物更新时间（北京时间）：' + localTime(data.generated_at) +
       ' · ' + (data.llm_configured ? '模型已配置' : '证据检索模式');
+    $('model-status').textContent = data.model_status.message;
     const choice = $('workshop').value;
     $('workshop').replaceChildren(node('option', '全部车间'));
     $('workshop').firstChild.value = '';

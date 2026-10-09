@@ -53,7 +53,9 @@ def main():
             page.get_by_placeholder("确认原因或判断依据", exact=False).fill("测试反馈，仅用于隔离验收")
             page.get_by_placeholder("处理措施及结果").fill("已核对页面与接口")
             page.locator("#detail select").select_option("resolved")
-            page.get_by_role("button", name="保存处理反馈").click()
+            with page.expect_response(lambda r: r.url.endswith('/feedback') and r.request.method == 'POST') as saved:
+                page.get_by_role("button", name="保存处理反馈").click()
+            assert saved.value.status == 200
             page.locator(".history").first.wait_for()
             page.reload()
             page.locator(".incident").first.wait_for()
@@ -63,10 +65,10 @@ def main():
             page.locator(".incident").first.click()
             page.locator(".history").first.wait_for()
             assert "浏览器验收" in page.locator(".history").first.inner_text()
-            page.get_by_role('button', name='待核查', exact=False).filter(has=page.locator('strong')).first.click()
+            with page.expect_response(lambda r: '/api/v1/diagnostics?' in r.url and 'status=pending' in r.url):
+                page.get_by_role('button', name='待核查', exact=False).filter(has=page.locator('strong')).first.click()
             page.get_by_text('选择一条异常，查看证据并记录处理结果。', exact=True).wait_for()
-            page.locator('.incident').first.wait_for()
-            page.locator('.incident').first.click()
+            page.locator('.incident').filter(has_text='待核查').first.click()
             page.locator('.trend svg').wait_for()
             page.screenshot(path=str(args.output_dir / "desktop.png"), full_page=True)
             page.set_viewport_size({"width": 390, "height": 844})

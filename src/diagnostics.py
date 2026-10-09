@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -23,6 +24,39 @@ from ml.attribution_assistant import (GroundingError, analyze, load_evidence,
 
 ROOT = Path(__file__).resolve().parents[1]
 router = APIRouter()
+
+
+def model_status():
+    url, model = os.getenv('LLM_API_URL', '').strip(), os.getenv('LLM_MODEL', '').strip()
+    configured = bool(url and model)
+    state = 'configured_unverified' if configured else 'offline'
+    if bool(url) != bool(model):
+        state = 'incomplete_configuration'
+    if url:
+        try:
+            parsed = urlsplit(url)
+            timeout = float(os.getenv('LLM_TIMEOUT_SECONDS', '90'))
+            if parsed.scheme not in ('http', 'https') or not parsed.hostname or not 0 < timeout <= 300:
+                state = 'invalid_configuration'
+            elif configured and parsed.hostname == 'api.deepseek.com' and not os.getenv('LLM_API_KEY', '').strip():
+                state = 'missing_credentials'
+        except ValueError:
+            state = 'invalid_configuration'
+    messages = {
+        'offline': '当前为离线诊断：使用受控证据与规则回答。',
+        'configured_unverified': '在线模型已配置；连接和回答质量仍需实际验收。',
+        'incomplete_configuration': '模型配置不完整，需同时填写 LLM_API_URL 和 LLM_MODEL。',
+        'invalid_configuration': '模型地址或超时配置无效，请检查本地配置。',
+        'missing_credentials': 'DeepSeek 接入已准备，待在本地 .env 填写 LLM_API_KEY 后启动在线模式。',
+    }
+    return {'state': state, 'configured': state == 'configured_unverified',
+            'message': messages[state], 'key_present': bool(os.getenv('LLM_API_KEY'))}
+
+
+@router.get('/api/v1/diagnostics-model')
+def get_model_status():
+    # Read configuration only: opening the page never triggers a paid model call.
+    return model_status()
 
 
 @contextmanager
@@ -120,7 +154,7 @@ def list_incidents(date_from: date | None = None, date_to: date | None = None,
             "summary": summary,
             "workshops": [{"code": r["车间编码"], "name": r["车间"]}
                           for r in read_csv("Q03_各车间综合能耗排名.csv")],
-            "llm_configured": all(os.getenv(k) for k in ("LLM_API_URL", "LLM_MODEL"))}
+            "llm_configured": model_status()['configured'], "model_status": model_status()}
 
 
 @router.get("/api/v1/diagnostics/{incident_id}")
@@ -247,6 +281,8 @@ def ask(body: Question):
             period_value = item["event_date"] if item["period"] == "day" else item["event_date"][:7]
             # A selected incident cannot silently retrieve another workshop or date.
             evidence = [e for e in evidence if isinstance(e.evidence_value, dict) and
+                        (Path(e.source_path).name == item['evidence_source'] or
+                         Path(e.source_path).name.startswith(('Q03_', 'Q28_'))) and
                         e.evidence_value.get("车间") == item["workshop"] and
                         (e.evidence_value.get(period_key) == period_value or
                          (item["period"] == "month" and
@@ -255,11 +291,15 @@ def ask(body: Question):
             question = f"{item['workshop_code'] or ''} {item['workshop']} {period_value} {body.question}"
         else:
             question = body.question
-        online = all(os.getenv(k) for k in ("LLM_API_URL", "LLM_MODEL"))
+        status = model_status()
+        if status['state'] in ('invalid_configuration', 'incomplete_configuration'):
+            raise HTTPException(503, status['message'])
+        online = status['configured']
         if item and not online:
             result, audit = scoped_offline_answer(body.question, item, evidence)
         else:
-            result, audit = analyze(question, evidence, openai_compatible_llm if online else None)
+            result, audit = analyze(question, evidence, openai_compatible_llm if online else None,
+                                    retrieval_limit=len(evidence) if item else 8)
         if item and any(Path(c['source_path']).name.startswith('Q03_')
                         for claim in result['claims'] for c in claim['citations']):
             raise GroundingError("车间总览不能作为当前异常的回答证据")

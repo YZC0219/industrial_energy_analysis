@@ -49,7 +49,10 @@ def run():
     if local!=remote:
         raise AssertionError('Host and Airflow report contents differ')
     for token in ('window.ENERGY_ANALYSIS_CONTRACT=', 'window.EnergyAnalysis.months(monthly)',
-                  'window.EnergyAnalysis.average(days,vals)', 'window.EnergyAnalysis.pareto(VIEW.energy_mix)'):
+                  'window.EnergyAnalysis.average(days,vals)', 'window.EnergyAnalysis.pareto(VIEW.energy_mix)',
+                  'window.EnergyAnalysis.dispersion(g.mu,g.sd)', 'window.EnergyAnalysis.conversion(r.save,D.totals)',
+                  'window.EnergyAnalysis.residualBand(g.mu_r,g.sd_r)', 'window.EnergyAnalysis.cusumSummary(pts,g.h)',
+                  'id="scenario-rate"'):
         assert token in remote,token
     assert 'fonts.googleapis.com' not in remote
     assert current_sources()==source_hashes
@@ -59,13 +62,13 @@ def run():
             'source_semantic_report_sha256':hashlib.sha256(metadata_bytes).hexdigest(),
             'canonical_cli_passed':True,'airflow_build_report_operator_passed':True,
             'host_and_container_html_equal':True,'normalized_html_sha256':hashlib.sha256(remote.encode()).hexdigest(),
-            'formula_engines_included':3,'evidence_directory':str(folder.relative_to(ROOT)),
+            'analytical_formula_definitions':9,'evidence_directory':str(folder.relative_to(ROOT)),
             'scope':'report operator only; no DAG trigger, warehouse update, deployment replacement or scheduler acceptance'}
     (folder/'verification.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     (folder/'verification.md').write_text(
         '# 报告生成入口验收\n\n结论：通过。\n\n'
         '- 原报告 CLI 生成成功。\n- 现有 Airflow build_report 操作器单独执行成功。\n'
-        '- 两个运行环境生成的 HTML 内容一致，包含月环比、七日历日均值和费用帕累托。\n'
+        '- 两个运行环境生成的 HTML 内容一致，包含九项分析公式及残差、CUSUM、节能情景。\n'
         '- 没有触发 DAG、更新数仓或替换运行中的 CDC 部署。\n\n'
         f'源码摘要在验收前后保持一致。报告位于：`{destination}`。\n',encoding='utf-8')
     print(json.dumps({'success':True,'report':str(destination),'verification':str(folder/'verification.json')},ensure_ascii=False))

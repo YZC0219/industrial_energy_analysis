@@ -38,9 +38,9 @@
   "source_semantic_report_sha256": "4ac247016759eb4f50941f8ba016bd0822d971404c4cdb18da6d08d6b5766909",
   "source_hashes": {
     "governance/consumers.py": "d8f38236159b140400f5f4f14a148f1d1cabb10a456b764bbb33c448696dfaf6",
-    "src/api.py": "ed9a08aee395eac0c1ee03fbb70d99fc63b7148da0d735ec9872ebfefc8811c1",
-    "src/make_report.py": "8fec5272a9b34c3916d936d9799229630ec6c75df0e3a4fb481175ac72e95bfb"
+    "src/api.py": "50ddca2f4a536c737238478aa6372f1b76041be8d710305417569fa171bf7e3a",
+    "src/make_report.py": "e3ee6c185c2123dda1d7450d30125ca062f15c0aa38d64395b994052fb554c01"
   },
-  "evidence_directory": "output\\extensions\\semantic_consumers_b90528a887b9",
+  "evidence_directory": "output\\extensions\\semantic_consumers_afc65e45b853",
   "pending": "Additional BI metrics and browser analytical formulas beyond seven basic scalar metrics"
 }
