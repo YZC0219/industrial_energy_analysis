@@ -261,9 +261,10 @@ def _normalize_llm_result(result: dict, analysis_id: str,
 
 
 def analyze(question: str, evidence: list[Evidence],
-            llm: Callable[[str],dict] | None=None, analysis_id: str | None=None) -> tuple[dict,dict]:
+            llm: Callable[[str],dict] | None=None, analysis_id: str | None=None,
+            retrieval_limit: int=8) -> tuple[dict,dict]:
     analysis_id=analysis_id or str(uuid.uuid4())
-    selected=retrieve(question,evidence)
+    selected=retrieve(question,evidence,limit=retrieval_limit)
     # 原因类问题必须有真正的原因记录；当前三个允许来源只含口径、指标和检测信号。
     # 因而即使检索到相关异常数值，也不能让模型把它扩写成设备/人员根因。
     explicit_entities={token.lower() for token in re.findall(r"W\d{2}|\d{4}-\d{2}-\d{2}",question,re.I)}

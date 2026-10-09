@@ -8,8 +8,14 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 
 import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from governance.analysis_formulas import proportional_scenario
 
 
 ENERGY = {
@@ -109,9 +115,11 @@ def build_assessment(energy_path: Path, production_path: Path, output_dir: Path,
     for rate in scenario_rates:
         scenario = opportunity.copy()
         scenario["reduction_rate_pct"] = rate * 100
-        scenario["scenario_saving_tce"] = scenario.energy_tce * rate
-        scenario["scenario_cost_saving_yuan"] = scenario.cost_yuan * rate
-        scenario["scenario_co2_reduction_t"] = scenario.co2_t * rate
+        values = [proportional_scenario(row.energy_tce, row.cost_yuan, row.co2_t, rate * 100)
+                  for row in opportunity.itertuples(index=False)]
+        scenario["scenario_saving_tce"] = [value['tce'] for value in values]
+        scenario["scenario_cost_saving_yuan"] = [value['cost'] for value in values]
+        scenario["scenario_co2_reduction_t"] = [value['co2'] for value in values]
         scenario_rows.append(scenario)
     scenarios = pd.concat(scenario_rows, ignore_index=True)
     scenarios = scenarios.sort_values(["reduction_rate_pct", "scenario_cost_saving_yuan"], ascending=[True, False])
