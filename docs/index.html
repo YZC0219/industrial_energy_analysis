@@ -666,7 +666,7 @@ td:first-child{color:var(--ink)}
     <div class="sec-head">
       <p class="eyebrow">成效</p>
       <h2>七个车间的单位产品能耗全部下降</h2>
-      <p class="sec-sub">产量两年增长约 5%，能耗只增长约 1.4%——差额就是节能量。换算到单位产品口径，7 个车间单耗同比全部为负，降幅 −2.12% ~ −3.78%。</p>
+      <p class="sec-sub">产量两年增长约 5%，能耗只增长约 1.4%——可用历史单耗基线比较差额。换算到单位产品口径，7 个车间单耗同比全部为负，降幅 −2.12% ~ −3.78%。</p>
     </div>
     <div class="grid2">
       <figure class="card" style="margin:0">
@@ -680,7 +680,7 @@ td:first-child{color:var(--ink)}
       </figure>
       <figure class="card" style="margin:0">
         <figcaption class="card-head">
-          <h3>产量涨了，能耗涨得少——差额就是节能量</h3>
+          <h3>产量涨了，能耗涨得少——可用历史单耗基线比较差额</h3>
           <p class="card-sub">7 个有产量的车间，产量同比（上）与单位产品能耗同比（下）。产量普遍增长约 5%，单耗普遍下降 2%~4%，两者相加即为能耗的实际增幅。</p>
         </figcaption>
         <div class="legend" id="lg-deco"></div>
@@ -694,24 +694,24 @@ td:first-child{color:var(--ink)}
   <section class="sec">
     <div class="sec-head">
       <p class="eyebrow">环保绩效</p>
-      <h2>节能量换算成碳与经济账</h2>
-      <p class="sec-sub">上一节说"单耗降了 2%~4%"，但降幅本身不是环保语言。这一节把它换算成三件能被考核的东西：<b>省了多少标煤、少了多少碳、值多少钱</b>。</p>
+      <h2>历史单耗基线差额与碳、费用估算</h2>
+      <p class="sec-sub">上一节说"单耗降了 2%~4%"，但降幅本身不是环保语言。这一节把它换算成三个估算量：<b>基线差额、折碳差额、折费用差额</b>。</p>
     </div>
 
     <div class="note">
       <span class="mark"></span>
       <div>
         <b>怎么算的</b>　以 2024 年各车间单耗为基线，乘以 2025 年实际产量，得到"若效率不提升本该消耗多少"，
-        再减去 2025 年实际能耗，差额即为<b>可归因于能效提升</b>的节能量。
-        这条口径把"产量增长带来的能耗"和"效率提升省下的能耗"分开了 —— 前者不算功劳，后者才算。
-        碳排按全期碳强度 <b data-fill="ci-all">—</b> 折算；费用按全期单位能耗成本 ¥3,378/tce 折算。
+        再减去按 2025 年单耗推算的能耗，得到<b>历史单耗基线差额</b>；负值表示单耗上升。
+        仅在同一车间和产量单位内比较，不能据此确认某项改造的因果效果。单耗取自导出的 Q08，分项差额保留一位小数后汇总。
+        碳排按全期碳强度 <b data-fill="ci-all">—</b> 折算；费用按同一全期单位能耗成本 ¥<b data-fill="cost-all">—</b>/tce 折算。此处为全区间口径，不随筛选变化。
       </div>
     </div>
 
     <figure class="card" style="margin:0">
       <figcaption class="card-head">
-        <h3>各车间节能量与折算收益</h3>
-        <p class="card-sub">条形为节能量（tce）。熔炼与热处理两个车间贡献了 <b data-fill="save-top2-pct">—</b> 的节能量——高单耗车间的效率改进，杠杆最大。</p>
+        <h3>各车间基线差额与折算估算</h3>
+        <p class="card-sub">条形为基线差额（tce），负值表示单耗上升。熔炼与热处理两个车间贡献了 <b data-fill="save-top2-pct">—</b> 的基线差额——高单耗车间的效率改进，杠杆最大。</p>
       </figcaption>
       <div class="chart" data-chart="savechain"></div>
       <div class="card-foot"><button class="toggle" data-toggle="savechain" aria-expanded="false">表格视图</button></div>
@@ -720,21 +720,35 @@ td:first-child{color:var(--ink)}
 
     <div class="grid3">
       <figure class="card" style="margin:0">
-        <figcaption class="card-head"><h3>省下的标煤</h3></figcaption>
+        <figcaption class="card-head"><h3>折标煤基线差额</h3></figcaption>
         <p class="hero-num"><b data-fill="save-tce">—</b><u>tce</u></p>
-        <p class="card-sub">两年间可归因于能效提升的节能量，相当于 2025 年全厂能耗的 <b data-fill="save-pct">—</b>。</p>
+        <p class="card-sub">历史单耗基线差额，相当于 2025 年全厂能耗的 <b data-fill="save-pct">—</b>。</p>
       </figure>
       <figure class="card" style="margin:0">
-        <figcaption class="card-head"><h3>少排的碳</h3></figcaption>
+        <figcaption class="card-head"><h3>折碳差额估算</h3></figcaption>
         <p class="hero-num"><b data-fill="save-co2">—</b><u>tCO₂</u></p>
         <p class="card-sub">按全期碳强度折算。相当于约 <b data-fill="save-plane">—</b> 趟北京—上海航班经济舱的单程排放量 —— <b>量级大不代表结论强</b>，这个换算只为让抽象的吨数有个可感的参照。</p>
       </figure>
       <figure class="card" style="margin:0">
-        <figcaption class="card-head"><h3>省下的能源费用</h3></figcaption>
+        <figcaption class="card-head"><h3>折费用差额估算</h3></figcaption>
         <p class="hero-num"><b data-fill="save-cost">—</b><u>万元</u></p>
-        <p class="card-sub">按全期单位能耗成本折算，未扣除节能改造的投入 —— 这是毛收益，不是投资回报。</p>
+        <p class="card-sub">按全期单位能耗成本折算，未扣除节能改造的投入 —— 这是按平均系数折算的毛额估算，未验证措施效果。</p>
       </figure>
     </div>
+  </section>
+
+  <section class="sec" id="energy-scenario">
+    <div class="sec-head">
+      <p class="eyebrow">情景</p><h2>按能源品种估算假设节能量</h2>
+      <p class="sec-sub">复用现有节能情景规则，对各能源的消耗、实际费用与碳排按同一比例减少。结果为假设估算，未计改造成本、负荷影响与价格变化，不能作为实测收益或措施承诺。</p>
+    </div>
+    <figure class="card" style="margin:0">
+      <figcaption class="card-head">
+        <label for="scenario-rate">假设降幅</label> <select id="scenario-rate" aria-label="假设节能降幅"></select>
+        <p class="card-sub" id="scenario-scope" role="status" aria-live="polite"></p>
+      </figcaption>
+      <div id="scenario-table"></div>
+    </figure>
   </section>
 
   <section class="sec">
@@ -807,7 +821,7 @@ td:first-child{color:var(--ink)}
     </figure>
     <div class="stack" style="margin-top:14px">
       <div class="note warn"><span class="mark"></span><div>
-        <b>小基数车间的 Z 值会被放大</b>　σ/μ 越大，同样的绝对波动就越容易顶破 2σ。本例中<b>表面处理车间</b>的变异系数最高，其"超限日"里有相当一部分只是产量小、基数低造成的抖动，不是真的跑冒滴漏。<b>Z 值大 ≠ 问题严重</b>——要把 Z 值和产量一起看，产量越低的超限越可能是统计假象。这也是为什么下一阶段的算法对比要引入产量基线。
+        <b>变异系数与 Z 值分开解释</b>　CV = σ/μ 表示相对离散程度；Z = (当日单耗 − μ)/σ。同样的绝对偏差下，σ 越大，Z 的绝对值越小。均值为零时 CV 显示为“—”。产量偏低可能抬高单位产品能耗，超限日仍需结合产量和日历复核；本图沿用 SQL 固定基线与异常标记，不按筛选范围重新判定。
       </div></div>
       <div class="note"><span class="mark"></span><div>
         <b>与告警清单的关系</b>　本图用的是全序列（每车间 731 天），口径与第 5 节的单耗指标一致：产量 &gt; 0、剔除公用工程车间。图上的红点集合是该口径下的<b>完整</b>异常集；而前面"能耗突增预警"用的是<b>总能耗</b>的月度环比——不只是阈值不同，是<b>被除的产量不一样</b>：产量同比例上涨的月份，总能耗涨而单耗不动。两个口径在定义上就看不见对方，所以那 5 条告警在本区<b>不会</b>有对应的超限日，反过来说本区的超限日也不会出现在告警表里，两者数字本就不该相等，也不该互相检索。
@@ -847,7 +861,7 @@ td:first-child{color:var(--ink)}
     <figure class="card card-scope" data-scope-note="全区间口径 · 不随筛选变化" style="margin:14px 0 0">
       <figcaption class="card-head">
         <h3>累积和控制图 · 偏离是尖峰还是持续</h3>
-        <p class="card-sub">CUSUM 不看某一天偏离多少，而是把每天的偏差<b>累加</b>起来：只要持续偏高就一路往上爬，一旦回归正常就回落。所以它天然区分两种东西——孤立尖峰会把曲线顶起来又立刻落回，持续偏移则会让曲线<b>贴着上界走很久</b>。判定线取 <b>h = 9.9σ</b>，这个值是按本项目 731 天的样本量重新标定的，不是教科书的 5σ（原因见下）。灰线是<b>未做季节白化</b>的同一条轨迹，并排画出来是为了看到季节伪影是怎么被一路累积上去的。<b>读图时要注意段长不能直读</b>：S 每天只回落 k=0.5σ，一次 +19.6σ 的极端日要近四十天才消化回线下，所以"报警 19 天"未必等于"异常持续了 19 天"——下面逐段做了归因。</p>
+        <p class="card-sub">CUSUM 不看某一天偏离多少，而是把每天的偏差<b>累加</b>起来：只要持续偏高就一路往上爬，一旦回归正常就回落。所以它天然区分两种东西——孤立尖峰会把曲线顶起来又立刻落回，持续偏移则会让曲线<b>贴着上界走很久</b>。判定线取 <b data-fill="cusum-limit">—</b>，这个值是按本项目 731 天的样本量重新标定的，不是教科书的 5σ（原因见下）。灰线是<b>未做季节白化</b>的同一条轨迹，并排画出来是为了看到季节伪影是怎么被一路累积上去的。<b>读图时要注意段长不能直读</b>：S 每天只回落 k=0.5σ，一次 +19.6σ 的极端日要近四十天才消化回线下，所以"报警 19 天"未必等于"异常持续了 19 天"——下面逐段做了归因。</p>
       </figcaption>
       <div class="seg" id="cusum-seg"></div>
       <div class="chart" data-chart="cusum"></div>
@@ -869,7 +883,7 @@ td:first-child{color:var(--ink)}
         <b>残差标准差只剩原来的四分之一到四分之三</b>　7 个车间的噪声压低比在 <b data-fill="cmp-noise-lo"></b> ~ <b data-fill="cmp-noise-hi"></b> 之间，即模型把原始单耗的波动解释掉了 <span data-fill="cmp-noise-explain-lo"></span>% ~ <span data-fill="cmp-noise-explain-hi"></span>%。解释力最弱的是包装车间（<b data-fill="cmp-noise-hi"></b>）——它产量小、基数低，模型可用的信息本来就少，这也提醒：<b>基线法不是万能的，产量单薄的车间它同样吃力</b>。
       </div></div>
       <div class="note warn"><span class="mark"></span><div>
-        <b>CUSUM 的判定线不能照抄教科书</b>　经典教材给 <b>h = 5σ</b>，对应平均 300 天才误报一次，那是为<b>在线连续监控、每天判一次</b>标定的。本项目是对 731 天历史做<b>一次性回顾</b>检验，同一个门槛的含义完全不同——5000 次纯噪声模拟给出：n=365 时 h=5 的误报率已<b>约 54%</b>，n=731 时高达<b>约 79%</b>，也就是说七个车间里会有五个以上凭空报警。按 99 分位重新标定后取 <b>h = 9.9σ</b>。<b>换样本量就得换门槛</b>，这一步不做，后面所有结论都是噪声。
+        <b>CUSUM 的判定线不能照抄教科书</b>　经典教材给 <b>h = 5σ</b>，对应平均 300 天才误报一次，那是为<b>在线连续监控、每天判一次</b>标定的。本项目是对 731 天历史做<b>一次性回顾</b>检验，同一个门槛的含义完全不同——5000 次纯噪声模拟给出：n=365 时 h=5 的误报率已<b>约 54%</b>，n=731 时高达<b>约 79%</b>，也就是说七个车间里会有五个以上凭空报警。按 99 分位重新标定后取 <b data-fill="cusum-limit">—</b>。<b>换样本量就得换门槛</b>，这一步不做，后面所有结论都是噪声。
         <br><span class="card-sub">这两个误报率来自蒙特卡洛仿真，每次重跑种子不同、结果有 ±2pp 左右的抖动，所以不插值、只给量级 —— 复算用 <code>python tools/calibrate_cusum_h.py</code>。</span>
       </div></div>
       <div class="note"><span class="mark"></span><div>
@@ -1094,7 +1108,7 @@ window.ENERGY_SEMANTIC_CONTRACT = {"version": 2, "source_sql_sha256": "eefe55f4c
 
 </script>
 <script>
-window.ENERGY_ANALYSIS_CONTRACT={"version": 1, "scope": "selected daily rows; no recalculation of historical anomaly baselines", "formulas": {"monthly_energy_change": {"operation": "adjacent_month_change", "unit": "percent", "field": "tce", "missing_previous": null, "zero_previous": null, "definition": "Only consecutive calendar months are comparable; selected partial months use selected totals and must be labelled."}, "daily_energy_average": {"operation": "trailing_calendar_mean", "unit": "tce", "field": "tce", "window_days": 7, "minimum_points": 1, "missing_days": "exclude_without_zero_fill", "definition": "Inclusive trailing seven calendar days within selected rows; average observed eligible dates, never seven arbitrary observations."}, "energy_cost_pareto": {"operation": "descending_cumulative_share", "unit": "percent", "field": "cost", "threshold_percent": 80, "zero_total": "zero_shares_no_threshold", "definition": "Sort descending by selected energy costs; ties preserve input order; first cumulative share reaching 80 percent is the threshold."}}, "sha256": "89d2705c4930471fb6036639ab3b848555e3fadaf0e7f0384a277a7289e236e6"};
+window.ENERGY_ANALYSIS_CONTRACT={"version": 3, "scope": "selected daily rows; no recalculation of historical anomaly baselines", "formulas": {"monthly_energy_change": {"operation": "adjacent_month_change", "unit": "percent", "field": "tce", "missing_previous": null, "zero_previous": null, "definition": "Only consecutive calendar months are comparable; selected partial months use selected totals and must be labelled."}, "daily_energy_average": {"operation": "trailing_calendar_mean", "unit": "tce", "field": "tce", "window_days": 7, "minimum_points": 1, "missing_days": "exclude_without_zero_fill", "definition": "Inclusive trailing seven calendar days within selected rows; average observed eligible dates, never seven arbitrary observations."}, "energy_cost_pareto": {"operation": "descending_cumulative_share", "unit": "percent", "field": "cost", "threshold_percent": 80, "zero_total": "zero_shares_no_threshold", "definition": "Sort descending by selected energy costs; ties preserve input order; first cumulative share reaching 80 percent is the threshold."}, "unit_energy_dispersion": {"operation": "fixed_baseline_dispersion", "field": "unit_energy", "sigma_multiplier": 2, "zero_mean": "null_cv", "lower_bound": "clamp_zero", "definition": "CV is sigma / mean times 100; for the same absolute deviation a larger sigma reduces Z. Historical SQL anomaly labels remain unchanged."}, "historical_intensity_difference": {"operation": "production_adjusted_difference", "field": "unit_energy", "kgce_per_tce": 1000, "negative_difference": "preserve", "definition": "Current production times baseline unit energy minus current unit energy, converted from kgce to tce within the same workshop and production unit; arithmetic comparison without causal attribution."}, "energy_difference_conversion": {"operation": "full_period_average_conversion", "field": "tce", "zero_energy": "null_conversion", "coefficient_source": "original_totals", "definition": "Signed energy difference times original full-period carbon or cost divided by original full-period tce; never infer factors from rounded savings totals. Gross estimate without implementation costs."}, "residual_control_band": {"operation": "signed_residual_band", "field": "residual", "sigma_multiplier": 2, "lower_bound": "preserve_negative", "definition": "Signed residual mean plus or minus two nonnegative standard deviations; do not clamp negative residuals to zero or recompute historical labels."}, "historical_cusum_summary": {"operation": "stored_cusum_summary", "field": "cumulative_sigma", "threshold_source": "Q27", "classification": "stored_sql_flags", "segment_rule": "observed_false_to_true", "definition": "Summarize ordered exported trajectories and stored alarm flags; observed record count is not a new calibration sample size. Never reclassify rounded trajectories at the threshold."}, "proportional_energy_scenario": {"operation": "proportional_reduction", "field": "tce", "report_year": 2025, "report_rates_percent": [3, 5, 10], "exclude_workshop": "W07", "conversion": "per_energy_observed_cost_and_carbon", "definition": "Scale each eligible energy record's energy, cost and carbon by a hypothetical reduction in [0, 100] percent; no average intensity factors, implementation cost or realized savings claims."}}, "sha256": "cf896fcbb9318bcf638873560233ef7c33729d22ff7f0bb7b1bafe5675567e36"};
 (function(root){
   'use strict';
   function measure(v){
@@ -1144,7 +1158,61 @@ window.ENERGY_ANALYSIS_CONTRACT={"version": 1, "scope": "selected daily rows; no
       if(threshold===null && total && cumulative>=root.ENERGY_ANALYSIS_CONTRACT.formulas.energy_cost_pareto.threshold_percent-1e-10) threshold=i;});
     return {rows:sorted,total:total,shares:shares,cumulative:accumulated,threshold_index:threshold};
   }
-  root.EnergyAnalysis={months:months,average:average,pareto:pareto};
+  function finite(v){
+    if(typeof v !== 'number' || !Number.isFinite(v)) throw new Error('Invalid signed analytical measure or overflow');
+    return v;
+  }
+  function dispersion(mean,sigma){
+    measure(mean); measure(sigma);
+    var width=finite(root.ENERGY_ANALYSIS_CONTRACT.formulas.unit_energy_dispersion.sigma_multiplier*sigma);
+    return {upper:finite(mean+width),lower:Math.max(0,mean-width),cv:mean ? finite(sigma/mean*100) : null};
+  }
+  function baselineDifference(quantity,baseline,current){
+    measure(quantity); measure(baseline); measure(current);
+    return finite(quantity*((baseline-current)/root.ENERGY_ANALYSIS_CONTRACT.formulas.historical_intensity_difference.kgce_per_tce));
+  }
+  function conversion(delta,totals){
+    finite(delta); measure(totals.tce); measure(totals.co2); measure(totals.cost);
+    if(!totals.tce) return {carbon_factor:null,cost_factor:null,co2:null,cost:null};
+    var cf=finite(totals.co2/totals.tce),yf=finite(totals.cost/totals.tce);
+    return {carbon_factor:cf,cost_factor:yf,co2:finite(delta*cf),cost:finite(delta*yf)};
+  }
+  function residualBand(mean,sigma){
+    finite(mean); measure(sigma);
+    var width=finite(root.ENERGY_ANALYSIS_CONTRACT.formulas.residual_control_band.sigma_multiplier*sigma);
+    return {upper:finite(mean+width),lower:finite(mean-width),half_width:width};
+  }
+  function cusumSummary(points,threshold){
+    measure(threshold);
+    if(!threshold) throw new Error('CUSUM threshold must be positive');
+    var previousDate=null,previousAlarm=false,alarms=0,high=0,low=0,segments=0,maxHi=0,maxLo=0,maxRaw=0;
+    points.forEach(function(p){
+      var stamp=day(p.d);
+      if(previousDate!==null && stamp<=previousDate) throw new Error('CUSUM dates must be unique and sorted');
+      if(typeof p.alarm!=='boolean' || !['','偏高','偏低'].includes(p.side) || p.alarm!==(p.side!==''))
+        throw new Error('Invalid stored CUSUM classification');
+      finite(p.z); [p.hi,p.lo,p.hi_raw,p.lo_raw].forEach(measure);
+      alarms+=Number(p.alarm); high+=Number(p.side==='偏高'); low+=Number(p.side==='偏低');
+      segments+=Number(p.alarm && !previousAlarm);
+      maxHi=Math.max(maxHi,p.hi); maxLo=Math.max(maxLo,p.lo); maxRaw=Math.max(maxRaw,p.hi_raw,p.lo_raw);
+      previousDate=stamp; previousAlarm=p.alarm;
+    });
+    return {threshold:threshold,observed_points:points.length,n_alarm:alarms,n_hi:high,n_lo:low,n_seg:segments,
+      max_hi:maxHi,max_lo:maxLo,max_raw:maxRaw,side:low>high ? '偏低' : (high ? '偏高' : '无')};
+  }
+  function scenario(tce,cost,carbon,ratePercent){
+    [tce,cost,carbon,ratePercent].forEach(measure);
+    if(ratePercent>100) throw new Error('Scenario reduction must be between 0 and 100 percent');
+    var rate=ratePercent/100;
+    return {tce:finite(tce*rate),cost:finite(cost*rate),co2:finite(carbon*rate)};
+  }
+  function sumScenario(rows){
+    return {tce:sum(rows.map(function(r){return r.tce;})),cost:sum(rows.map(function(r){return r.cost;})),
+            co2:sum(rows.map(function(r){return r.co2;}))};
+  }
+  root.EnergyAnalysis={months:months,average:average,pareto:pareto,
+                       dispersion:dispersion,baselineDifference:baselineDifference,conversion:conversion,
+                       residualBand:residualBand,cusumSummary:cusumSummary,scenario:scenario,sumScenario:sumScenario};
 })(window);
 
 </script>
@@ -1173,6 +1241,8 @@ var NS = "http://www.w3.org/2000/svg";
    不加筛选时 VIEW 就是 D 本身(见 initFilter 末尾), 所以默认渲染路径一字未变。
    ========================================================================== */
 var VIEW = D;
+function estimate(value, digits){ return value === null ? "—" : num(value, digits); }
+function estimatedMoney(value){ return value === null ? "—" : num(value / 1e4, 1); }
 var FILTER = {
   preset: "all",          // all | 12m | 6m | custom
   from: "", to: "",       // YYYY-MM-DD, 生效区间
@@ -1621,7 +1691,7 @@ function drawAnomaly(host, W, T, narrow){
   // 纵轴不以 0 为基准(单耗离 0 很远, 从 0 起画会把 σ 带压成一条线), 用 rangeTicks。
   // 下界要和 σ 带一样夹到 0: 4 个车间的 μ-2σ < 0, 若轴跟着画到负数,
   // 带子会悬在轴上方的空白里, 而那段轴还标着不可能出现的负单耗。
-  var up = g.mu + 2 * g.sd, dn = Math.max(0, g.mu - 2 * g.sd);
+  var band=window.EnergyAnalysis.dispersion(g.mu,g.sd), up=band.upper, dn=band.lower;
   var lo = Math.max(0, Math.min.apply(null, pts.map(function(p){ return p.ue; })));
   var hi = Math.max.apply(null, pts.map(function(p){ return p.ue; }));
   lo = Math.max(0, Math.min(lo, dn));
@@ -1731,7 +1801,7 @@ function drawBaseline(host, W, T, narrow){
   var plotH = H - padT - padB;
 
   // 残差可正可负, 纵轴必须跨过 0 —— 与单耗图不同, 这里 0 是有意义的基准线。
-  var up = g.mu_r + 2 * g.sd_r, dn = g.mu_r - 2 * g.sd_r;
+  var residualBand=window.EnergyAnalysis.residualBand(g.mu_r,g.sd_r), up=residualBand.upper, dn=residualBand.lower;
   var vals = pts.map(function(p){ return p.res; });
   var lo = Math.min(Math.min.apply(null, vals), dn, 0);
   var hi = Math.max(Math.max.apply(null, vals), up, 0);
@@ -1742,7 +1812,7 @@ function drawBaseline(host, W, T, narrow){
   // 若让它们决定轴范围, ±2σ 带会被压成一条纸带, 中间上千个点全挤在一起。
   // 与单耗图"下界夹到 0"同理: 把轴收到"含整条 σ 带再加一点余量"的范围,
   // 越界的点夹到边缘画成三角, 并用角标说明有几个点被截断 —— 不静默丢数据。
-  var band = Math.max(Math.abs(up), Math.abs(dn), g.sd_r * 2) * 1.25;
+  var band = Math.max(Math.abs(up), Math.abs(dn), residualBand.half_width) * 1.25;
   var clipHi = Math.min(hi, band), clipLo = Math.max(lo, -band);
   if (clipHi <= clipLo){ clipHi = hi; clipLo = lo; }
   var nClipHi = vals.filter(function(v){ return v > clipHi; }).length;
@@ -1758,7 +1828,7 @@ function drawBaseline(host, W, T, narrow){
   };
 
   var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
-                       "aria-label":g.name + " 单耗残差与 ±2σ 控制带"});
+                       "aria-label":g.name + " 单耗残差与 ±2σ 控制带", "data-band-upper":up,"data-band-lower":dn});
   host.appendChild(svg);
 
   // ---- ±2σ 残差带 ----
@@ -1878,7 +1948,7 @@ function drawCusum(host, W, T, narrow){
   var gs = D.cusum;
   if (!gs || !gs.length) return;
   if (cusumSel >= gs.length) cusumSel = 0;
-  var g = gs[cusumSel], pts = g.points, H = g.h;
+  var g=gs[cusumSel], pts=g.points, summary=window.EnergyAnalysis.cusumSummary(pts,g.h), H=summary.threshold;
 
   var padL = narrow ? 40 : 52, padR = narrow ? 34 : 46, padT = 22, padB = 30;
   var boxH = narrow ? 230 : 268;
@@ -1897,7 +1967,7 @@ function drawCusum(host, W, T, narrow){
   var y = function(v){ return padT + plotH - (v - lo) / (hi - lo) * plotH; };
 
   var svg = mk("svg", {width:W, height:boxH, viewBox:"0 0 "+W+" "+boxH, role:"img",
-                       "aria-label":g.name + " 单耗 CUSUM 累积和控制图"});
+                       "aria-label":g.name + " 单耗 CUSUM 累积和控制图","data-cusum-threshold":H});
   host.appendChild(svg);
 
   sc.list.forEach(function(v){
@@ -2115,40 +2185,38 @@ function drawUnit(host, W, T, narrow){
 // 用中性单色 + 语义只由标题和数值承担。
 function drawSaveChain(host, W, T, narrow){
   var rows = D.savings || [];
-  if (!rows.length){ host.textContent = "没有可归因的节能量"; return; }
+  if (!rows.length){ host.textContent = "没有可比较的基线差额"; return; }
   var nameW = narrow ? 84 : 104;
   var padR = narrow ? 58 : 72;
   var padT = 24, axisH = 26, rowH = narrow ? 29 : 32;
   var H = padT + rows.length * rowH + axisH;
   var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
-  var maxV = Math.max.apply(null, rows.map(function(r){ return r.save; }));
-  var sc = ticks(maxV, 3);
-  var x = function(v){ return plotX + v / sc.top * plotW; };
+  var lo=Math.min(0,Math.min.apply(null,rows.map(function(r){return r.save;})));
+  var hi=Math.max(0,Math.max.apply(null,rows.map(function(r){return r.save;})));
+  if(lo===hi) hi=1;
+  var sc=rangeTicks(lo,hi,3);
+  var x=function(v){return plotX+(v-lo)/(hi-lo)*plotW;};
 
   var svg = mk("svg", {width:W, height:H, viewBox:"0 0 "+W+" "+H, role:"img",
-                       "aria-label":"各车间可归因节能量"});
+                       "aria-label":"各车间历史单耗基线差额"});
   host.appendChild(svg);
 
   sc.list.forEach(function(v){
     if (v === 0) return;
     mk("line", {x1:x(v), y1:padT-4, x2:x(v), y2:padT + rows.length*rowH, class:"c-grid"}, svg);
   });
-  mk("line", {x1:plotX, y1:padT-4, x2:plotX, y2:padT + rows.length*rowH, class:"c-axis"}, svg);
+  mk("line", {x1:x(0), y1:padT-4, x2:x(0), y2:padT + rows.length*rowH, class:"c-axis"}, svg);
   sc.list.forEach(function(v){ tx(svg, x(v), padT - 10, v === 0 ? "" : num(v), "c-label", "middle"); });
 
-  var barH = 12, tce = D.save_total || 0;
+  var barH = 12;
   rows.forEach(function(r, i){
     var midY = padT + i * rowH + rowH / 2;
     var y = midY - barH / 2;
-    var w = Math.max(2, x(r.save) - plotX);
-    var rad = Math.min(4, w / 2);
-    tx(svg, 0, midY + 4, r.name, "c-name");
-    mk("path", {
-      d:"M"+plotX+","+y+" h"+(w-rad)+" a"+rad+","+rad+" 0 0 1 "+rad+","+rad+
-        " v"+(barH-2*rad)+" a"+rad+","+rad+" 0 0 1 "+(-rad)+","+rad+" h"+(-(w-rad))+" z",
-      fill:T.m1
-    }, svg);
-    tx(svg, plotX + w + 7, midY + 4, num(r.save, 1), "c-value");
+    var start=Math.min(x(0),x(r.save)), width=Math.abs(x(r.save)-x(0));
+    tx(svg,0,midY+4,r.name,"c-name");
+    mk("rect",{x:start,y:y,width:width,height:barH,
+      fill:r.save<0 ? T.critical : T.m1,"data-energy-difference":r.save},svg);
+    tx(svg,x(r.save)+(r.save<0 ? -7 : 7),midY+4,num(r.save,1),"c-value",r.save<0 ? "end" : "start");
   });
 
   var hit = mk("g", null, svg);
@@ -2156,14 +2224,14 @@ function drawSaveChain(host, W, T, narrow){
     var rect = mk("rect", {x:0, y:padT + i*rowH, width:W, height:rowH, class:"c-hit"}, hit);
     rect.addEventListener("mousemove", function(ev){
       var b = host.getBoundingClientRect();
-      var co2 = r.save * (D.save_co2 / (tce || 1));
-      var yuan = r.save * (D.save_cost / (tce || 1));
+      var conversion=window.EnergyAnalysis.conversion(r.save,D.totals);
+      var co2=conversion.co2, yuan=conversion.cost;
       showTip(host, ev.clientX - b.left, ev.clientY - b.top,
         '<span class="tip-t">' + r.name + "</span>" +
-        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.m1 + '"></i>节能量</span><span>' + num(r.save, 1) + " tce</span></div>" +
+        '<div class="tip-r"><span><i class="tip-k" style="background:' + T.m1 + '"></i>基线差额</span><span>' + num(r.save, 1) + " tce</span></div>" +
         '<div class="tip-r"><span>单耗同比</span><span>' + r.pct.toFixed(2) + "%</span></div>" +
-        '<div class="tip-r"><span>折碳减排</span><span>' + num(co2, 1) + " tCO₂</span></div>" +
-        '<div class="tip-r"><span>折费用</span><span>¥' + num(yuan / 1e4, 1) + " 万</span></div>");
+        '<div class="tip-r"><span>折碳减排</span><span>' + estimate(co2, 1) + " tCO₂</span></div>" +
+        '<div class="tip-r"><span>折费用</span><span>¥' + estimatedMoney(yuan) + " 万</span></div>");
     });
     rect.addEventListener("mouseleave", function(){ hideTip(host); });
   });
@@ -2389,13 +2457,12 @@ var TABLES = {
       D.unit_yoy.map(function(r){ return [r.name, r.y2024.toFixed(4), r.y2025.toFixed(4), r.pct.toFixed(2)+"%"]; }));
   },
   savechain: function(){
-    var tce = D.save_total || 1;
-    return buildTable(["车间","节能量 tce","折碳减排 tCO₂","折费用 万元","单耗同比"],
+    var total=window.EnergyAnalysis.conversion(D.save_total,D.totals);
+    return buildTable(["车间","基线差额 tce","折碳估算 tCO₂","折费用估算 万元","单耗同比"],
       D.savings.map(function(r){
-        return [r.name, num(r.save,1), num(r.save * D.save_co2 / tce, 1),
-                num(r.save * D.save_cost / tce / 1e4, 1), r.pct.toFixed(2)+"%"];
-      }).concat([["合计", num(D.save_total,1), num(D.save_co2,1),
-                  num(D.save_cost/1e4,1), "—"]]));
+        var value=window.EnergyAnalysis.conversion(r.save,D.totals);
+        return [r.name,num(r.save,1),estimate(value.co2,1),estimatedMoney(value.cost),r.pct.toFixed(2)+"%"];
+      }).concat([["合计",num(D.save_total,1),estimate(total.co2,1),estimatedMoney(total.cost),"—"]]));
   },
   deco: function(){
     return buildTable(["车间","产量同比","单耗同比","能耗同比（推算）"],
@@ -2451,7 +2518,7 @@ var TABLES = {
     var rows = g.points.filter(function(p){ return p.alarm; });
     if (!rows.length){
       return '<p class="card-sub" style="padding:12px 0">该车间在 h = ' + g.h.toFixed(1) +
-        'σ 的判定线下没有持续偏移。</p>';
+        'σ 的判定线下没有记录到报警日。</p>';
     }
     return buildTable(["日期","S⁺ 偏高累积 σ","S⁻ 偏低累积 σ","当日残差 σ","未白化对照 σ"],
       rows.map(function(p){
@@ -2466,7 +2533,7 @@ function anomCaption(){
   var g = D.unit_series[anomSel];
   var d = g.mu < 1 ? 4 : 2;
   return "均值 μ = <b>" + g.mu.toFixed(d) + "</b>　标准差 σ = <b>" + g.sd.toFixed(d) +
-    "</b>　变异系数 σ/μ = <b>" + g.cv + "%</b>　检出 <b>" + g.n_out + "</b> / " +
+    "</b>　变异系数 σ/μ = <b>" + (g.cv === null ? "—" : g.cv + "%") + "</b>　检出 <b>" + g.n_out + "</b> / " +
     g.points.length + " 天超限。";
 }
 
@@ -2479,8 +2546,8 @@ function baseCaption(){
 }
 
 function cusumCaption(){
-  var g = D.cusum[cusumSel];
-  return "判定限 h = <b>" + g.h.toFixed(1) + "σ</b>（按 731 天样本量标定）　" +
+  var source=D.cusum[cusumSel], g=window.EnergyAnalysis.cusumSummary(source.points,source.h);
+  return "判定限 h = <b>" + g.threshold.toFixed(1) + "σ</b>（来自 Q27；已有 " + g.observed_points + " 条日记录，记录数不代表重新标定）　" +
     "峰值 S⁺ = <b>" + g.max_hi.toFixed(1) + "σ</b>，S⁻ = <b>" + g.max_lo.toFixed(1) +
     "σ</b>　报警 <b>" + g.n_alarm + "</b> 天，构成 <b>" + g.n_seg + "</b> 段，方向持续<b>" +
     g.side + "</b>；未白化对照峰值 <b>" + g.max_raw.toFixed(1) + "σ</b>。";
@@ -2706,17 +2773,18 @@ function fillProse(){
     // 环保绩效: 节能量链。折算系数(碳强度/单位能耗成本)与节能量本身都从
     // 查询结果算, 模板里一个字都不写死 —— 换数据区间这三行跟着变。
     "ci-all":       function(){
-      return (D.totals.co2 / D.totals.tce).toFixed(4) + " tCO₂/tce";
+      return estimate(window.EnergyAnalysis.conversion(0,D.totals).carbon_factor,4) + " tCO₂/tce";
     },
     "save-tce":     function(){ return num(D.save_total, 1); },
-    "save-co2":     function(){ return num(D.save_co2, 1); },
-    "save-cost":    function(){ return num(D.save_cost / 1e4, 1); },
+    "save-co2":     function(){ return estimate(window.EnergyAnalysis.conversion(D.save_total,D.totals).co2,1); },
+    "save-cost":    function(){ return estimatedMoney(window.EnergyAnalysis.conversion(D.save_total,D.totals).cost); },
+    "cost-all": function(){ return estimate(window.EnergyAnalysis.conversion(0,D.totals).cost_factor,0); },
     "save-pct":     function(){ return D.save_pct.toFixed(2) + "%"; },
     "save-top2-pct": function(){ return D.save_top2_pct.toFixed(1) + "%"; },
     // 直观参照: 京沪单程 ~1,080 客公里 x 0.15 kgCO₂/客公里 = 0.162 tCO₂/趟。
     // 换成"棵树"会得到 10 万+ 这种量级, 读者第一反应是"这数编的吧" ——
     // 参照物太大反而伤可信度, 换成航班同样直观但量级正常。
-    "save-plane":   function(){ return num(D.save_co2 / 0.162, 0); },
+    "save-plane":   function(){ var value=window.EnergyAnalysis.conversion(D.save_total,D.totals).co2; return value === null ? "—" : num(value / 0.162,0); },
     "standby-tce":  function(){ return dv.standby_tce.toFixed(2) + " tce"; },
     "standby-cost": function(){ return "¥" + (dv.standby_cost / 1e4).toFixed(1) + " 万"; },
     "dt-weekend-pct": function(){ return dv.dt_weekend_pct + "%"; },
@@ -2786,6 +2854,10 @@ function fillProse(){
     "clean-fixed-n": function(){ return num(dv.clean_fixed_n, 0); },
     "clean-impute":  function(){ return num(dv.clean_impute_all, 0); },
     // 偏低那几段的单日 |Z| 范围(两位小数, 与手写时的精度一致)
+    "cusum-limit": function(){
+      var limits=Array.from(new Set(D.cusum.map(function(g){return g.h;})));
+      return limits.length===1 ? "h = "+limits[0].toFixed(1)+"σ（Q27）" : "各车间阈值不同，详见控制图";
+    },
     "cusum-lo-z-lo": function(){ return dv.cusum_lo_z_lo.toFixed(2); },
     "cusum-lo-z-hi": function(){ return dv.cusum_lo_z_hi.toFixed(2); },
     "clean-price":   function(){ return num(dv.clean_price, 0); },
@@ -2984,6 +3056,7 @@ function applyFilter(){
   // 口径提示条写着"未筛选", hero 却还停在筛选值上(且会是**上一次**筛选的值)。
   // 只在筛选↔筛选之间切换时看不出来, 必须"筛选 → 重置"才暴露。
   VIEW = rebuildView(aggAll());
+  renderEnergyScenario();
 
   document.querySelectorAll("[data-chart]").forEach(function(h){ h.dataset.done = ""; });
   renderAll(true);
@@ -3906,6 +3979,56 @@ document.addEventListener("click", function(e){
     });
   }
 });
+/* Runs inside the report closure, reusing its existing selection helpers. */
+function renderEnergyScenario(){
+  var settings=window.ENERGY_ANALYSIS_CONTRACT.formulas.proportional_energy_scenario;
+  var input=document.getElementById('scenario-rate'), host=document.getElementById('scenario-table');
+  if(!input || !host) return;
+  if(!input.options.length){
+    settings.report_rates_percent.forEach(function(rate){
+      var option=document.createElement('option'); option.value=rate; option.textContent=rate+'%'; input.appendChild(option);
+    });
+  }
+  var rate=Number(input.value), allowed=new Set(), dates=new Set(), groups={};
+  D.ws_daily.forEach(function(row){
+    if(row.code!==settings.exclude_workshop && row.d.slice(0,4)===String(settings.report_year) &&
+       wsMatch(row.code) && dateMatch(row.d) && dayMatch(row.day)){
+      allowed.add(row.code+'|'+row.d); dates.add(row.d);
+    }
+  });
+  D.energy_daily.forEach(function(row){
+    if(!allowed.has(row.code+'|'+row.d)) return;
+    var g=groups[row.e] || (groups[row.e]={tce:[],cost:[],co2:[]});
+    g.tce.push(row.tce); g.cost.push(row.cost); g.co2.push(row.co2);
+  });
+  var text=function(value){return String(value).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });};
+  var ordered=Object.keys(groups).sort(), results=[];
+  // Apply the same per-record proportional definition before summing; never use factory average factors.
+  ordered.forEach(function(code){
+    var g=groups[code], values=g.tce.map(function(tce,i){return window.EnergyAnalysis.scenario(tce,g.cost[i],g.co2[i],rate);});
+    var value=window.EnergyAnalysis.sumScenario(values);
+    results.push(value);
+  });
+  document.getElementById('scenario-scope').textContent=settings.report_year+' 年 · 当前筛选 · 剔除 '+settings.exclude_workshop+
+    ' 公用工程 · '+dates.size+' 个有数据日期 · 假设降幅 '+rate+'%';
+  if(!ordered.length){
+    host.textContent='当前筛选在该年度没有可用记录，未生成节能情景。'; return;
+  }
+  var rows=ordered.map(function(code,i){
+    var value=results[i], name=D.en_meta[code] ? D.en_meta[code].name : code;
+    return [text(name),num(value.tce,2),num(value.cost,2),num(value.co2,2)];
+  });
+  var total=window.EnergyAnalysis.sumScenario(results);
+  rows.push(['合计',num(total.tce,2),num(total.cost,2),num(total.co2,2)]);
+  host.innerHTML=buildTable(['能源品种','假设能耗减少 tce','费用减少估算 元','碳排减少估算 tCO₂'],rows);
+}
+
+var energyScenarioInput=document.getElementById('scenario-rate');
+if(energyScenarioInput) energyScenarioInput.addEventListener('change',renderEnergyScenario);
+renderEnergyScenario();
+
 })();
 </script>
 </body>
