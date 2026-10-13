@@ -10,12 +10,13 @@ import argparse
 from pathlib import Path
 import sys
 
+import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from governance.analysis_formulas import proportional_scenario
+from governance.analysis_formulas import intensity_difference, proportional_scenario
 
 
 ENERGY = {
@@ -60,6 +61,14 @@ def build_assessment(energy_path: Path, production_path: Path, output_dir: Path,
     # steam consumption together would double count energy and mix output units.
     energy = energy.loc[energy.workshop_code != "W07"].copy()
     production = production.loc[production.workshop_code != "W07"].copy()
+    if energy.empty or production.empty:
+        raise ValueError("排除动力站后没有可比较的车间数据")
+    energy_keys = energy[["record_date", "workshop_code"]].drop_duplicates()
+    production_keys = production[["record_date", "workshop_code"]].drop_duplicates()
+    coverage = energy_keys.merge(production_keys, on=["record_date", "workshop_code"],
+                                 how="outer", indicator=True, validate="one_to_one")
+    if (coverage["_merge"] != "both").any():
+        raise ValueError("能源与产量的 日期×车间 键不一致，不能生成完整单耗基线")
     energy["year"] = energy.record_date.dt.year
     production["year"] = production.record_date.dt.year
     energy["std_coal_tce"] = energy.apply(
@@ -78,6 +87,12 @@ def build_assessment(energy_path: Path, production_path: Path, output_dir: Path,
         output_unit=("output_unit", "first"),
     )
     annual = energy_annual.merge(prod_annual, on=["year", "workshop_code"], how="left", validate="one_to_one")
+    if (annual.output_qty <= 0).any():
+        raise ValueError("车间年度产量必须大于 0，不能计算单耗")
+    workshops = set(annual.workshop_code)
+    for year in (2024, 2025):
+        if set(annual.loc[annual.year == year, "workshop_code"]) != workshops:
+            raise ValueError("每个参与比较的车间都必须同时具备 2024 和 2025 年数据")
     annual["intensity_kgce_per_unit"] = annual.energy_tce * 1000 / annual.output_qty.where(annual.output_qty > 0)
     annual["workshop_name"] = annual.workshop_code.map(lambda code: WORKSHOPS[code][0])
     annual["output_unit"] = annual.workshop_code.map(lambda code: WORKSHOPS[code][1])
@@ -99,8 +114,10 @@ def build_assessment(energy_path: Path, production_path: Path, output_dir: Path,
     compare["2024_baseline_energy_at_2025_output_tce"] = (
         compare["2024_intensity_kgce_per_unit"] * compare["2025_output_qty"] / 1000
     )
-    compare["baseline_gap_tce"] = (
-        compare["2024_baseline_energy_at_2025_output_tce"] - compare["2025_energy_tce"]
+    compare["baseline_gap_tce"] = compare.apply(
+        lambda row: intensity_difference(row["2025_output_qty"],
+                                         row["2024_intensity_kgce_per_unit"],
+                                         row["2025_intensity_kgce_per_unit"]), axis=1
     )
     compare = compare.reset_index().sort_values("workshop_code")
 
@@ -139,14 +156,28 @@ def _require_columns(frame: pd.DataFrame, required: set[str], path: Path) -> Non
 
 
 def _validate_codes(energy: pd.DataFrame, production: pd.DataFrame) -> None:
+    if energy[["record_date", "workshop_code", "energy_code"]].isna().any().any() or \
+            production[["record_date", "workshop_code", "output_unit"]].isna().any().any():
+        raise ValueError("输入存在空日期、编码或产量单位，不能静默丢弃记录")
+    for frame in (energy, production):
+        dates = frame["record_date"]
+        if not pd.api.types.is_datetime64_any_dtype(dates) or (dates != dates.dt.normalize()).any():
+            raise ValueError("记录日期必须是有效的日历日期，且不含时间")
     unknown_energy = sorted(set(energy.energy_code.dropna()) - set(ENERGY))
     unknown_workshops = sorted(
         (set(energy.workshop_code.dropna()) | set(production.workshop_code.dropna())) - set(WORKSHOPS)
     )
     if unknown_energy or unknown_workshops:
         raise ValueError(f"发现未登记编码: energy={unknown_energy}, workshop={unknown_workshops}")
-    if energy[["consumption", "cost"]].isna().any().any() or production.output_qty.isna().any():
-        raise ValueError("输入存在缺失的消耗量、费用或产量，停止生成可能误导的基线")
+    for frame, columns in ((energy, ("consumption", "cost")), (production, ("output_qty",))):
+        for column in columns:
+            values = pd.to_numeric(frame[column], errors="coerce")
+            if not np.isfinite(values.to_numpy(dtype=float)).all() or (values < 0).any():
+                raise ValueError(f"{column} 必须是有限的非负数，停止生成可能误导的基线")
+            frame[column] = values
+    expected_units = production.workshop_code.map(lambda code: WORKSHOPS[code][1])
+    if (production.output_unit != expected_units).any():
+        raise ValueError("产量单位与车间定义不一致，不能比较年度单耗")
 
 
 def _write_summary(path: Path, annual: pd.DataFrame, compare: pd.DataFrame,

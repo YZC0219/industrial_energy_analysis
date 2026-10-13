@@ -204,6 +204,68 @@ def test_existing_phase5_producer_uses_the_same_scenario_definition(tmp_path):
     assert five.scenario_co2_reduction_t.sum()==pytest.approx(0.136625)
 
 
+@pytest.mark.parametrize('case,reason', [
+    ('missing_energy_code', '空日期、编码'),
+    ('unknown_date', '有效的日历日期'),
+    ('negative_cost', '有限的非负数'),
+    ('infinite_consumption', '有限的非负数'),
+    ('wrong_unit', '产量单位与车间定义'),
+    ('missing_production_day', '键不一致'),
+    ('missing_baseline_year', '同时具备 2024 和 2025'),
+    ('zero_annual_production', '年度产量必须大于 0'),
+])
+def test_phase5_rejects_incomplete_or_invalid_baseline_before_writing(tmp_path,case,reason):
+    import pandas as pd
+    from tools.phase5_energy_assessment import build_assessment
+    energy=pd.DataFrame([
+        {'record_date':'2024-01-01','workshop_code':'W01','energy_code':'E01','consumption':100,'cost':10},
+        {'record_date':'2025-01-01','workshop_code':'W01','energy_code':'E01','consumption':110,'cost':11},
+    ])
+    production=pd.DataFrame([
+        {'record_date':'2024-01-01','workshop_code':'W01','output_qty':10,'output_unit':'吨'},
+        {'record_date':'2025-01-01','workshop_code':'W01','output_qty':11,'output_unit':'吨'},
+    ])
+    if case=='missing_energy_code':energy.loc[1,'energy_code']=None
+    elif case=='unknown_date':energy.loc[1,'record_date']='not-a-date'
+    elif case=='negative_cost':energy.loc[1,'cost']=-1
+    elif case=='infinite_consumption':
+        energy['consumption']=energy['consumption'].astype(float)
+        energy.loc[1,'consumption']=math.inf
+    elif case=='wrong_unit':production.loc[1,'output_unit']='件'
+    elif case=='missing_production_day':production.loc[1,'record_date']='2025-01-02'
+    elif case=='missing_baseline_year':
+        energy=energy.iloc[1:].copy()
+        production=production.iloc[1:].copy()
+    elif case=='zero_annual_production':production.loc[0,'output_qty']=0
+    energy_path=tmp_path/'energy.csv'
+    production_path=tmp_path/'production.csv'
+    output_dir=tmp_path/'assessment'
+    energy.to_csv(energy_path,index=False)
+    production.to_csv(production_path,index=False)
+    with pytest.raises(ValueError,match=reason):
+        build_assessment(energy_path,production_path,output_dir)
+    assert not output_dir.exists()
+
+
+def test_phase5_gap_uses_governed_signed_intensity_difference(tmp_path):
+    import pandas as pd
+    from tools.phase5_energy_assessment import build_assessment
+    energy=tmp_path/'energy.csv'
+    production=tmp_path/'production.csv'
+    pd.DataFrame([
+        {'record_date':'2024-01-01','workshop_code':'W01','energy_code':'E01','consumption':100,'cost':10},
+        {'record_date':'2025-01-01','workshop_code':'W01','energy_code':'E01','consumption':200,'cost':20},
+    ]).to_csv(energy,index=False)
+    pd.DataFrame([
+        {'record_date':'2024-01-01','workshop_code':'W01','output_qty':10,'output_unit':'吨'},
+        {'record_date':'2025-01-01','workshop_code':'W01','output_qty':10,'output_unit':'吨'},
+    ]).to_csv(production,index=False)
+    folder=tmp_path/'assessment'
+    build_assessment(energy,production,folder)
+    row=pd.read_csv(folder/'workshop_intensity_comparison.csv').iloc[0]
+    assert row.baseline_gap_tce==pytest.approx(-0.01229)
+
+
 def test_report_rejects_conflicting_exported_cusum_thresholds(monkeypatch):
     from src import make_report
     monkeypatch.setattr(make_report,'OUT_DIR',str(formulas.ROOT/'tests/baseline'))
