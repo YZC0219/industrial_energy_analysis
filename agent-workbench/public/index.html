@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent 工作台 · 多模型协作</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="brand-mark">a<span>↗</span></span><span>Agent 工作台<small>LOCAL WORKSPACE</small></span></a>
+    <div class="workspace-label">你的工作空间 <span>01</span></div>
+    <nav aria-label="主导航"><button class="nav active" data-view="workspace"><span>▦</span>协作工作台</button><button class="nav" data-view="history"><span>◷</span>任务记录<span id="history-count" class="count">0</span></button><button class="nav" data-view="settings"><span>⚙</span>模型与连接</button></nav>
+    <div class="sidebar-projects"><div class="workspace-label">项目 <button id="new-project-small" aria-label="新增项目">＋</button></div><div id="project-list"></div></div>
+    <div class="sidebar-bottom"><span class="dot"></span><div>本地运行<small>数据保存在 D 盘</small></div><span class="version">v1.0</span></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><span class="breadcrumb">工作空间</span><span class="slash">/</span><span id="view-title">协作工作台</span></div><div class="local-chip"><span class="dot"></span>仅本机访问</div></header>
+    <div class="content">
+      <section id="workspace-view" class="view">
+        <div class="page-heading"><div><div class="eyebrow">ONE GOAL. MULTIPLE PERSPECTIVES.</div><h1>让每个 Agent，各司其职。</h1><p>从一个想法到完整交付，在同一个工作空间推进。</p></div><button class="button secondary" id="new-project">＋ 新建项目</button></div>
+        <div class="provider-grid" id="provider-cards"></div>
+        <div class="work-grid">
+          <section class="panel compose"><div class="panel-heading"><h2>开始一次协作</h2><span class="muted">01 — 定义目标</span></div>
+            <label for="project-select">项目</label><select id="project-select"><option value="">先创建一个项目</option></select>
+            <label for="goal">你想完成什么？</label><textarea id="goal" rows="5" placeholder="例如：为我的项目增加数据导出功能。先设计方案，再实现和测试，最后审查并编写使用说明。"></textarea>
+            <div class="roles-heading"><label>选择协作流程</label><select id="preset" aria-label="协作流程预设"><option value="full">完整交付</option><option value="plan">需求与设计</option><option value="build">开发与验证</option><option value="review">审查与文档</option><option value="custom">自定义</option></select></div>
+            <div id="role-picker"></div>
+            <label class="write-toggle"><input type="checkbox" id="allow-write"><span>允许 Codex 修改项目文件<small>默认只读；勾选后才能执行开发与制作。</small></span></label>
+            <div class="compose-footer"><span id="step-summary" class="muted">按顺序执行，前序成果传给下一位 Agent</span><button class="button primary" id="run-job">开始协作 <span>↗</span></button></div>
+          </section>
+          <section class="panel execution"><div class="panel-heading"><h2>执行与成果</h2><span id="execution-badge" class="badge">等待任务</span></div><div id="execution-content" class="execution-content"></div></section>
+        </div>
+        <div class="footnote"><span>◇</span> 角色决定职责，模型负责执行。你可以为每个角色重新选择模型。第一版按顺序推进任务。</div>
+      </section>
+      <section id="history-view" class="view" hidden><div class="page-heading"><div><div class="eyebrow">YOUR WORK, PRESERVED.</div><h1>每一次协作，都有记录。</h1><p>查看各角色成果、日志与未完成事项。</p></div></div><div id="history-list"></div></section>
+      <section id="settings-view" class="view" hidden><div class="page-heading"><div><div class="eyebrow">CONNECT YOUR TEAM.</div><h1>模型与连接</h1><p>CLI 复用本机登录，API 密钥仅保存在本地服务端。</p></div></div>
+        <form id="settings-form" class="panel settings-panel"><div class="panel-heading"><h2>接入设置</h2><span class="muted">保存后立即生效</span></div>
+          <label for="deepseek-key">DeepSeek API Key</label><input id="deepseek-key" type="password" autocomplete="new-password" placeholder="填写新密钥；留空保留已保存的密钥"><p id="key-hint" class="field-note"></p>
+          <label class="inline-check"><input id="clear-key" type="checkbox">清除本地保存的 DeepSeek 密钥</label>
+          <label for="deepseek-model">DeepSeek 模型名称</label><input id="deepseek-model" value="deepseek-chat">
+          <label for="codex-path">Codex 可执行文件路径</label><input id="codex-path" placeholder="留空自动检测"><p id="codex-hint" class="field-note"></p>
+          <label for="gemini-path">Google Agent 路径（Antigravity / Gemini）</label><input id="gemini-path" placeholder="留空优先检测 tools/agy.exe"><p id="gemini-hint" class="field-note"></p>
+          <label for="timeout">单次协作最长运行时间（分钟）</label><input id="timeout" type="number" min="1" max="120" value="20">
+          <div class="settings-note">Google Agent 优先使用 Antigravity CLI；双击「登录Gemini.cmd」，在 Google 官方页面完成登录。其会话数据默认保存在 C 盘（已获用户授权）；程序和工作台成果保存在 D 盘。Codex：双击「登录Codex.cmd」。检测到程序仅代表已安装，实际登录与额度在执行时验证。<br>DeepSeek 密钥保存在 data/settings.json（本机文件，未加密）；也可使用 DEEPSEEK_API_KEY 环境变量。</div>
+          <button class="button primary" type="submit">保存设置</button>
+        </form>
+      </section>
+    </div>
+  </main>
+  <dialog id="project-dialog"><form id="project-form"><div class="dialog-heading"><h2>新建项目</h2><button class="icon-button" type="button" id="close-dialog" aria-label="关闭">×</button></div><p class="muted">关联已有目录，任务将在这个目录中执行。</p><label for="project-name">项目名称</label><input id="project-name" required maxlength="100" placeholder="例如：工业能耗分析"><label for="project-directory">本地目录</label><input id="project-directory" required placeholder="D:\你的项目目录"><label for="project-description">项目说明</label><textarea id="project-description" rows="3" placeholder="目标、技术栈、约束，或希望 Agent 了解的背景"></textarea><button class="button primary" type="submit">创建项目</button></form></dialog>
+  <div id="toast" role="status" hidden></div>
+</body></html>

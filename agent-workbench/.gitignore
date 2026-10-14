@@ -1,0 +1,10 @@
+data/*
+!data/.gitkeep
+tools/node_modules/
+tools/package-lock.json
+.cache/
+*.log
+
+# Downloaded third-party client and installer; keep locally, not in Git.
+tools/*.exe
+tools/antigravity-install.cmd

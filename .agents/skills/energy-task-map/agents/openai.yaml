@@ -1,0 +1,6 @@
+interface:
+  display_name: "能迹任务定位"
+  short_description: "把含糊需求映射到能耗项目的真实入口、调用链和可验证修改范围"
+  default_prompt: "使用 $energy-task-map 定位这项需求的代码入口，确认验收条件并完成已授权的修改。"
+policy:
+  allow_implicit_invocation: true

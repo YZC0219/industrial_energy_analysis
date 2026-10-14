@@ -1,0 +1,6 @@
+interface:
+  display_name: "能迹指标与报告修改"
+  short_description: "追踪 SQL、公式契约与前后端消费，减少指标漂移和筛选口径错误"
+  default_prompt: "使用 $energy-metric-change 完成这项指标或报告改动，并验证相关计算与筛选口径。"
+policy:
+  allow_implicit_invocation: true

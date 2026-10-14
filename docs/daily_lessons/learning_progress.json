@@ -2,7 +2,7 @@
   "objective": "完美掌握这个项目，可以完整复现；分两个月学习，不要求第一天全懂",
   "plan": "docs/两个月项目学习计划.md",
   "planned_learning_days": 60,
-  "current_learning_day": 3,
+  "current_learning_day": 4,
   "mastered_learning_days": [],
   "lessons": [
     {
@@ -25,10 +25,19 @@
       "material_status": "prepared_and_presented",
       "mastery_status": "awaiting_user_feedback",
       "user_practice_completed": false
+    },
+    {
+      "day": 4,
+      "material": "docs/daily_lessons/第04天_总量费用与单耗.md",
+      "material_status": "prepared_and_presented",
+      "mastery_status": "understood_by_user_feedback",
+      "user_practice_completed": false,
+      "user_feedback": "懂了",
+      "feedback_date": "2026-10-13"
     }
   ],
   "advanced_practice_status": "assistant_reference_materials_only_not_user_completion",
-  "pending_feedback": "第三天：数量、单价、费用、产量与两种日期的区别；前三天掌握待反馈",
+  "pending_feedback": "第4天用户反馈已理解；练习未提交，不计实操完成。第1至3天掌握仍待反馈；下一课为第5天。",
   "progression_rule": "按学习日推进，不将助手产物生成或自动续行当作用户掌握；用户有疑问先复习，允许顺延；每天集中一个主题",
   "automation_settings_changed": false
 }

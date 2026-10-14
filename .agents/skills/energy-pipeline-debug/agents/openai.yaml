@@ -1,0 +1,6 @@
+interface:
+  display_name: "能迹数据链路排障"
+  short_description: "按批次、状态和真实入口定位清洗、数仓、CDC 及持久化告警故障"
+  default_prompt: "使用 $energy-pipeline-debug 定位当前数据链路故障，完成授权范围内的修复并保存验证证据。"
+policy:
+  allow_implicit_invocation: true

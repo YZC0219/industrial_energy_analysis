@@ -1,0 +1,6 @@
+interface:
+  display_name: "能迹改动验证"
+  short_description: "按改动选择有效回归，区分通过、跳过和真实运行验收，控制检查成本"
+  default_prompt: "使用 $energy-change-check 为本次改动选择并执行相关验证，报告结果和未覆盖范围。"
+policy:
+  allow_implicit_invocation: true
