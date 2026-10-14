@@ -1,0 +1,64 @@
+{
+  "success": true,
+  "deployment_evidence": "output/mysql_cdc_business_main_daily_deployment_20261003103045.json",
+  "git_sha": "0918b6354959f772bb84759610db47e76fe0faa8",
+  "run_id": "scheduled__2026-10-04T18:00:00+00:00",
+  "run": {
+    "state": "success",
+    "run_type": "scheduled",
+    "execution_date": "2026-10-04T18:00:00+00:00",
+    "data_interval_end": "2026-10-05T18:00:00+00:00",
+    "start_date": "2026-10-14T00:01:39.082048+00:00",
+    "end_date": "2026-10-14T00:30:30.488287+00:00"
+  },
+  "tasks": [
+    "apply_cdc_dwd_dws_ads:success",
+    "capture_complete_cdc:success",
+    "sync_current_dimensions:success"
+  ],
+  "schedule": "0 2 * * *",
+  "timezone": "Asia/Shanghai",
+  "planned_start_local": "2026-10-06T02:00:00+08:00",
+  "actual_start_local": "2026-10-14T08:01:39.082048+08:00",
+  "start_delay_seconds": 712899.082048,
+  "task_timeline": [
+    {
+      "task_id": "apply_cdc_dwd_dws_ads",
+      "state": "success",
+      "start_date": "2026-10-14T00:08:36.182215+00:00",
+      "end_date": "2026-10-14T00:30:29.436857+00:00",
+      "try_number": 1
+    },
+    {
+      "task_id": "capture_complete_cdc",
+      "state": "success",
+      "start_date": "2026-10-14T00:08:28.028133+00:00",
+      "end_date": "2026-10-14T00:08:35.45595+00:00",
+      "try_number": 1
+    },
+    {
+      "task_id": "sync_current_dimensions",
+      "state": "success",
+      "start_date": "2026-10-14T00:05:57.763327+00:00",
+      "end_date": "2026-10-14T00:08:27.469991+00:00",
+      "try_number": 3
+    }
+  ],
+  "earliest_retained_task_start_local": "2026-10-14T08:05:57.763327+08:00",
+  "earliest_retained_task_delay_seconds": 713157.763327,
+  "task_time_scope": "TaskInstance times reflect retained attempts; consult logs for earlier retries.",
+  "business_date": "2026-10-05",
+  "snapshot": "output/mysql_cdc_snapshot_20261004T180000.json",
+  "warehouse_report": "output/mysql_cdc_business_20261004T180000.json",
+  "source_rows": 19006,
+  "costs": {
+    "dws_day": "215364002.57",
+    "dws_month": "215364002.57",
+    "ads_day": "215364002.57"
+  },
+  "old_writer_paused": true,
+  "recovery_context": [
+    "October 14: restored Docker; user started original VM; started existing HDFS and waited for automatic safe-mode exit.",
+    "Dimensions succeeded on automatic attempt 3; no manual trigger or clear. Historical logical date does not imply punctual execution or per-day backfill."
+  ]
+}

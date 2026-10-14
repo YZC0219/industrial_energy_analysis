@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "cutover_evidence": "output/mysql_cdc_business_main_daily_runtime_20261014083000.json",
+  "runtime_git_sha": "0918b6354959f772bb84759610db47e76fe0faa8",
+  "snapshot_archive": "output/mysql_cdc_business_main_input_20261014083000.json.gz",
+  "snapshot_archive_sha256": "05a66ee6995fa9034218a3ee4c9864ce0d68409ec3554aee3f8b30b30b63a225",
+  "uncompressed_input_sha256": "70b95d84a9d974ed8a3e083ce13b5b2e8f550ba5eccfa15a807972c7c8eab749",
+  "uncompressed_path": "output/mysql_cdc_snapshot_20261004T180000.json",
+  "complete_history_rebuilt": true,
+  "all_source_fields_reconciled": true,
+  "production_sql_git_hashes_verified": true,
+  "source_rows": 19006
+}
