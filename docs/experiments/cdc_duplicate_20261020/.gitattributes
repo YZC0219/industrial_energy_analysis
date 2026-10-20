@@ -1,0 +1,2 @@
+# Preserve archived evidence bytes so SHA-256 checks survive Windows checkout.
+*.json text eol=lf

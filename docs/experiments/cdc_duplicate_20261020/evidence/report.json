@@ -1,0 +1,149 @@
+{
+  "started_at_utc": "2026-10-20T07:53:51.385802+00:00",
+  "status": "projection_passed_warehouse_not_run",
+  "input_kind": "synthetic Debezium-shaped events",
+  "warehouse": {
+    "status": "not_run",
+    "reason": "offline mode"
+  },
+  "live_cdc": {
+    "status": "not_run"
+  },
+  "fault": {
+    "kind": "redelivery",
+    "injected_at_utc": "2026-10-20T07:53:51.389146+00:00",
+    "description": "append all 3 events with new Kafka offsets and original binlog positions"
+  },
+  "source_sha256": {
+    "tools/export_mysql_cdc_batch.py": "9df5a47129903380b6aeb4af2555c5c523314d76d7242987e00cd6edff4863ff",
+    "spark/apply_mysql_cdc_batch.py": "00b59b9d0d760ebe698630bc40ad507aef6c7c335a95e61464a3064b55280e22",
+    "tools/experiment_cdc_duplicate.py": "80e23cf49e04162362c8c747a23f2caa3790f2f88537d602c8dfe0456147e963",
+    "spark/sql/10_dwd_energy.sql": "51b649c15f02dbea8de784ef6567733b4183892ece1874c67b744183f81df585",
+    "spark/sql/20_dws.sql": "8effb6a6255d585f31473eb7ac9dbc5445b4d6c1997f0c6a287b068a9ec48dc7",
+    "spark/sql/30_ads.sql": "79c0132db9417b8495719af690e60beda7207ebfbc755444898213fef56064a3"
+  },
+  "projection": {
+    "status": "passed",
+    "phases": {
+      "original": {
+        "checks": {
+          "rows": {
+            "expected": 2,
+            "actual": 2,
+            "passed": true
+          },
+          "active_rows": {
+            "expected": 2,
+            "actual": 2,
+            "passed": true
+          },
+          "cost": {
+            "expected": "37.00",
+            "actual": "37.00",
+            "passed": true
+          },
+          "consumption": {
+            "expected": "3.700",
+            "actual": "3.700",
+            "passed": true
+          },
+          "keys": {
+            "expected": [
+              [
+                "2024-03-15",
+                "W01",
+                "E01"
+              ],
+              [
+                "2024-03-15",
+                "W01",
+                "E02"
+              ]
+            ],
+            "actual": [
+              [
+                "2024-03-15",
+                "W01",
+                "E01"
+              ],
+              [
+                "2024-03-15",
+                "W01",
+                "E02"
+              ]
+            ],
+            "passed": true
+          }
+        },
+        "elapsed_seconds": 0.0019484000076772645,
+        "end_offset": 3
+      },
+      "duplicate": {
+        "checks": {
+          "rows": {
+            "expected": 2,
+            "actual": 2,
+            "passed": true
+          },
+          "active_rows": {
+            "expected": 2,
+            "actual": 2,
+            "passed": true
+          },
+          "cost": {
+            "expected": "37.00",
+            "actual": "37.00",
+            "passed": true
+          },
+          "consumption": {
+            "expected": "3.700",
+            "actual": "3.700",
+            "passed": true
+          },
+          "keys": {
+            "expected": [
+              [
+                "2024-03-15",
+                "W01",
+                "E01"
+              ],
+              [
+                "2024-03-15",
+                "W01",
+                "E02"
+              ]
+            ],
+            "actual": [
+              [
+                "2024-03-15",
+                "W01",
+                "E01"
+              ],
+              [
+                "2024-03-15",
+                "W01",
+                "E02"
+              ]
+            ],
+            "passed": true
+          }
+        },
+        "elapsed_seconds": 0.0016748000052757561,
+        "end_offset": 6
+      }
+    },
+    "rows_and_versions_equal": true,
+    "negative_control": {
+      "naive_cost": "94.00",
+      "expected_cost": "37.00",
+      "incorrect_result_detected": true
+    }
+  },
+  "ended_at_utc": "2026-10-20T07:53:51.395530+00:00",
+  "artifacts_sha256": {
+    "duplicate.json": "03afcb9d318e591ea5e67d1f8cc0f0994acb5e75c855b96fa6ec38e8555c129c",
+    "expected.json": "b27eb1715f9ddfe91a455e25c162f5d836d98e59dacf06fcdb96598852589bd8",
+    "input.json": "1f0198247c66ee8987cfdf2d1bacbd99716b8b987e2fcc821629faed69751171",
+    "original.json": "4e7ccf127e530b5e91203d1b1168f341499dfda4b8678d7b99ffb247613f10e8"
+  }
+}
