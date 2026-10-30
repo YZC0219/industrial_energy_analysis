@@ -48,15 +48,15 @@ thesis_final_render/
 
 # Generated artifacts — all reproducible from source, so not versioned.
 #
-# data/  : generate_data.py 输出, 随机种子固定 (20240918), 每次生成完全一致
+# data/  : 原始模拟 CSV 按用户要求随仓库发布；其他下载文件按下方规则忽略
 # output/: clean_data.py 的清洗结果 + import_mysql.py --run-analysis 的
 #          查询导出 + make_report.py 的报告
-# 跑一遍 README 的快速开始四步就能全部重建。把它们提交进去, 每次重跑都会
-# 产生一堆无意义的 diff, 还会让人误以为仓库里的是"权威"数据。
+# 跑一遍 README 的快速开始四步就能全部重建。原始模拟快照以 data/README.md
+# 为说明；output/ 保持忽略，避免把本地运行产物误当成权威数据。
 # 注意: 这里排除的是 data 下的**生成物**, 不是整个 data/ 目录。
 # data/ 是原始数据的规范位置, 将来若有手工维护的映射表、字典之类的
 # 输入文件, 仍然应该提交进来 —— 不要图省事写成 `data/`。
-data/raw_energy_data.csv
+# data/raw_energy_data.csv is intentionally versioned as the public simulated input.
 # Public real-data binaries are downloaded reproducibly; keep small provenance files.
 data/real/itac_2026/*.zip
 data/real/itac_2026/*.xlsx
