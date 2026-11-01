@@ -472,127 +472,133 @@ td:first-child{color:var(--ink)}
 @media (prefers-reduced-motion: reduce){
   *{transition:none!important;animation:none!important}
 }
-/* EnergyTrace · industrial field notes */
-:root{--page:#e7e7e7;--surface:#eeeeee;--surface-2:#dcdcdc;--ink:#192f28;--ink-2:#526157;--muted:#566459;--grid:#d3d3d3;--axis:#a3a3a3;--ring:#cccccc;--accent:#24684c;--accent-wash:#d7e1d1;--shadow:0 3px 12px #253d2205;--bevel:none}
-:root[data-theme="dark"]{--page:#111d18;--surface:#192a22;--surface-2:#24392e;--ink:#edf1e6;--ink-2:#becaba;--muted:#a1b29e;--grid:#304738;--axis:#6a806c;--ring:#3a5040;--accent:#b8d98b;--accent-wash:#30452d;--shadow:none}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#111d18;--surface:#192a22;--surface-2:#24392e;--ink:#edf1e6;--ink-2:#becaba;--muted:#a1b29e;--grid:#304738;--axis:#6a806c;--ring:#3a5040;--accent:#b8d98b;--accent-wash:#30452d;--shadow:none}}
-html{scroll-behavior:smooth;scroll-padding-top:260px}
-body{font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif}
-a{color:var(--accent);text-underline-offset:4px}
-.site-header{border-bottom:1px solid var(--ring);background:var(--page)}
-.site-header-in{max-width:1328px;padding:22px 40px;margin:auto;display:flex;gap:28px;align-items:center;justify-content:space-between}
-.brand{display:flex;gap:12px;align-items:center;color:var(--ink);text-decoration:none;font-size:22px;font-weight:700;letter-spacing:-1px}
-.brand-mark{display:grid;place-items:center;background:var(--ink);color:var(--page);width:36px;height:36px;border-radius:50%;font-size:20px;font-weight:400}
-.brand-mark svg{display:block;width:100%;height:100%}
-.brand small{display:block;font-size:9px;font-weight:600;letter-spacing:2px;line-height:1.2}
-.site-nav{display:flex;align-items:center;gap:28px;font-size:12px}
-.site-nav a{text-decoration:none;color:var(--ink-2)}
-.site-nav a:hover{color:var(--accent)}
-.edition{font:11px ui-monospace,Consolas,monospace;color:var(--muted);letter-spacing:1px}
-.theme-toggle{border:1px solid var(--ring);border-radius:50%;background:var(--surface);color:var(--ink);width:38px;height:38px;font-size:19px;cursor:pointer}
-.page{max-width:1328px;padding:52px 40px 96px;gap:72px}
-.masthead{position:relative;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);column-gap:64px;row-gap:20px;padding-bottom:32px}
-.masthead>.eyebrow{grid-column:1;align-self:end;color:var(--accent);letter-spacing:.13em;font-size:11px}
-.masthead h1{grid-column:1;font-size:clamp(36px,4.5vw,66px);letter-spacing:-.055em;font-weight:500;line-height:1.2}
-.masthead h1 em{font-family:Georgia,serif;font-style:italic;color:var(--accent)}
-.masthead .lede{grid-column:1;font-size:14px;max-width:43ch;line-height:1.9}
-.hero-actions{grid-column:1;display:flex;gap:20px;align-items:center;flex-wrap:wrap;font-size:12px}
-.primary-link{display:inline-flex;align-items:center;gap:30px;padding:12px 18px;background:var(--ink);color:var(--page);border:1px solid var(--ink);border-radius:5px;text-decoration:none;transition:transform .2s,background .2s}
-.primary-link:hover{transform:translateY(-2px);background:var(--accent);border-color:var(--accent)}
-.hero-actions small{color:var(--muted);font-size:10px}
-.trace-art{grid-column:2;grid-row:1 / span 4;display:flex;align-items:center;justify-content:center;position:relative;min-width:0;background:radial-gradient(circle at center,var(--surface) 0,transparent 70%)}
-.trace-art svg{width:100%;max-width:380px;height:auto;overflow:visible}
-.trace-orbit{transform-origin:180px 160px;animation:trace-turn 80s linear infinite}
-@keyframes trace-turn{to{transform:rotate(360deg)}}
-.facts{grid-column:1 / -1;padding-top:20px;border-top:1px solid var(--ring);font-size:10.5px;gap:10px 24px}
-.facts b{font-weight:400}
-.overview{gap:24px}
-.hero{display:grid;grid-template-columns:1fr auto;gap:8px 24px;align-items:end;padding:0 0 6px}
-.hero-label{font-size:12px;color:var(--muted);grid-column:1 / -1}
-.hero-value{font-size:clamp(44px,6vw,76px);font-weight:500;letter-spacing:-.055em;font-variant-numeric:tabular-nums}
-.hero-note{padding-bottom:5px;text-align:right;max-width:28ch}
-.kpis{border-radius:8px;background:var(--ring)}
-.kpi{padding:22px 24px;gap:10px}.kpi-value{font-size:27px;font-weight:500;font-variant-numeric:tabular-nums}
-.sec-head{max-width:86ch;gap:12px;border-top:1px solid var(--ring);padding-top:25px}
-.sec-head>.eyebrow{color:var(--accent);display:flex;align-items:center;gap:12px}
-.sec-head>.eyebrow::before{content:"";width:20px;height:1px;background:var(--accent)}
-h2{font-size:clamp(23px,2.4vw,32px);font-weight:500;letter-spacing:-.035em;line-height:1.45}
-.sec-sub{line-height:1.9;font-size:13px}.sec{gap:24px}
-.card,.dcard{border-radius:8px;padding:24px;gap:18px;box-shadow:none;transition:border-color .2s,box-shadow .2s}
-.card:hover,.dcard:hover{border-color:var(--axis);box-shadow:0 6px 24px #253d2206}
-.card-head h3{font-size:15px;font-weight:600}.card-sub{font-size:12px;line-height:1.8}
-.card-foot{border-top:1px solid var(--ring);padding-top:12px}
-.note{padding:16px 18px;border-radius:5px;font-size:12px;background:var(--surface-2)}
-.filterbar{background:var(--page);box-shadow:none;backdrop-filter:none}
-.fbar-in{max-width:1328px;padding:12px 40px;gap:10px 16px}
-.fseg,.viewseg{border:1px solid var(--ring);background:var(--surface-2)}
-.fseg button,.viewseg button{padding:6px 10px}.fchip span{padding:6px 10px;font-size:11px;border-color:var(--ring);background:var(--surface)}
-.fdate{padding:6px 8px;background:var(--surface);border-color:var(--ring)}
-.freset{padding:8px 12px}.fscope{font-size:10.5px;margin:0}
-.dashboard{max-width:1600px;padding:36px 40px 72px;gap:24px}.dash-title{font-size:32px;font-weight:500}.dash-kpis{border-radius:8px}.dkpi{padding:22px 18px;gap:8px}.dkpi-value{font-size:30px;font-weight:500;font-variant-numeric:tabular-nums}
-button{touch-action:manipulation;transition:background .18s,color .18s,transform .18s}button:active{transform:translateY(1px)}
-.reading-nav{display:flex;gap:8px;flex-wrap:wrap;padding-top:8px}.reading-nav a{border:1px solid var(--ring);border-radius:4px;padding:7px 12px;text-decoration:none;font-size:11px;color:var(--ink-2);background:var(--surface)}
-.reading-nav a:hover{border-color:var(--accent);color:var(--accent)}
-.skip-link{position:absolute;top:-80px;left:20px;padding:12px;z-index:99;background:var(--ink);color:var(--page)}.skip-link:focus{top:12px}
-@media(max-width:900px){.site-header-in{padding:20px 24px}.site-nav{gap:16px}.edition{display:none}.page{padding:36px 24px 72px}.masthead{column-gap:24px}.fbar-in{padding:12px 24px}.dashboard{padding:28px 24px 64px}.card,.dcard{padding:20px}.grid2{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:640px){html{scroll-padding-top:32px}.site-header-in{padding:16px 20px;gap:12px}.brand{font-size:19px}.site-nav a{display:none}.site-nav{gap:0}.page{padding:32px 20px 64px;gap:48px}.masthead{grid-template-columns:minmax(0,1fr);gap:18px}.masthead h1{font-size:43px}.trace-art{grid-column:1;grid-row:auto;max-height:200px;overflow:hidden;margin:0 auto;width:100%}.trace-art svg{max-width:250px}.facts{font-size:10px;gap:8px}.hero{display:flex;align-items:flex-start}.hero-value{font-size:48px}.hero-note{text-align:left;font-size:11px;max-width:none}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi{padding:18px 14px}.kpi-value{font-size:23px}.grid2,.grid3{grid-template-columns:minmax(0,1fr)}.fbar-in{padding:12px 20px;gap:12px}.filterbar{position:relative}.fgroup{flex-wrap:wrap;max-width:100%}.fgroup-body{max-width:100%}.fchips{gap:6px}.fchip span{min-height:34px}.fdate{width:122px}.dashboard{padding:28px 20px 64px}.dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dkpi-value{font-size:25px}.card,.dcard{padding:18px 14px}.reading-nav{gap:6px}.sec-sub{font-size:12px}.trace-orbit{animation:none}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.trace-orbit{animation:none}*{transition:none!important}}
-.masthead .lede{max-width:52ch}
-.dcard{margin:0}
-.filter-toggle{display:none}
-.fchips>button{appearance:none;background:var(--surface);border:1px solid var(--ring);border-radius:999px;color:var(--ink-2);font:inherit;font-size:11px;padding:6px 10px;cursor:pointer}
-.fchip span{white-space:nowrap}
-.fchip span.util i{display:inline-block;width:auto;height:auto;font-size:9px;line-height:1;font-style:normal;padding:2px;border:1px solid currentColor;border-radius:3px;background:transparent!important;color:var(--accent);opacity:1}
-@media(max-width:640px){.filter-toggle{display:inline-flex;gap:14px;align-items:center;padding:8px 12px;min-height:36px;border:1px solid var(--ring);border-radius:5px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;cursor:pointer}.filterbar:not(.filters-open) .fgroup{display:none}.filterbar .fgroup{flex-basis:100%}.filterbar .viewseg{margin-left:auto}.fbar-in{gap:10px}.trace-art{max-height:220px}.hero-actions{gap:18px}}
-@media print{.site-header,.filterbar,.hero-actions,.reading-nav{display:none}.trace-orbit{animation:none}.page{padding:0}.card{break-inside:avoid}}
 </style>
 <style>
-/* Mobile overrides for the generated energy-analysis report. */
+/* Shared report layout: embedded for both local files and GitHub Pages. */
+:root{--page:#e7e7e7;--surface:#eeeeee;--surface-2:#dcdedb;--ink:#192f28;--ink-2:#46574e;--muted:#566459;--grid:#d1d5d0;--axis:#9ba69d;--ring:#cbd1ca;--accent:#24684c;--accent-wash:#d6e1d4;--shadow:0 4px 18px #192f2807;--bevel:none;--mark-dim:#6f8378}
+:root[data-theme="dark"]{--page:#111d18;--surface:#1a2a23;--surface-2:#24392e;--ink:#edf1e6;--ink-2:#becaba;--muted:#a1b29e;--grid:#344c3d;--axis:#728977;--ring:#3a5040;--accent:#b8d98b;--accent-wash:#30452d;--shadow:none;--mark-dim:#789281}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#111d18;--surface:#1a2a23;--surface-2:#24392e;--ink:#edf1e6;--ink-2:#becaba;--muted:#a1b29e;--grid:#344c3d;--axis:#728977;--ring:#3a5040;--accent:#b8d98b;--accent-wash:#30452d;--shadow:none;--mark-dim:#789281}}
+html{scroll-behavior:smooth;scroll-padding-top:158px}
+body{font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;font-size:14px}
+a{color:var(--accent);text-underline-offset:4px}
+button{touch-action:manipulation;transition:background .18s,color .18s,border-color .18s;cursor:pointer}
+button:active{translate:0 1px}
+.site-header{height:76px;position:sticky;top:0;z-index:40;border-bottom:1px solid var(--ring);background:var(--page)}
+.site-header-in{height:100%;padding:0 32px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.brand{display:flex;align-items:center;gap:12px;font-size:23px;font-weight:700;text-decoration:none;color:var(--ink);letter-spacing:-.04em}
+.brand-mark{width:38px;height:38px;border-radius:50%;display:block;background:var(--ink);color:var(--page);flex:none}
+.brand-mark svg{width:100%;height:100%;display:block}
+.brand small{display:block;font-size:9px;letter-spacing:2px;line-height:1.2;font-weight:600}
+.site-nav{display:flex;align-items:center;gap:24px;font-size:12px}
+.site-nav a{text-decoration:none;color:var(--ink-2)}
+.edition{font-size:12px;letter-spacing:.05em;color:var(--muted)}
+.theme-toggle{width:36px;height:36px;border-radius:50%;background:var(--surface);color:var(--ink);border:1px solid var(--ring);font-size:19px}
+.report-rail{position:fixed;left:24px;top:108px;bottom:28px;width:192px;display:flex;flex-direction:column;gap:18px;z-index:15}
+.rail-label{margin:0 12px 2px;font-size:11px;letter-spacing:.1em;color:var(--muted)}
+.report-panels{display:flex;flex-direction:column;gap:6px}
+.report-panels button{width:100%;display:flex;align-items:center;gap:12px;border:1px solid transparent;padding:13px 12px;border-radius:8px;font:inherit;font-size:13px;color:var(--ink-2);background:transparent;text-align:left;white-space:nowrap}
+.report-panels button:hover{background:var(--surface)}
+.report-panels button[aria-pressed="true"]{background:var(--ink);color:var(--page);box-shadow:0 4px 10px #192f2810}
+.rail-icon{font-size:17px;line-height:1;width:20px;text-align:center}
+.rail-index{font:10px ui-monospace,Consolas,monospace;margin-left:auto;opacity:.65}
+.rail-about{margin-top:auto;border-top:1px solid var(--ring);padding:20px 12px 0;color:var(--muted);font-size:11px;line-height:1.8}
+.rail-about b{display:block;color:var(--ink);font-size:14px;font-weight:500;margin-top:12px}
+.rail-about p{margin:6px 0 12px}.rail-about a{text-decoration:none}
+.rail-status{display:flex;align-items:center;gap:6px}.rail-status i{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.page,.dashboard{width:calc(100% - 248px);max-width:1360px;margin:0 0 0 240px;padding:26px 32px 64px;gap:24px;min-width:0}
+.dashboard{padding-top:28px}
+.page{display:flex;flex-direction:column}
+.workspace-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:0 0 4px}
+.workspace-head .eyebrow{font-size:10px;letter-spacing:.11em;color:var(--muted);margin-bottom:7px}
+.workspace-head h1{font-size:28px;font-weight:600;line-height:1.25;letter-spacing:-.04em;margin:0}
+#panel-description{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.6}
+.snapshot-badge{white-space:nowrap;font:11px ui-monospace,Consolas,monospace;color:var(--ink-2);padding:7px 10px;border:1px solid var(--ring);border-radius:5px;margin-top:20px}
+.filterbar{position:sticky;top:76px;z-index:30;margin-left:240px;width:calc(100% - 248px);max-width:1360px;border-bottom:1px solid var(--ring);background:var(--page);backdrop-filter:none;box-shadow:none}
+.fbar-in{max-width:none;padding:14px 32px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filter-toggle{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--ring);padding:8px 12px;min-height:36px;border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;order:0;white-space:nowrap}
+.fbar-in .fscope{order:1;flex:1 1 160px;flex-basis:auto;margin:0;font-size:11px;line-height:1.5;min-width:0}
+.fspacer{display:none}.viewseg{order:2;display:flex;gap:2px;padding:3px;border:1px solid var(--ring);border-radius:7px;background:var(--surface-2)}
+.viewseg button{appearance:none;border:1px solid transparent;padding:5px 11px;border-radius:4px;background:transparent;color:var(--ink-2);font:inherit;font-size:12px;white-space:nowrap}
+.viewseg button[aria-pressed="true"]{background:var(--surface);border-color:var(--ring);color:var(--ink);box-shadow:0 1px 2px #192f280b;font-weight:600}
+.freset{order:3;padding:8px 12px;min-height:36px;font-size:12px}
+.filterbar .fgroup{order:5;flex-basis:100%;width:100%;gap:14px;align-items:flex-start;padding-top:7px}
+.filterbar .fgroup>.flabel{width:32px;flex:none;padding-top:8px;font-size:11px;letter-spacing:0}
+.filterbar:not(.filters-open) .fgroup{display:none}
+.filterbar .fgroup-body{flex-wrap:wrap;gap:8px}
+.fseg{box-shadow:none;border:1px solid var(--ring);background:var(--surface-2);padding:3px}
+.fseg button{padding:6px 11px}.fseg button[aria-pressed="true"]{border-color:var(--axis)}
+.fdate{background:var(--surface);border:1px solid var(--ring);padding:6px 9px;box-shadow:none;width:138px;flex-basis:138px}
+.fchips{gap:6px;flex-wrap:wrap}.fchip span,.fchip-all{background:var(--surface);border:1px solid var(--ring);padding:6px 10px;font-size:12px;box-shadow:none;white-space:nowrap}
+.fchip-all{border-radius:5px;color:var(--ink-2);font:inherit;font-size:12px}
+.fchip span.util i{display:inline-block;width:auto;height:auto;font-size:9px;line-height:1;font-style:normal;padding:2px;border:1px solid currentColor;border-radius:3px;background:transparent!important;color:var(--accent);opacity:1}
+.masthead{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);grid-template-rows:auto auto auto 1fr;column-gap:28px;row-gap:13px;background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:28px 32px;overflow:hidden;position:relative;min-height:280px}
+.masthead>.eyebrow{grid-column:1;align-self:end;letter-spacing:.13em;font-size:10px;color:var(--accent)}
+.masthead h2{grid-column:1;font-size:clamp(26px,2.7vw,38px);line-height:1.4;font-weight:500;letter-spacing:-.04em;margin:0}
+.masthead h2 em{font-style:normal;color:var(--accent)}
+.masthead .lede{grid-column:1;font-size:12px;line-height:1.85;color:var(--ink-2);max-width:42ch}
+.hero-actions{grid-column:1;display:flex;align-items:center;gap:20px;font-size:11px;align-self:end;flex-wrap:wrap;padding-top:5px}
+.primary-link{display:inline-flex;align-items:center;gap:22px;padding:11px 15px;border:0;border-radius:6px;background:var(--ink);color:var(--page);font:inherit;font-size:12px;text-decoration:none;min-height:40px;box-shadow:0 5px 10px #192f2814}
+.primary-link:hover{box-shadow:0 7px 16px #192f2824;transform:translateY(-1px)}
+.secondary-link{font-size:11px;text-decoration:none}
+.masthead>.energy-scene{grid-column:2;grid-row:1 / span 4;min-width:0;align-self:stretch}
+.overview{display:grid;grid-template-columns:minmax(240px,1.25fr) minmax(0,3fr);gap:14px;align-items:stretch}
+.hero{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;background:#1c3a2e;color:#edf0e8;border:1px solid #1c3a2e;padding:23px;border-radius:10px;box-shadow:0 5px 12px #192f2810}
+.hero-label{font-size:12px;color:#d2ddd0;margin:0}.hero-value{font-size:clamp(31px,3.1vw,48px);font-weight:500;letter-spacing:-.045em;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hero-unit{font-size:12px;color:#c8d6c6;letter-spacing:0}.hero-note{font-size:10px;color:#c8d6c6;line-height:1.6;text-align:left;max-width:none}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--ring);border:1px solid var(--ring);border-radius:10px;box-shadow:none}
+.kpi{padding:16px 20px;gap:6px;justify-content:center;background:var(--surface)}
+.kpi-label{font-size:11px;color:var(--muted)}.kpi-value{font-size:25px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.035em}.kpi-note{font-size:10px;line-height:1.5;color:var(--muted)}
+.kpi-unit{font-size:11px}.overview>#tce-ex-wrap{grid-column:1 / -1}
+.overview-charts{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:18px}
+.card,.dcard{margin:0;border:1px solid var(--ring);border-radius:10px;background:var(--surface);padding:22px;gap:17px;box-shadow:var(--shadow);min-width:0}
+.card-head{gap:6px}.card-head .eyebrow{font-size:9px;letter-spacing:.12em;color:var(--muted)}
+.card-head h3,.dcard-head h3{font-size:16px;font-weight:600;line-height:1.5;letter-spacing:-.02em}
+.card-sub,.dcard-sub{font-size:12px;line-height:1.75;color:var(--ink-2)}
+.card-foot{padding-top:13px;border-top:1px solid var(--ring);font-size:10px;color:var(--muted);margin-top:auto}
+.toggle{min-height:30px;font-size:11px;padding:7px 10px;border-radius:5px}
+.sec{gap:20px}.sec-head{max-width:none;gap:10px;border:0;padding:6px 0 0}
+.sec-head>.eyebrow{font-size:10px;letter-spacing:.1em;color:var(--accent)}
+h2{font-size:clamp(21px,2.1vw,28px);font-weight:500;line-height:1.5;letter-spacing:-.03em}
+.sec-sub{font-size:13px;line-height:1.9;color:var(--ink-2)}
+.analysis-note,.chart-explainer,.data-notes{font-size:12px;line-height:1.85;color:var(--ink-2);border:1px solid var(--ring);border-radius:7px;background:var(--surface)}
+.analysis-note summary,.chart-explainer summary,.data-notes summary{padding:9px 12px;cursor:pointer;color:var(--muted);font-size:11px}
+.analysis-note>p,.chart-explainer>p{padding:0 12px 12px;margin:0}
+.chart-explainer{background:transparent;border:0}.chart-explainer summary{padding:0;color:var(--accent)}.chart-explainer>p{padding:8px 0 0}
+.data-notes summary{display:flex;justify-content:space-between;gap:12px}.data-notes summary span{font-size:10px}
+.data-notes .facts{padding:8px 14px 14px;margin:0;border:0;font-size:11px;gap:10px 24px;line-height:1.9}
+.note{padding:12px 14px;border-radius:6px;font-size:11px;line-height:1.8;background:var(--surface-2)}
+.grid2{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.grid3{gap:18px}.stack{gap:18px}
+.c-label{font-size:12px;fill:var(--muted)}.c-name{font-size:13px;fill:var(--ink-2)}.c-value{font-size:12px;fill:var(--ink);font-variant-numeric:tabular-nums}.c-note{font-size:10px}.c-line{stroke-width:2.5}
+.chart svg,.dchart svg{display:block;max-width:100%}.legend,.dlegend{font-size:12px;gap:8px 18px}.legend i,.dlegend i{width:10px;height:10px;border-radius:2px}.tip{font-size:12px}
+.dash-title{font-size:28px;font-weight:500}.dash-kpis{border-radius:10px}.dkpi{padding:20px 16px;gap:8px}.dkpi-value{font-size:27px;font-weight:500}.dash-grid{gap:18px}
+.report-foot{padding:15px 0;color:var(--muted);font-size:11px;border-top:1px solid var(--ring)}
+.skip-link{position:absolute;top:-80px;left:20px;padding:12px;z-index:99;background:var(--ink);color:var(--page)}.skip-link:focus{top:12px}
+.empty-panel{padding:25px;border:1px solid var(--ring);border-radius:10px;background:var(--surface);font-size:13px;color:var(--ink-2)}
+@media(min-width:1700px){.page,.dashboard,.filterbar{margin-left:calc((100vw - 1600px)/2 + 240px)}.report-rail{left:calc((100vw - 1600px)/2 + 24px)}.site-header-in{max-width:1600px;margin:auto}}
+@media(max-width:1180px){.report-rail{left:16px;width:170px}.page,.dashboard,.filterbar{margin-left:204px;width:calc(100% - 212px)}.page,.dashboard{padding-left:22px;padding-right:22px}.fbar-in{padding-left:22px;padding-right:22px}.hero{padding:20px}.hero-value{font-size:33px}.kpi{padding:16px}.kpi-value{font-size:22px}.masthead{padding:24px;column-gap:12px}.masthead h2{font-size:30px}.overview-charts{grid-template-columns:1fr}.card,.dcard{padding:20px}.grid2{grid-template-columns:1fr}}
+@media(max-width:900px){html{scroll-padding-top:160px}.site-header{height:68px}.site-header-in{padding:0 20px}.edition{display:none}.report-rail{position:sticky;top:68px;left:auto;bottom:auto;width:100%;padding:9px 20px;border-bottom:1px solid var(--ring);background:var(--page);gap:0;z-index:35}.rail-label,.rail-about,.rail-index,.rail-icon{display:none}.report-panels{flex-direction:row;gap:5px;overflow-x:auto;scrollbar-width:none}.report-panels button{width:auto;padding:10px 13px;font-size:12px;flex:none}.page,.dashboard,.filterbar{margin-left:0;width:100%;max-width:none}.filterbar{top:125px}.page,.dashboard{padding:24px 20px 64px}.fbar-in{padding:12px 20px}.workspace-head h1{font-size:26px}.overview-charts{grid-template-columns:repeat(2,minmax(0,1fr))}.overview{grid-template-columns:minmax(230px,1fr) minmax(0,1.6fr)}.hero-value{font-size:34px}.hero{padding:20px}.grid2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){html{scroll-padding-top:150px}.site-header{height:64px}.site-header-in{padding:0 16px}.brand{font-size:21px;gap:10px}.brand-mark{width:34px;height:34px}.site-nav{gap:12px}.site-nav a{font-size:10px}.report-rail{top:64px;padding:8px 12px}.report-panels{gap:3px}.report-panels button{padding:9px 4px;font-size:11px;flex:1;justify-content:center}.filterbar{top:auto;position:relative}.fbar-in{padding:10px 16px;gap:8px}.fbar-in .fscope{order:4;flex-basis:100%;font-size:10px}.filter-toggle{padding:7px 10px;font-size:11px}.viewseg{margin-left:auto}.viewseg button{font-size:11px;padding:6px 9px}.freset{padding:7px 9px;font-size:11px;min-height:34px}.filterbar .fgroup{padding-top:5px}.fgroup-body{width:calc(100% - 40px)}.fdate{flex:1 1 115px;width:115px}.fchip span{font-size:11px;padding:6px 9px;min-height:34px}.fseg button{padding:6px 9px;font-size:11px}.page,.dashboard{padding:20px 16px 48px;gap:20px}.workspace-head{gap:10px}.workspace-head h1{font-size:25px}.workspace-head .eyebrow{font-size:9px}.snapshot-badge{font-size:9px;padding:5px 6px;margin-top:20px}#panel-description{font-size:11px;max-width:31ch}.masthead{padding:22px 20px;grid-template-columns:minmax(0,1fr);gap:12px;min-height:0}.masthead h2{font-size:30px}.masthead .lede{font-size:12px;max-width:none}.masthead>.energy-scene{grid-column:1;grid-row:auto;min-height:235px;margin-top:6px}.hero-actions{gap:18px;padding-top:3px}.primary-link{padding:10px 13px;font-size:11px}.overview{grid-template-columns:minmax(0,1fr);gap:12px}.hero{padding:20px;gap:9px}.hero-value{font-size:42px}.hero-unit{font-size:13px;display:inline}.hero-note{font-size:10px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi{padding:16px 14px;gap:7px}.kpi-value{font-size:23px}.kpi-note{font-size:10px}.overview-charts,.grid2,.grid3{grid-template-columns:minmax(0,1fr);gap:16px}.card,.dcard{padding:18px 14px;gap:14px}.card-head h3,.dcard-head h3{font-size:15px}.card-sub{font-size:11px}.card-foot{font-size:10px}.sec{gap:16px}.sec-head{gap:8px}h2{font-size:23px}.c-label,.c-value{font-size:11px}.c-name{font-size:12px}.c-note{font-size:9px}.data-notes summary{font-size:10px;flex-wrap:wrap}.data-notes .facts{display:flex;flex-direction:column;gap:6px;font-size:10px}.dash-title{font-size:25px}.dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dkpi{padding:16px 12px}.dkpi-value{font-size:24px}.dash-head{gap:10px}.dash-note{font-size:11px}.table-wrap{max-width:100%;overflow-x:auto}.tip{max-width:260px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}.primary-link:hover{transform:none}}
+@media print{.site-header,.filterbar,.report-rail,.hero-actions,.scene-controls{display:none!important}.page,.dashboard{margin:0;width:100%;padding:0}.page [data-report-group]{display:flex!important}.overview-charts{display:grid!important}.card{break-inside:avoid}.masthead{display:none!important}}
+
+.energy-scene{position:relative;border-radius:10px;background:radial-gradient(ellipse at 50% 60%,var(--accent-wash),transparent 72%);isolation:isolate;overflow:hidden;min-height:250px}
+.energy-scene canvas{display:block;width:100%;height:250px;touch-action:pan-y;cursor:grab;outline-offset:-3px}
+.energy-scene canvas:active{cursor:grabbing}
+.scene-controls{display:flex;justify-content:flex-end;gap:6px;position:absolute;right:8px;top:5px;z-index:2}
+.scene-controls button{font:inherit;font-size:9px;line-height:1.5;background:var(--surface);color:var(--ink-2);border:1px solid var(--ring);border-radius:5px;padding:5px 8px;box-shadow:0 1px 3px #192f2808}
+.scene-controls button:hover{border-color:var(--accent);color:var(--accent)}
+.scene-caption{margin:0;position:absolute;bottom:4px;left:0;right:0;text-align:center;color:var(--muted);font-size:9px;letter-spacing:.04em;pointer-events:none}
+@media(max-width:640px){.energy-scene{min-height:235px}.energy-scene canvas{height:235px}.scene-controls{top:0;right:0}.scene-controls button{font-size:9px}}
+@media(prefers-reduced-motion:reduce){.energy-scene canvas{cursor:default}}
+
+</style>
+<style>
+/* Pages compatibility layer. Shared responsive layout lives in report_layout.css. */
 @media (max-width: 700px) {
-  html, body { max-width: 100%; overflow-x: hidden; }
-  body { font-size: 13px; }
-  .page { width: 100%; padding: 26px 12px 64px; gap: 38px; }
-
-  /* A wrapped sticky toolbar can cover most of a phone viewport. */
-  .filterbar { position: relative; top: auto; backdrop-filter: none; -webkit-backdrop-filter: none; }
-  .fbar-in { display: grid; grid-template-columns: minmax(0, 1fr); padding: 10px 12px; gap: 10px; }
-  .fgroup { width: 100%; height: auto; align-items: flex-start; flex-direction: column; gap: 5px; }
-  .fgroup-body { width: 100%; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; padding-bottom: 2px; }
-  .fseg, .fchips { max-width: 100%; flex-wrap: nowrap; overflow-x: auto; }
-  .fseg button, .fchip { flex: 0 0 auto; }
-  .fseg button, .fchip span, .freset { min-height: 36px; display: inline-flex; align-items: center; }
-  #f-range { width: 100%; flex-wrap: nowrap; overflow: visible; }
-  .fdate { width: 0; min-width: 0; flex: 1 1 0; min-height: 38px; }
-  .fspacer { display: none; }
-  .freset { width: 100%; justify-content: center; }
-  .fscope { line-height: 1.45; }
-
-  .masthead { gap: 11px; padding-bottom: 20px; }
-  h1 { font-size: clamp(25px, 8vw, 34px); }
-  .lede { font-size: 14px; }
-  .facts { gap: 5px 16px; }
-  .hero-value { font-size: clamp(38px, 13vw, 56px); overflow-wrap: anywhere; }
-
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpi { padding: 13px 12px; }
-  .kpi-value { font-size: 19px; overflow-wrap: anywhere; }
-
-  .grid2 { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .card { width: 100%; padding: 15px 11px 12px; gap: 11px; overflow: hidden; }
-  .card-head, .chart { min-width: 0; }
-  .chart svg { display: block; max-width: 100%; height: auto; }
-  .legend { gap: 5px 12px; }
-  .tip { max-width: min(250px, calc(100vw - 40px)); }
-  .table-wrap { max-width: calc(100vw - 24px); overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
-  .dt-row { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; }
-  .dt-delta { grid-column: 1 / -1; min-width: 0; text-align: left; }
-}
-
-@media (max-width: 420px) {
-  .kpis { grid-template-columns: minmax(0, 1fr); }
-  .hero-unit { display: block; margin: 7px 0 0; font-size: .3em; }
-  .card { border-radius: 8px; }
+  .table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .chart, .dchart, .card-head { min-width: 0; }
+  .chart svg, .dchart svg { display: block; max-width: 100%; }
+  .tip { max-width: min(260px, calc(100vw - 42px)); }
 }
 
 </style>
@@ -601,8 +607,19 @@ button{touch-action:manipulation;transition:background .18s,color .18s,transform
 <a class="skip-link" href="#energy-overview">跳到能耗概览</a>
 <header class="site-header"><div class="site-header-in">
   <a class="brand" href="#"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><path d="M16 46H25L38 31H26L39 16H48" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="46" r="3" fill="currentColor"/><circle cx="48" cy="16" r="4" fill="currentColor"/></svg></span><span>能迹<small>ENERGYTRACE</small></span></a>
-  <nav class="site-nav" aria-label="主导航"><a href="#energy-overview">能源概览</a><a href="#energy-structure">结构与趋势</a><a href="#energy-anomaly">异常洞察</a><span class="edition">INDUSTRIAL FIELD NOTES / 01</span><button class="theme-toggle" type="button" id="theme-toggle" aria-label="切换到深色主题" title="切换明暗主题">◐</button></nav>
+  <nav class="site-nav" aria-label="主导航"><span class="edition">工业能源分析工作台</span><a href="https://github.com/YZC0219/industrial_energy_analysis" target="_blank" rel="noopener">项目与数据 ↗</a><button class="theme-toggle" type="button" id="theme-toggle" aria-label="切换到深色主题" title="切换明暗主题">◐</button></nav>
 </div></header>
+<aside class="report-rail" aria-label="分析导航">
+  <p class="rail-label">工作空间</p>
+  <nav class="report-panels" aria-label="分析主题">
+    <button type="button" data-report-panel="overview" aria-pressed="true"><span class="rail-icon" aria-hidden="true">◫</span>能源总览<span class="rail-index">01</span></button>
+    <button type="button" data-report-panel="structure" aria-pressed="false"><span class="rail-icon" aria-hidden="true">▤</span>结构与趋势<span class="rail-index">02</span></button>
+    <button type="button" data-report-panel="efficiency" aria-pressed="false"><span class="rail-icon" aria-hidden="true">↗</span>效率与成本<span class="rail-index">03</span></button>
+    <button type="button" data-report-panel="anomaly" aria-pressed="false"><span class="rail-icon" aria-hidden="true">⌁</span>异常诊断<span class="rail-index">04</span></button>
+    <button type="button" data-report-panel="evidence" aria-pressed="false"><span class="rail-icon" aria-hidden="true">▧</span>方法与证据<span class="rail-index">05</span></button>
+  </nav>
+  <div class="rail-about"><span class="rail-status"><i aria-hidden="true"></i>数据快照 · 已载入</span><b>2024 — 2025</b><p>8 个车间 / 6 类能源<br>模拟数据 · 731 天</p><a href="https://github.com/YZC0219/industrial_energy_analysis/blob/main/data/README.md" target="_blank" rel="noopener">数据说明 ↗</a></div>
+</aside>
 <script>
 (() => {
   const root = document.documentElement;
@@ -651,6 +668,7 @@ button{touch-action:manipulation;transition:background .18s,color .18s,transform
   </div>
 </div>
 <div class="page">
+  <header class="workspace-head"><div><p class="eyebrow">ENERGYTRACE / 工业能源分析</p><h1 id="panel-title">能源总览</h1><p id="panel-description">先看规模与趋势，再定位能效改进的方向。</p></div><span class="snapshot-badge">2024.01 — 2025.12</span></header>
 
   <div class="note warn" id="nodata" hidden>
     <span class="mark"></span>
@@ -658,20 +676,11 @@ button{touch-action:manipulation;transition:background .18s,color .18s,transform
   </div>
 
   <header class="masthead">
-    <p class="eyebrow">ENERGY INTELLIGENCE / 2024 — 2025</p>
-    <h1>看见每一份能耗，<br>找到下一步<em>改变。</em></h1>
-    <p class="lede">全厂能耗体检。从 8 个车间、6 种能源、731 天的记录中，读懂消耗的结构、波动的原因与能效提升的空间。</p>
-    <div class="hero-actions"><a class="primary-link" href="#energy-overview">开始探索报告 <span aria-hidden="true">↗</span></a><span><a href="http://127.0.0.1:8010/diagnostics" target="_blank" rel="noopener">智能诊断 ↗</a><br><small>本地 API · 8010 端口</small></span></div>
-    <div class="trace-art" aria-hidden="true">
-      <svg viewBox="0 0 360 330" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g stroke="var(--ring)"><path d="M0 80H360M0 160H360M0 240H360M90 0V320M180 0V320M270 0V320" stroke-dasharray="2 6"/><circle cx="180" cy="160" r="140"/><circle cx="180" cy="160" r="100"/></g>
-        <g class="trace-orbit" stroke="var(--accent)" stroke-width="1.5"><ellipse cx="180" cy="160" rx="139" ry="49" transform="rotate(-40 180 160)"/><ellipse cx="180" cy="160" rx="139" ry="49" transform="rotate(40 180 160)"/><ellipse cx="180" cy="160" rx="49" ry="139"/><circle cx="289" cy="72" r="5" fill="var(--accent)" stroke="var(--page)" stroke-width="4"/></g>
-        <circle cx="180" cy="160" r="42" fill="var(--ink)"/>
-        <g transform="translate(138 118) scale(1.3125)"><path d="M16 46H25L38 31H26L39 16H48" stroke="var(--page)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="46" r="3" fill="var(--page)"/><circle cx="48" cy="16" r="4" fill="var(--page)"/></g>
-        <g fill="var(--muted)" font-family="Consolas,monospace" font-size="9" letter-spacing="1.3"><text x="10" y="25">INPUT / 06</text><text x="253" y="305">INSIGHT / 29</text><text x="16" y="305">ENERGY IN MOTION</text></g>
-        <path d="M12 278V290H24M336 25H348V37" stroke="var(--accent)"/>
-      </svg>
-    </div>
+    <p class="eyebrow">从记录到洞察</p>
+    <h2>让每一份能源，<br>都有清晰的<em>来路。</em></h2>
+    <p class="lede">聚合全厂用能、成本与碳排，从总览走向车间，找到值得关注的变化。</p>
+    <div class="hero-actions"><button class="primary-link" type="button" data-report-panel="structure">查看能源结构 <span aria-hidden="true">↗</span></button><a class="secondary-link" href="#energy-overview">查看关键指标 ↓</a></div>
+    <section class="energy-scene" data-energy-scene aria-label="工业能源三维概览"><canvas id="energy-scene" aria-label="工业能源三维示意">六类能源的工业系统空间示意。</canvas><div class="scene-controls"><button type="button" data-scene-action="motion" aria-pressed="true">暂停旋转</button><button type="button" data-scene-action="reset">复位视角</button></div><p class="scene-caption">六类能源 · 三维空间示意</p></section>
     <ul class="facts">
       <li>数据来源 <b>模拟数据（随机种子 20240918，可复现）</b> · <a href="https://github.com/YZC0219/industrial_energy_analysis/blob/main/data/raw_energy_data.csv" target="_blank" rel="noopener">查看原始 CSV ↗</a></li>
       <li>折标煤系数 <b>GB/T 2589-2020 当量值</b></li>
@@ -693,7 +702,10 @@ button{touch-action:manipulation;transition:background .18s,color .18s,transform
     </div>
   </section>
 
-  <nav class="reading-nav" aria-label="报告章节"><a href="#energy-structure">01 能源结构</a><a href="#energy-trend">02 季节趋势</a><a href="#energy-efficiency">03 能效成效</a><a href="#energy-anomaly">04 异常诊断</a></nav>
+  <section class="sec overview-charts" data-report-group="overview" aria-label="关键趋势与车间排名">
+    <figure class="card"><figcaption class="card-head"><p class="eyebrow">ENERGY TREND</p><h3>月度能耗趋势</h3><p class="card-sub">单位：tce · 观察季节峰谷与年度变化</p></figcaption><div class="chart" data-chart="monthly"></div><div class="card-foot"><span>日期、车间和日型筛选均可联动</span><button type="button" class="toggle" data-report-panel="structure">深入分析 ↗</button></div></figure>
+    <figure class="card"><figcaption class="card-head"><p class="eyebrow">WORKSHOP RANKING</p><h3>车间用能排行</h3><p class="card-sub">单位：tce · 蓝色为公用工程动力站</p></figcaption><div class="chart" data-chart="workshops"></div><div class="card-foot"><span>含 W07 公用工程口径</span><button type="button" class="toggle" data-report-panel="structure">查看结构 ↗</button></div></figure>
+  </section>
   <section class="sec" id="energy-structure">
     <div class="sec-head">
       <p class="eyebrow">结构</p>
@@ -1584,7 +1596,7 @@ function drawMix(host, W, T, narrow){
   var nameW = narrow ? 74 : 96;
   var padR = narrow ? 46 : 56;
   var padT = 26, axisH = 26;
-  var rowH = narrow ? 34 : 38;
+  var rowH = narrow ? 46 : 50;
   var H = padT + rows.length * rowH + axisH;
   var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
   var maxV = Math.max.apply(null, rows.map(function(r){ return Math.max(r.tce_pct, r.cost_pct); }));
@@ -1654,9 +1666,9 @@ function drawMix(host, W, T, narrow){
 function drawWorkshops(host, W, T, narrow){
   var rows = VIEW.workshops;
   var nameW = narrow ? 84 : 104;
-  var padR = narrow ? 44 : 52;
+  var padR = narrow ? 80 : 100;
   var padT = 24, axisH = 26;
-  var rowH = narrow ? 27 : 30;
+  var rowH = narrow ? 33 : 36;
   var H = padT + rows.length * rowH + axisH;
   var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
   var sc = ticks(Math.max.apply(null, rows.map(function(r){ return r.tce; })), 3);
@@ -1686,7 +1698,7 @@ function drawWorkshops(host, W, T, narrow){
         " v"+(barH-2*rad)+" a"+rad+","+rad+" 0 0 1 "+(-rad)+","+rad+" h"+(-(w-rad))+" z",
       fill:col
     }, svg);
-    tx(svg, plotX + w + 7, midY + 4, r.tce_pct.toFixed(1) + "%", "c-value");
+    tx(svg, plotX + w + 7, midY + 4, num(r.tce, 0) + " tce", "c-value");
   });
 
   var hit = mk("g", null, svg);
@@ -2465,7 +2477,7 @@ var CHARTS = {
   monthly: function(h,W,T,n){
     drawLine(h, W, T, {
       rows: VIEW.monthly.map(function(r){ return {k:r.ym, v:r.tce, raw:r}; }),
-      color:T.m1, label:"月度综合能耗", height:250,
+      color:T.m1, label:"月度综合能耗", height:300,
       endFmt: function(v){ return num(v, 0); },
       tip: function(r){
         return '<span class="tip-t">' + r.k + "</span>" +
@@ -2479,7 +2491,7 @@ var CHARTS = {
   carbon: function(h,W,T,n){
     drawLine(h, W, T, {
       rows: VIEW.monthly.map(function(r){ return {k:r.ym, v:r.ci, raw:r}; }),
-      color:T.m3, label:"月度碳排放强度", height:250,
+      color:T.m3, label:"月度碳排放强度", height:300,
       tickFmt: function(v){ return v.toFixed(1); },
       endFmt: function(v){ return v.toFixed(2); },
       tip: function(r){
@@ -3643,18 +3655,16 @@ function drawDashHeat(host, W, T, narrow){
   // 24px, 每个宽 44px, 每对重叠 20px)。宁可列窄一点, 也不能让标签叠。
   var colW = (W - labW - 6) / wss.length;
 
-  // 标签策略: c-label 是 11px, 中文按 1em/字 估。
-  // 判定用**这一批车间里最长的名字**, 不是硬编码 4 —— 早先按"4 字"判, 而
-  // "表面处理车间"是 6 字, 于是在 1280px(列宽 52px)上误判成放得下, 实测叠了 3 对。
-  // 放得下最长名就写全名; 放不下就退到**只写列号**, 全名挪到图下方的对照行 ——
-  // 之所以不是"截到 2 字": "热处理车间"截成"热处"、"表面处理车间"截成"表面",
-  // 读者对不上是哪个车间; 列号 + 对照是**无歧义**的, 且列号只占 7px, 永不重叠。
-  var longest = 0;
+  // 按实际渲染字体测量最长名称，避免主题布局改字号后标签重叠。
+  // 空间不足时用编号，完整名称保留在图下方对照行。
+  var labelProbe = tx(svg, 0, 0, "", "c-label");
+  var widestLabel = 0;
   wss.forEach(function(c){
-    var L = ((D.ws_meta[c] || {name:c}).name || "").length;
-    if (L > longest) longest = L;
+    labelProbe.textContent = (D.ws_meta[c] || {name:c}).name;
+    widestLabel = Math.max(widestLabel, labelProbe.getComputedTextLength());
   });
-  var numbered = (colW - 2) < longest * 11;
+  labelProbe.remove();
+  var numbered = (colW - 8) < widestLabel;
 
   // 对照行要在定高度**之前**折好 —— 它占几行决定了 svg 要多高。
   // 早先的写法是先定 H(只预留 15px)、再画对照、最后按 H-11 硬算图例位置:
@@ -4139,6 +4149,238 @@ if(energyScenarioInput) energyScenarioInput.addEventListener('change',renderEner
 renderEnergyScenario();
 
 })();
+</script>
+<script>
+/* Report navigation and progressive disclosure; computations stay in the report engine. */
+(() => {
+  'use strict';
+  const root = document.documentElement;
+  const page = document.querySelector('.page');
+  if (!page) return;
+  const panels = {
+    overview: ['能源总览', '先看规模与趋势，再定位能效改进的方向。'],
+    structure: ['结构与趋势', '用能结构、月度变化与气候响应，放在同一个分析视角。'],
+    efficiency: ['效率与成本', '对照单位产品能耗、节能折算与停产损耗。'],
+    anomaly: ['异常诊断', '从月度突增，到日度单耗与产量基线，逐层定位异常。'],
+    evidence: ['方法与证据', '查看清洗过程、模型表现与可复现的计算依据。']
+  };
+  const groups = {结构:'structure',趋势:'structure',成因:'structure',成效:'efficiency',环保绩效:'efficiency',损耗:'efficiency',情景:'efficiency',风险:'anomaly',异常:'anomaly',基线:'anomaly'};
+  page.querySelectorAll(':scope > .sec').forEach(section => {
+    if (!section.dataset.reportGroup) {
+      const tag = section.querySelector('.sec-head > .eyebrow');
+      section.dataset.reportGroup = section.classList.contains('overview') ? 'overview' : (groups[tag?.textContent.trim()] || 'evidence');
+    }
+    if (section.hidden) section.dataset.sourceUnavailable = 'true';
+  });
+  const masthead = page.querySelector('.masthead');
+  masthead.dataset.reportGroup = 'overview';
+  const facts = masthead.querySelector('.facts');
+  if (facts) {
+    const disclosure = document.createElement('details');
+    disclosure.className = 'data-notes';
+    disclosure.dataset.reportGroup = 'overview';
+    disclosure.innerHTML = '<summary>数据来源与统计口径<span>模拟数据 · 可复现</span></summary>';
+    disclosure.append(facts);
+    page.querySelector('.overview-charts').after(disclosure);
+  }
+  page.querySelectorAll('.sec-head > .sec-sub').forEach(paragraph => {
+    const detail = document.createElement('details');
+    detail.className = 'analysis-note';
+    detail.innerHTML = '<summary>展开分析解读与口径</summary>';
+    paragraph.before(detail);
+    detail.append(paragraph);
+  });
+  page.querySelectorAll('.card-head > .card-sub').forEach(paragraph => {
+    if (paragraph.textContent.trim().length < 110) return;
+    const detail = document.createElement('details');
+    detail.className = 'chart-explainer';
+    detail.innerHTML = '<summary>图表说明</summary>';
+    paragraph.before(detail);
+    detail.append(paragraph);
+  });
+  const hashGroups = {'energy-overview':'overview','energy-structure':'structure','energy-trend':'structure','energy-efficiency':'efficiency','energy-scenario':'efficiency','energy-anomaly':'anomaly','recent-evidence':'evidence'};
+  function selectPanel(panel, scroll = true) {
+    if (!panels[panel]) panel = 'overview';
+    if (root.classList.contains('dash-mode')) document.querySelector('[data-view="report"]').click();
+    root.dataset.reportPanel = panel;
+    page.querySelectorAll(':scope > [data-report-group]').forEach(section => {
+      section.hidden = section.dataset.reportGroup !== panel || section.dataset.sourceUnavailable === 'true';
+    });
+    document.querySelectorAll('[data-report-panel]').forEach(button => {
+      if (button.tagName === 'BUTTON') button.setAttribute('aria-pressed', String(button.dataset.reportPanel === panel));
+    });
+    document.getElementById('panel-title').textContent = panels[panel][0];
+    document.getElementById('panel-description').textContent = panels[panel][1];
+    window.dispatchEvent(new Event('resize'));
+    if (scroll) window.scrollTo({top:0, behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+  }
+  document.addEventListener('click', event => {
+    const button = event.target.closest('button[data-report-panel]');
+    if (button) selectPanel(button.dataset.reportPanel);
+    const link = event.target.closest('a[href^="#"]');
+    if (link) {
+      const id = link.getAttribute('href').slice(1);
+      if (hashGroups[id]) selectPanel(hashGroups[id], false);
+    }
+  });
+  window.addEventListener('hashchange', () => {
+    const id = location.hash.slice(1);
+    if (hashGroups[id]) selectPanel(hashGroups[id], false);
+  });
+  const foot = document.createElement('footer');
+  foot.className = 'report-foot';
+  foot.textContent = '能迹 EnergyTrace · 模拟数据分析报告 · 筛选图表与指标联动，章节解读采用全期基准。';
+  page.append(foot);
+  selectPanel(hashGroups[location.hash.slice(1)] || 'overview', false);
+})();
+
+/* A small offline 3D scene. Heights are schematic; analysis remains in the 2D charts. */
+(() => {
+  'use strict';
+  const host = document.querySelector('[data-energy-scene]');
+  const canvas = host?.querySelector('canvas');
+  const context = canvas?.getContext('2d');
+  if (!context) return;
+  const motion = host.querySelector('[data-scene-action="motion"]');
+  const reset = host.querySelector('[data-scene-action="reset"]');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const darkSystem = matchMedia('(prefers-color-scheme: dark)');
+  let width = 0, height = 0, scale = 1, center = 0;
+  let yaw = -.62, pitch = .57, phase = 0, running = !reduced.matches;
+  let frame = 0, last = 0, visible = true, dragging = false, startX = 0, startYaw = yaw;
+  const palette = () => {
+    const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : darkSystem.matches;
+    return dark
+      ? {plate:'#2f483b', edge:'#53715d', ground:'#172b20', text:'#c7d5c2', green:'#5b8b70', mint:'#a0bc85', light:'#7e9b8a', blue:'#698f9c', pipe:'#8da783', window:'#bedb91'}
+      : {plate:'#c5d0c4', edge:'#9fac9c', ground:'#9fac9c', text:'#48634f', green:'#3e7057', mint:'#a6bf91', light:'#d1dbca', blue:'#7f9fa1', pipe:'#80957b', window:'#c0d89d'};
+  };
+  function shade(hex, factor) {
+    const n = parseInt(hex.slice(1),16);
+    return `rgb(${[16,8,0].map(shift => Math.max(0,Math.min(255,Math.round(((n >> shift) & 255)*factor)))).join(',')})`;
+  }
+  function project(point) {
+    const [x,y,z] = point, c = Math.cos(yaw), s = Math.sin(yaw);
+    const u = x*c-z*s, depth = x*s+z*c;
+    return {x:width/2+u*scale,y:center+(depth*Math.sin(pitch)-y*Math.cos(pitch))*scale,d:depth*Math.cos(pitch)+y*Math.sin(pitch)};
+  }
+  function polygon(points, fill, stroke, lineWidth = .7) {
+    context.beginPath();
+    points.forEach((point,i) => {const q = project(point); i ? context.lineTo(q.x,q.y) : context.moveTo(q.x,q.y);});
+    context.closePath();
+    if (fill) {context.fillStyle = fill;context.fill();}
+    if (stroke) {context.strokeStyle = stroke;context.lineWidth = lineWidth;context.stroke();}
+  }
+  function face(faces, points, color, stroke) {
+    faces.push({points,color,stroke,depth:points.reduce((sum,p) => sum+project(p).d,0)/points.length});
+  }
+  function box(faces, x,z,w,d,h,color,y = 0) {
+    const a=[x-w/2,y,z-d/2],b=[x+w/2,y,z-d/2],c=[x+w/2,y,z+d/2],e=[x-w/2,y,z+d/2];
+    const up = p => [p[0],p[1]+h,p[2]];
+    face(faces,[a,b,up(b),up(a)],shade(color,.83));
+    face(faces,[b,c,up(c),up(b)],shade(color,.72));
+    face(faces,[c,e,up(e),up(c)],shade(color,.91));
+    face(faces,[e,a,up(a),up(e)],shade(color,.79));
+    face(faces,[up(a),up(b),up(c),up(e)],shade(color,1.12));
+  }
+  function tank(faces,x,z,r,h,color,y=0) {
+    const top=[], count=18;
+    for (let i=0;i<count;i++) {
+      const a=i/count*Math.PI*2,b=(i+1)/count*Math.PI*2;
+      const p=[x+Math.cos(a)*r,y,z+Math.sin(a)*r],q=[x+Math.cos(b)*r,y,z+Math.sin(b)*r];
+      face(faces,[p,q,[q[0],y+h,q[2]],[p[0],y+h,p[2]]],shade(color,.8+.2*Math.cos(a+.8)));
+      top.push([p[0],y+h,p[2]]);
+    }
+    face(faces,top,shade(color,1.12));
+  }
+  function path(points,color,lineWidth=1) {
+    context.beginPath();points.forEach((p,i) => {const q=project(p);i?context.lineTo(q.x,q.y):context.moveTo(q.x,q.y);});
+    context.strokeStyle=color;context.lineWidth=lineWidth;context.lineJoin='round';context.lineCap='round';context.stroke();
+  }
+  function render() {
+    if (!width || !height) return;
+    const p = palette(), faces=[];
+    context.clearRect(0,0,width,height);
+    // Ground shadow, then a shallow extruded plant platform.
+    polygon([[-3.9,-.35,-2.6],[4.3,-.35,-2.6],[4.3,-.35,2.8],[-3.9,-.35,2.8]],'rgba(25,47,40,.08)');
+    box(faces,0,0,7.5,4.9,.22,p.plate,-.24);
+    // Electricity: transformers and a switching cabinet.
+    box(faces,-2.15,-1.15,1.2,.8,.65,p.green);
+    for(let i=0;i<4;i++) box(faces,-2.52+i*.24,-1.15,.11,.88,.76,p.light,.12);
+    box(faces,-2.95,-1.1,.32,.55,1.15,p.green);
+    // Gas: vertical storage and a connected low plant room.
+    tank(faces,0,-1.12,.42,1.8,p.light);
+    tank(faces,.66,-1.12,.32,1.3,p.mint);
+    box(faces,-.65,-1.12,.42,.55,.42,p.green);
+    // Steam: boiler and a pair of tall stacks.
+    box(faces,2.15,-1.05,1.1,.8,.9,p.green);
+    tank(faces,1.85,-1.07,.14,1.7,p.light,.55);
+    tank(faces,2.42,-1.07,.14,1.35,p.light,.55);
+    // Compressed air: two horizontal compressor housings.
+    box(faces,-2.15,1.12,1.15,.75,.52,p.blue);
+    box(faces,-2.15,1.1,.8,.56,.23,p.light,.52);
+    // Industrial water: two round process vessels.
+    tank(faces,-.1,1.12,.47,.7,p.blue);
+    tank(faces,.76,1.12,.3,.55,p.light);
+    // Diesel: a low tank and its service cabinet.
+    tank(faces,2.05,1.12,.43,.75,p.mint);
+    box(faces,2.78,1.16,.35,.5,.55,p.green);
+    faces.sort((a,b)=>a.depth-b.depth).forEach(f=>polygon(f.points,f.color,f.stroke));
+    // Ground route connects the six energy areas as one system.
+    path([[-3.3,.02,0],[3.3,.02,0]],p.pipe,1.5);
+    for(const x of [-2.15,0,2.15]) {
+      path([[x,.02,-.65],[x,.02,.68]],p.pipe,1.5);
+      const q=project([x,.025,0]);
+      context.beginPath();context.arc(q.x,q.y,2,0,Math.PI*2);context.fillStyle=p.green;context.fill();
+    }
+    // Labels stay in screen space for clarity, independent of camera depth.
+    const labels=[[-2.15,-1.15,1.2,'电力'],[.1,-1.15,2.06,'天然气'],[2.15,-1.05,2.5,'蒸汽'],[-2.15,1.12,.94,'压缩空气'],[.15,1.12,1.05,'工业水'],[2.1,1.12,1.1,'柴油']];
+    context.font='10px "Microsoft YaHei",sans-serif';context.textAlign='center';context.textBaseline='middle';
+    labels.forEach(([x,z,y,text]) => {const q=project([x,y,z]);context.fillStyle=p.text;context.fillText(text,q.x,q.y-9);});
+    canvas.dataset.rendered='true';
+  }
+  function measure() {
+    const bounds=canvas.getBoundingClientRect();
+    if(bounds.width<1||bounds.height<1) return;
+    width=bounds.width;height=bounds.height;
+    const ratio=Math.min(devicePixelRatio||1,2);
+    canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
+    context.setTransform(ratio,0,0,ratio,0,0);
+    scale=Math.min(width/10.6,height/7.1);center=height*.58;
+    render();
+  }
+  function sync() {
+    const active=running&&!reduced.matches;
+    motion.setAttribute('aria-pressed',String(active));motion.textContent=active?'暂停旋转':'开启旋转';
+    if(frame) cancelAnimationFrame(frame);frame=0;last=0;
+    if(active&&visible&&!document.hidden) frame=requestAnimationFrame(animate);
+    render();
+  }
+  function animate(time) {
+    if(!running||reduced.matches||!visible||document.hidden){frame=0;return;}
+    const dt=last?Math.min(time-last,60):0;last=time;phase+=dt;
+    if(!dragging) yaw=-.62+Math.sin(phase*.00018)*.16;
+    render();frame=requestAnimationFrame(animate);
+  }
+  motion.addEventListener('click',()=>{running=!running;sync();});
+  reset.addEventListener('click',()=>{yaw=-.62;pitch=.57;phase=0;render();});
+  canvas.addEventListener('pointerdown',event=>{
+    if(event.pointerType==='touch') return;
+    running=false;sync();dragging=true;startX=event.clientX;startYaw=yaw;canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener('pointermove',event=>{
+    if(!dragging) return;
+    yaw=Math.max(-1.15,Math.min(.15,startYaw+(event.clientX-startX)*.006));render();
+  });
+  const stop=()=>{dragging=false;};canvas.addEventListener('pointerup',stop);canvas.addEventListener('pointercancel',stop);
+  new ResizeObserver(measure).observe(canvas);
+  new MutationObserver(()=>{measure();sync();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','data-report-panel','class']});
+  new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;sync();},{threshold:.05}).observe(host);
+  document.addEventListener('visibilitychange',sync);
+  reduced.addEventListener('change',()=>{if(reduced.matches)running=false;sync();});
+  darkSystem.addEventListener('change',render);
+  measure();sync();
+})();
+
 </script>
 </body>
 </html>

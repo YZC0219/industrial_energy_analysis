@@ -1,0 +1,9 @@
+.energy-scene{position:relative;border-radius:10px;background:radial-gradient(ellipse at 50% 60%,var(--accent-wash),transparent 72%);isolation:isolate;overflow:hidden;min-height:250px}
+.energy-scene canvas{display:block;width:100%;height:250px;touch-action:pan-y;cursor:grab;outline-offset:-3px}
+.energy-scene canvas:active{cursor:grabbing}
+.scene-controls{display:flex;justify-content:flex-end;gap:6px;position:absolute;right:8px;top:5px;z-index:2}
+.scene-controls button{font:inherit;font-size:9px;line-height:1.5;background:var(--surface);color:var(--ink-2);border:1px solid var(--ring);border-radius:5px;padding:5px 8px;box-shadow:0 1px 3px #192f2808}
+.scene-controls button:hover{border-color:var(--accent);color:var(--accent)}
+.scene-caption{margin:0;position:absolute;bottom:4px;left:0;right:0;text-align:center;color:var(--muted);font-size:9px;letter-spacing:.04em;pointer-events:none}
+@media(max-width:640px){.energy-scene{min-height:235px}.energy-scene canvas{height:235px}.scene-controls{top:0;right:0}.scene-controls button{font-size:9px}}
+@media(prefers-reduced-motion:reduce){.energy-scene canvas{cursor:default}}

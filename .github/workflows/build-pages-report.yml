@@ -10,6 +10,8 @@ on:
       - "src/make_report.py"
       - "src/report_template.html"
       - "src/mobile.css"
+      - "src/report_layout.*"
+      - "src/energy_scene.*"
       - "tests/baseline/**"
       # 管道上游: 改了这些会让基线失效, 必须触发校验(否则守卫被跳过,
       # 报告照旧发布 —— 那正是这个 workflow 要防的静默漂移)

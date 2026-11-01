@@ -472,87 +472,26 @@ td:first-child{color:var(--ink)}
 @media (prefers-reduced-motion: reduce){
   *{transition:none!important;animation:none!important}
 }
-/* EnergyTrace · industrial field notes */
-:root{--page:#e7e7e7;--surface:#eeeeee;--surface-2:#dcdcdc;--ink:#192f28;--ink-2:#526157;--muted:#566459;--grid:#d3d3d3;--axis:#a3a3a3;--ring:#cccccc;--accent:#24684c;--accent-wash:#d7e1d1;--shadow:0 3px 12px #253d2205;--bevel:none}
-:root[data-theme="dark"]{--page:#111d18;--surface:#192a22;--surface-2:#24392e;--ink:#edf1e6;--ink-2:#becaba;--muted:#a1b29e;--grid:#304738;--axis:#6a806c;--ring:#3a5040;--accent:#b8d98b;--accent-wash:#30452d;--shadow:none}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#111d18;--surface:#192a22;--surface-2:#24392e;--ink:#edf1e6;--ink-2:#becaba;--muted:#a1b29e;--grid:#304738;--axis:#6a806c;--ring:#3a5040;--accent:#b8d98b;--accent-wash:#30452d;--shadow:none}}
-html{scroll-behavior:smooth;scroll-padding-top:260px}
-body{font-family:"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif}
-a{color:var(--accent);text-underline-offset:4px}
-.site-header{border-bottom:1px solid var(--ring);background:var(--page)}
-.site-header-in{max-width:1328px;padding:22px 40px;margin:auto;display:flex;gap:28px;align-items:center;justify-content:space-between}
-.brand{display:flex;gap:12px;align-items:center;color:var(--ink);text-decoration:none;font-size:22px;font-weight:700;letter-spacing:-1px}
-.brand-mark{display:grid;place-items:center;background:var(--ink);color:var(--page);width:36px;height:36px;border-radius:50%;font-size:20px;font-weight:400}
-.brand-mark svg{display:block;width:100%;height:100%}
-.brand small{display:block;font-size:9px;font-weight:600;letter-spacing:2px;line-height:1.2}
-.site-nav{display:flex;align-items:center;gap:28px;font-size:12px}
-.site-nav a{text-decoration:none;color:var(--ink-2)}
-.site-nav a:hover{color:var(--accent)}
-.edition{font:11px ui-monospace,Consolas,monospace;color:var(--muted);letter-spacing:1px}
-.theme-toggle{border:1px solid var(--ring);border-radius:50%;background:var(--surface);color:var(--ink);width:38px;height:38px;font-size:19px;cursor:pointer}
-.page{max-width:1328px;padding:52px 40px 96px;gap:72px}
-.masthead{position:relative;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);column-gap:64px;row-gap:20px;padding-bottom:32px}
-.masthead>.eyebrow{grid-column:1;align-self:end;color:var(--accent);letter-spacing:.13em;font-size:11px}
-.masthead h1{grid-column:1;font-size:clamp(36px,4.5vw,66px);letter-spacing:-.055em;font-weight:500;line-height:1.2}
-.masthead h1 em{font-family:Georgia,serif;font-style:italic;color:var(--accent)}
-.masthead .lede{grid-column:1;font-size:14px;max-width:43ch;line-height:1.9}
-.hero-actions{grid-column:1;display:flex;gap:20px;align-items:center;flex-wrap:wrap;font-size:12px}
-.primary-link{display:inline-flex;align-items:center;gap:30px;padding:12px 18px;background:var(--ink);color:var(--page);border:1px solid var(--ink);border-radius:5px;text-decoration:none;transition:transform .2s,background .2s}
-.primary-link:hover{transform:translateY(-2px);background:var(--accent);border-color:var(--accent)}
-.hero-actions small{color:var(--muted);font-size:10px}
-.trace-art{grid-column:2;grid-row:1 / span 4;display:flex;align-items:center;justify-content:center;position:relative;min-width:0;background:radial-gradient(circle at center,var(--surface) 0,transparent 70%)}
-.trace-art svg{width:100%;max-width:380px;height:auto;overflow:visible}
-.trace-orbit{transform-origin:180px 160px;animation:trace-turn 80s linear infinite}
-@keyframes trace-turn{to{transform:rotate(360deg)}}
-.facts{grid-column:1 / -1;padding-top:20px;border-top:1px solid var(--ring);font-size:10.5px;gap:10px 24px}
-.facts b{font-weight:400}
-.overview{gap:24px}
-.hero{display:grid;grid-template-columns:1fr auto;gap:8px 24px;align-items:end;padding:0 0 6px}
-.hero-label{font-size:12px;color:var(--muted);grid-column:1 / -1}
-.hero-value{font-size:clamp(44px,6vw,76px);font-weight:500;letter-spacing:-.055em;font-variant-numeric:tabular-nums}
-.hero-note{padding-bottom:5px;text-align:right;max-width:28ch}
-.kpis{border-radius:8px;background:var(--ring)}
-.kpi{padding:22px 24px;gap:10px}.kpi-value{font-size:27px;font-weight:500;font-variant-numeric:tabular-nums}
-.sec-head{max-width:86ch;gap:12px;border-top:1px solid var(--ring);padding-top:25px}
-.sec-head>.eyebrow{color:var(--accent);display:flex;align-items:center;gap:12px}
-.sec-head>.eyebrow::before{content:"";width:20px;height:1px;background:var(--accent)}
-h2{font-size:clamp(23px,2.4vw,32px);font-weight:500;letter-spacing:-.035em;line-height:1.45}
-.sec-sub{line-height:1.9;font-size:13px}.sec{gap:24px}
-.card,.dcard{border-radius:8px;padding:24px;gap:18px;box-shadow:none;transition:border-color .2s,box-shadow .2s}
-.card:hover,.dcard:hover{border-color:var(--axis);box-shadow:0 6px 24px #253d2206}
-.card-head h3{font-size:15px;font-weight:600}.card-sub{font-size:12px;line-height:1.8}
-.card-foot{border-top:1px solid var(--ring);padding-top:12px}
-.note{padding:16px 18px;border-radius:5px;font-size:12px;background:var(--surface-2)}
-.filterbar{background:var(--page);box-shadow:none;backdrop-filter:none}
-.fbar-in{max-width:1328px;padding:12px 40px;gap:10px 16px}
-.fseg,.viewseg{border:1px solid var(--ring);background:var(--surface-2)}
-.fseg button,.viewseg button{padding:6px 10px}.fchip span{padding:6px 10px;font-size:11px;border-color:var(--ring);background:var(--surface)}
-.fdate{padding:6px 8px;background:var(--surface);border-color:var(--ring)}
-.freset{padding:8px 12px}.fscope{font-size:10.5px;margin:0}
-.dashboard{max-width:1600px;padding:36px 40px 72px;gap:24px}.dash-title{font-size:32px;font-weight:500}.dash-kpis{border-radius:8px}.dkpi{padding:22px 18px;gap:8px}.dkpi-value{font-size:30px;font-weight:500;font-variant-numeric:tabular-nums}
-button{touch-action:manipulation;transition:background .18s,color .18s,transform .18s}button:active{transform:translateY(1px)}
-.reading-nav{display:flex;gap:8px;flex-wrap:wrap;padding-top:8px}.reading-nav a{border:1px solid var(--ring);border-radius:4px;padding:7px 12px;text-decoration:none;font-size:11px;color:var(--ink-2);background:var(--surface)}
-.reading-nav a:hover{border-color:var(--accent);color:var(--accent)}
-.skip-link{position:absolute;top:-80px;left:20px;padding:12px;z-index:99;background:var(--ink);color:var(--page)}.skip-link:focus{top:12px}
-@media(max-width:900px){.site-header-in{padding:20px 24px}.site-nav{gap:16px}.edition{display:none}.page{padding:36px 24px 72px}.masthead{column-gap:24px}.fbar-in{padding:12px 24px}.dashboard{padding:28px 24px 64px}.card,.dcard{padding:20px}.grid2{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:640px){html{scroll-padding-top:32px}.site-header-in{padding:16px 20px;gap:12px}.brand{font-size:19px}.site-nav a{display:none}.site-nav{gap:0}.page{padding:32px 20px 64px;gap:48px}.masthead{grid-template-columns:minmax(0,1fr);gap:18px}.masthead h1{font-size:43px}.trace-art{grid-column:1;grid-row:auto;max-height:200px;overflow:hidden;margin:0 auto;width:100%}.trace-art svg{max-width:250px}.facts{font-size:10px;gap:8px}.hero{display:flex;align-items:flex-start}.hero-value{font-size:48px}.hero-note{text-align:left;font-size:11px;max-width:none}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi{padding:18px 14px}.kpi-value{font-size:23px}.grid2,.grid3{grid-template-columns:minmax(0,1fr)}.fbar-in{padding:12px 20px;gap:12px}.filterbar{position:relative}.fgroup{flex-wrap:wrap;max-width:100%}.fgroup-body{max-width:100%}.fchips{gap:6px}.fchip span{min-height:34px}.fdate{width:122px}.dashboard{padding:28px 20px 64px}.dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dkpi-value{font-size:25px}.card,.dcard{padding:18px 14px}.reading-nav{gap:6px}.sec-sub{font-size:12px}.trace-orbit{animation:none}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.trace-orbit{animation:none}*{transition:none!important}}
-.masthead .lede{max-width:52ch}
-.dcard{margin:0}
-.filter-toggle{display:none}
-.fchips>button{appearance:none;background:var(--surface);border:1px solid var(--ring);border-radius:999px;color:var(--ink-2);font:inherit;font-size:11px;padding:6px 10px;cursor:pointer}
-.fchip span{white-space:nowrap}
-.fchip span.util i{display:inline-block;width:auto;height:auto;font-size:9px;line-height:1;font-style:normal;padding:2px;border:1px solid currentColor;border-radius:3px;background:transparent!important;color:var(--accent);opacity:1}
-@media(max-width:640px){.filter-toggle{display:inline-flex;gap:14px;align-items:center;padding:8px 12px;min-height:36px;border:1px solid var(--ring);border-radius:5px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px;cursor:pointer}.filterbar:not(.filters-open) .fgroup{display:none}.filterbar .fgroup{flex-basis:100%}.filterbar .viewseg{margin-left:auto}.fbar-in{gap:10px}.trace-art{max-height:220px}.hero-actions{gap:18px}}
-@media print{.site-header,.filterbar,.hero-actions,.reading-nav{display:none}.trace-orbit{animation:none}.page{padding:0}.card{break-inside:avoid}}
 </style>
+<!--__REPORT_LAYOUT_STYLES__-->
 </head>
 <body>
 <a class="skip-link" href="#energy-overview">跳到能耗概览</a>
 <header class="site-header"><div class="site-header-in">
   <a class="brand" href="#"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><path d="M16 46H25L38 31H26L39 16H48" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="46" r="3" fill="currentColor"/><circle cx="48" cy="16" r="4" fill="currentColor"/></svg></span><span>能迹<small>ENERGYTRACE</small></span></a>
-  <nav class="site-nav" aria-label="主导航"><a href="#energy-overview">能源概览</a><a href="#energy-structure">结构与趋势</a><a href="#energy-anomaly">异常洞察</a><span class="edition">INDUSTRIAL FIELD NOTES / 01</span><button class="theme-toggle" type="button" id="theme-toggle" aria-label="切换到深色主题" title="切换明暗主题">◐</button></nav>
+  <nav class="site-nav" aria-label="主导航"><span class="edition">工业能源分析工作台</span><a href="https://github.com/YZC0219/industrial_energy_analysis" target="_blank" rel="noopener">项目与数据 ↗</a><button class="theme-toggle" type="button" id="theme-toggle" aria-label="切换到深色主题" title="切换明暗主题">◐</button></nav>
 </div></header>
+<aside class="report-rail" aria-label="分析导航">
+  <p class="rail-label">工作空间</p>
+  <nav class="report-panels" aria-label="分析主题">
+    <button type="button" data-report-panel="overview" aria-pressed="true"><span class="rail-icon" aria-hidden="true">◫</span>能源总览<span class="rail-index">01</span></button>
+    <button type="button" data-report-panel="structure" aria-pressed="false"><span class="rail-icon" aria-hidden="true">▤</span>结构与趋势<span class="rail-index">02</span></button>
+    <button type="button" data-report-panel="efficiency" aria-pressed="false"><span class="rail-icon" aria-hidden="true">↗</span>效率与成本<span class="rail-index">03</span></button>
+    <button type="button" data-report-panel="anomaly" aria-pressed="false"><span class="rail-icon" aria-hidden="true">⌁</span>异常诊断<span class="rail-index">04</span></button>
+    <button type="button" data-report-panel="evidence" aria-pressed="false"><span class="rail-icon" aria-hidden="true">▧</span>方法与证据<span class="rail-index">05</span></button>
+  </nav>
+  <div class="rail-about"><span class="rail-status"><i aria-hidden="true"></i>数据快照 · 已载入</span><b>2024 — 2025</b><p>8 个车间 / 6 类能源<br>模拟数据 · 731 天</p><a href="https://github.com/YZC0219/industrial_energy_analysis/blob/main/data/README.md" target="_blank" rel="noopener">数据说明 ↗</a></div>
+</aside>
 <script>
 (() => {
   const root = document.documentElement;
@@ -601,6 +540,7 @@ button{touch-action:manipulation;transition:background .18s,color .18s,transform
   </div>
 </div>
 <div class="page">
+  <header class="workspace-head"><div><p class="eyebrow">ENERGYTRACE / 工业能源分析</p><h1 id="panel-title">能源总览</h1><p id="panel-description">先看规模与趋势，再定位能效改进的方向。</p></div><span class="snapshot-badge">2024.01 — 2025.12</span></header>
 
   <div class="note warn" id="nodata" hidden>
     <span class="mark"></span>
@@ -608,20 +548,11 @@ button{touch-action:manipulation;transition:background .18s,color .18s,transform
   </div>
 
   <header class="masthead">
-    <p class="eyebrow">ENERGY INTELLIGENCE / 2024 — 2025</p>
-    <h1>看见每一份能耗，<br>找到下一步<em>改变。</em></h1>
-    <p class="lede">全厂能耗体检。从 8 个车间、6 种能源、731 天的记录中，读懂消耗的结构、波动的原因与能效提升的空间。</p>
-    <div class="hero-actions"><a class="primary-link" href="#energy-overview">开始探索报告 <span aria-hidden="true">↗</span></a><span><a href="http://127.0.0.1:8010/diagnostics" target="_blank" rel="noopener">智能诊断 ↗</a><br><small>本地 API · 8010 端口</small></span></div>
-    <div class="trace-art" aria-hidden="true">
-      <svg viewBox="0 0 360 330" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g stroke="var(--ring)"><path d="M0 80H360M0 160H360M0 240H360M90 0V320M180 0V320M270 0V320" stroke-dasharray="2 6"/><circle cx="180" cy="160" r="140"/><circle cx="180" cy="160" r="100"/></g>
-        <g class="trace-orbit" stroke="var(--accent)" stroke-width="1.5"><ellipse cx="180" cy="160" rx="139" ry="49" transform="rotate(-40 180 160)"/><ellipse cx="180" cy="160" rx="139" ry="49" transform="rotate(40 180 160)"/><ellipse cx="180" cy="160" rx="49" ry="139"/><circle cx="289" cy="72" r="5" fill="var(--accent)" stroke="var(--page)" stroke-width="4"/></g>
-        <circle cx="180" cy="160" r="42" fill="var(--ink)"/>
-        <g transform="translate(138 118) scale(1.3125)"><path d="M16 46H25L38 31H26L39 16H48" stroke="var(--page)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="46" r="3" fill="var(--page)"/><circle cx="48" cy="16" r="4" fill="var(--page)"/></g>
-        <g fill="var(--muted)" font-family="Consolas,monospace" font-size="9" letter-spacing="1.3"><text x="10" y="25">INPUT / 06</text><text x="253" y="305">INSIGHT / 29</text><text x="16" y="305">ENERGY IN MOTION</text></g>
-        <path d="M12 278V290H24M336 25H348V37" stroke="var(--accent)"/>
-      </svg>
-    </div>
+    <p class="eyebrow">从记录到洞察</p>
+    <h2>让每一份能源，<br>都有清晰的<em>来路。</em></h2>
+    <p class="lede">聚合全厂用能、成本与碳排，从总览走向车间，找到值得关注的变化。</p>
+    <div class="hero-actions"><button class="primary-link" type="button" data-report-panel="structure">查看能源结构 <span aria-hidden="true">↗</span></button><a class="secondary-link" href="#energy-overview">查看关键指标 ↓</a></div>
+    <section class="energy-scene" data-energy-scene aria-label="工业能源三维概览"><canvas id="energy-scene" aria-label="工业能源三维示意">六类能源的工业系统空间示意。</canvas><div class="scene-controls"><button type="button" data-scene-action="motion" aria-pressed="true">暂停旋转</button><button type="button" data-scene-action="reset">复位视角</button></div><p class="scene-caption">六类能源 · 三维空间示意</p></section>
     <ul class="facts">
       <li>数据来源 <b>模拟数据（随机种子 20240918，可复现）</b> · <a href="https://github.com/YZC0219/industrial_energy_analysis/blob/main/data/raw_energy_data.csv" target="_blank" rel="noopener">查看原始 CSV ↗</a></li>
       <li>折标煤系数 <b>GB/T 2589-2020 当量值</b></li>
@@ -643,7 +574,10 @@ button{touch-action:manipulation;transition:background .18s,color .18s,transform
     </div>
   </section>
 
-  <nav class="reading-nav" aria-label="报告章节"><a href="#energy-structure">01 能源结构</a><a href="#energy-trend">02 季节趋势</a><a href="#energy-efficiency">03 能效成效</a><a href="#energy-anomaly">04 异常诊断</a></nav>
+  <section class="sec overview-charts" data-report-group="overview" aria-label="关键趋势与车间排名">
+    <figure class="card"><figcaption class="card-head"><p class="eyebrow">ENERGY TREND</p><h3>月度能耗趋势</h3><p class="card-sub">单位：tce · 观察季节峰谷与年度变化</p></figcaption><div class="chart" data-chart="monthly"></div><div class="card-foot"><span>日期、车间和日型筛选均可联动</span><button type="button" class="toggle" data-report-panel="structure">深入分析 ↗</button></div></figure>
+    <figure class="card"><figcaption class="card-head"><p class="eyebrow">WORKSHOP RANKING</p><h3>车间用能排行</h3><p class="card-sub">单位：tce · 蓝色为公用工程动力站</p></figcaption><div class="chart" data-chart="workshops"></div><div class="card-foot"><span>含 W07 公用工程口径</span><button type="button" class="toggle" data-report-panel="structure">查看结构 ↗</button></div></figure>
+  </section>
   <section class="sec" id="energy-structure">
     <div class="sec-head">
       <p class="eyebrow">结构</p>
@@ -1367,7 +1301,7 @@ function drawMix(host, W, T, narrow){
   var nameW = narrow ? 74 : 96;
   var padR = narrow ? 46 : 56;
   var padT = 26, axisH = 26;
-  var rowH = narrow ? 34 : 38;
+  var rowH = narrow ? 46 : 50;
   var H = padT + rows.length * rowH + axisH;
   var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
   var maxV = Math.max.apply(null, rows.map(function(r){ return Math.max(r.tce_pct, r.cost_pct); }));
@@ -1437,9 +1371,9 @@ function drawMix(host, W, T, narrow){
 function drawWorkshops(host, W, T, narrow){
   var rows = VIEW.workshops;
   var nameW = narrow ? 84 : 104;
-  var padR = narrow ? 44 : 52;
+  var padR = narrow ? 80 : 100;
   var padT = 24, axisH = 26;
-  var rowH = narrow ? 27 : 30;
+  var rowH = narrow ? 33 : 36;
   var H = padT + rows.length * rowH + axisH;
   var plotX = nameW, plotW = Math.max(60, W - nameW - padR);
   var sc = ticks(Math.max.apply(null, rows.map(function(r){ return r.tce; })), 3);
@@ -1469,7 +1403,7 @@ function drawWorkshops(host, W, T, narrow){
         " v"+(barH-2*rad)+" a"+rad+","+rad+" 0 0 1 "+(-rad)+","+rad+" h"+(-(w-rad))+" z",
       fill:col
     }, svg);
-    tx(svg, plotX + w + 7, midY + 4, r.tce_pct.toFixed(1) + "%", "c-value");
+    tx(svg, plotX + w + 7, midY + 4, num(r.tce, 0) + " tce", "c-value");
   });
 
   var hit = mk("g", null, svg);
@@ -2250,7 +2184,7 @@ var CHARTS = {
   monthly: function(h,W,T,n){
     drawLine(h, W, T, {
       rows: VIEW.monthly.map(function(r){ return {k:r.ym, v:r.tce, raw:r}; }),
-      color:T.m1, label:"月度综合能耗", height:250,
+      color:T.m1, label:"月度综合能耗", height:300,
       endFmt: function(v){ return num(v, 0); },
       tip: function(r){
         return '<span class="tip-t">' + r.k + "</span>" +
@@ -2264,7 +2198,7 @@ var CHARTS = {
   carbon: function(h,W,T,n){
     drawLine(h, W, T, {
       rows: VIEW.monthly.map(function(r){ return {k:r.ym, v:r.ci, raw:r}; }),
-      color:T.m3, label:"月度碳排放强度", height:250,
+      color:T.m3, label:"月度碳排放强度", height:300,
       tickFmt: function(v){ return v.toFixed(1); },
       endFmt: function(v){ return v.toFixed(2); },
       tip: function(r){
@@ -3423,18 +3357,16 @@ function drawDashHeat(host, W, T, narrow){
   // 24px, 每个宽 44px, 每对重叠 20px)。宁可列窄一点, 也不能让标签叠。
   var colW = (W - labW - 6) / wss.length;
 
-  // 标签策略: c-label 是 11px, 中文按 1em/字 估。
-  // 判定用**这一批车间里最长的名字**, 不是硬编码 4 —— 早先按"4 字"判, 而
-  // "表面处理车间"是 6 字, 于是在 1280px(列宽 52px)上误判成放得下, 实测叠了 3 对。
-  // 放得下最长名就写全名; 放不下就退到**只写列号**, 全名挪到图下方的对照行 ——
-  // 之所以不是"截到 2 字": "热处理车间"截成"热处"、"表面处理车间"截成"表面",
-  // 读者对不上是哪个车间; 列号 + 对照是**无歧义**的, 且列号只占 7px, 永不重叠。
-  var longest = 0;
+  // 按实际渲染字体测量最长名称，避免主题布局改字号后标签重叠。
+  // 空间不足时用编号，完整名称保留在图下方对照行。
+  var labelProbe = tx(svg, 0, 0, "", "c-label");
+  var widestLabel = 0;
   wss.forEach(function(c){
-    var L = ((D.ws_meta[c] || {name:c}).name || "").length;
-    if (L > longest) longest = L;
+    labelProbe.textContent = (D.ws_meta[c] || {name:c}).name;
+    widestLabel = Math.max(widestLabel, labelProbe.getComputedTextLength());
   });
-  var numbered = (colW - 2) < longest * 11;
+  labelProbe.remove();
+  var numbered = (colW - 8) < widestLabel;
 
   // 对照行要在定高度**之前**折好 —— 它占几行决定了 svg 要多高。
   // 早先的写法是先定 H(只预留 15px)、再画对照、最后按 H-11 硬算图例位置:

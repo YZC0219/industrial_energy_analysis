@@ -890,7 +890,21 @@ def render(data):
         raise ValueError('Semantic engine placeholder missing or duplicated')
     html = html.replace(marker, 'window.ENERGY_SEMANTIC_CONTRACT = ' + semantic + ';\n' + engine)
     from governance.analysis_report import integrate
-    return integrate(html)
+    html = integrate(html)
+    # Local and Pages artifacts embed the same layout and 3D scene, without a CDN.
+    sources = Path(BASE_DIR) / 'src'
+    styles = '\n'.join((sources / filename).read_text(encoding='utf-8')
+                       for filename in ('report_layout.css', 'energy_scene.css'))
+    scripts = '\n'.join((sources / filename).read_text(encoding='utf-8')
+                        for filename in ('report_layout.js', 'energy_scene.js'))
+    for placeholder, replacement in (
+        ('<!--__REPORT_LAYOUT_STYLES__-->', '<style>\n' + styles + '\n</style>'),
+        ('</body>', '<script>\n' + scripts + '\n</script>\n</body>'),
+    ):
+        if html.count(placeholder) != 1:
+            raise ValueError('Report experience placeholder missing or duplicated')
+        html = html.replace(placeholder, replacement)
+    return html
 
 
 def main(argv=None) -> None:
