@@ -1,73 +1,74 @@
 name: Build GitHub Pages report
 
+# 不用 push.paths / paths-ignore 过滤整个 workflow。
+# 被跳过的 workflow 不产生 check run，以后若设成 required check，PR 会一直 pending。
+# 改为：workflow 每次都跑；decide 入口 job 永远出结论；重活由 build-report 条件执行；
+# report-result 汇总门禁，可安全设为 required。
 on:
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/build-pages-report.yml"
-      - "README.md"
-      # 报告的直接输入
-      - "src/make_report.py"
-      - "src/report_template.html"
-      - "src/mobile.css"
-      - "src/report_layout.*"
-      - "src/energy_scene.*"
-      - "tests/baseline/**"
-      # 管道上游: 改了这些会让基线失效, 必须触发校验(否则守卫被跳过,
-      # 报告照旧发布 —— 那正是这个 workflow 要防的静默漂移)
-      - "src/generate_data.py"
-      - "src/clean_data.py"
-      - "src/import_mysql.py"
-      - "src/api.py"
-      - "sql/**"
-      - "datax/**"
-      - "hive/**"
-      - "spark/**"
-      - "ml/**"
-      - "tests/test_ml_pipeline.py"
-      - "tests/test_import_mysql.py"
-      - "tests/test_import_mysql_helpers.py"
-      - "tests/test_api.py"
-      - "tests/test_bi_contract.py"
-      - "tests/test_stage1_architecture.py"
-      - "tests/test_soft_delete_contract.py"
-      - "tools/verify_ml_artifacts.py"
-      - "tools/run_phase2.py"
-      - "tools/check_data_quality.py"
-      - "tools/check_hive_quality.py"
-      - "tools/ensure_*_soft_delete_schema.py"
-      - "tools/setup_bi_reader.py"
-      - "docs/阶段四_服务化与可视化交付.md"
-      - "docs/阶段三_数据质量与实时管道.md"
-      - "quality/**"
-      - "tests/test_data_quality.py"
-      - "ml/provenance.py"
-      - "dags/energy_pipeline_dag.py"
-      - "docker-compose.yml"
-      - ".env.example"
-      - "streaming/**"
-      - "tests/test_streaming_contract.py"
-      - "tests/test_stream_batch_reconciliation.py"
-      - "tools/run_streaming_experiment.py"
-      - "tools/reconcile_stream_batch.py"
-      - "tools/reconcile_kafka_snapshot.py"
-      - "tests/test_kafka_snapshot_reconciliation.py"
-      - "requirements.txt"
-      - "requirements-extensions.txt"
-      - "governance/**"
-      - "optimization/**"
-      - "lakehouse/**"
-      - "src/analysis_formulas.js"
-      - "src/semantic_metrics.js"
-      - "src/diagnostics*"
-      - "tests/**"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  decide:
+    name: Decide whether to build
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide build necessity
+        id: decide
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: non-push event; always build"
+            exit 0
+          fi
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || [[ "$before" =~ ^0+$ ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: missing or zero before SHA; build to be safe"
+            exit 0
+          fi
+          mapfile -t files < <(git diff --name-only "$before" "${{ github.sha }}")
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "Reason: empty diff; build to be safe"
+            exit 0
+          fi
+          # 默认要跑。只有「全部改动都落在明确无关目录」时才跳过重活。
+          # 这样 tools/、src/analysis_scenarios.js 等不会再因白名单漏项而静默不触发。
+          build=false
+          for f in "${files[@]}"; do
+            case "$f" in
+              docs/daily_lessons/*|.agents/*|AGENTS.md|agent-workbench/*|thesis_*/*|submission_*/*|*.docx)
+                continue
+                ;;
+              *)
+                build=true
+                break
+                ;;
+            esac
+          done
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+          echo "Changed files:"
+          printf ' - %s\n' "${files[@]}"
+          echo "Decision: build=${build}"
+
   build-report:
+    name: Build and verify report
+    needs: decide
+    if: needs.decide.outputs.build == 'true'
     runs-on: ubuntu-latest
 
     services:
@@ -164,7 +165,19 @@ jobs:
           python tools/run_phase2.py --energy output/clean_batch_energy.csv --production output/clean_batch_production.csv
           python tools/check_data_quality.py --energy output/clean_batch_energy.csv --production output/clean_batch_production.csv
           python -m ml.evaluate_attribution --sql-dir tests/baseline
-          python -m pytest -q
+
+      # TestCleanArtifacts 在收集期检查 output/clean_energy.csv；缺失会整类 skip。
+      # 上游重建通常已写好产物；这里再兜一层，避免中间步骤弄丢后 11 条护栏被静默跳过。
+      - name: Ensure clean artifacts for offline guards
+        run: |
+          if [ ! -f output/clean_energy.csv ]; then
+            test -f data/raw_energy_data.csv || python src/generate_data.py
+            python src/clean_data.py
+          fi
+          test -f output/clean_energy.csv
+
+      - name: Run offline and non-db regression suite
+        run: python -m pytest -q
 
       - name: Upload forecasting evidence
         uses: actions/upload-artifact@v4
@@ -237,3 +250,28 @@ jobs:
             git pull --rebase --autostash origin main
             git push
           fi
+
+  report-result:
+    name: Pages report gate
+    needs: [decide, build-report]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate required-check gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          decide="${{ needs.decide.outputs.build }}"
+          build_result="${{ needs.build-report.result }}"
+          echo "decide.build=${decide}"
+          echo "build-report.result=${build_result}"
+          if [ "${decide}" != "true" ]; then
+            echo "Heavy build intentionally skipped; gate passes."
+            exit 0
+          fi
+          if [ "${build_result}" = "success" ]; then
+            echo "Heavy build succeeded; gate passes."
+            exit 0
+          fi
+          echo "Heavy build was required but did not succeed (${build_result})."
+          exit 1

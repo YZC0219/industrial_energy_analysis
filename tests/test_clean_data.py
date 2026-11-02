@@ -312,9 +312,9 @@ class TestCleanArtifacts:
     (增量装载改造) 提供一个"改坏了立刻知道"的护栏。
     """
 
-    @staticmethod
     @pytest.fixture(scope="class")
-    def energy():
+    @classmethod
+    def energy(cls):
         return pd.read_csv(os.path.join(cd.OUT_DIR, "clean_energy.csv"),
                            encoding="utf-8-sig")
 
