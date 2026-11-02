@@ -18,6 +18,7 @@
 | Airflow、主业务 CDC、定时失败、旧链路竞争 | `dags/energy_cdc_warehouse_dag.py`、`dags/energy_pipeline_dag.py`、`tools/main_cdc_health.py`、`tools/main_cdc_operator.py` | `docs/阶段三_CDC业务数仓接入.md` |
 | Hive/Spark/DataX、软删除、迟到修正 | `spark/apply_mysql_cdc_batch.py`、`datax/run_sync.py`、`hive/`、`sql/migrations/001_soft_delete_view.sql` | `docs/阶段一_分层数仓与分布式计算.md` |
 | Kafka、持久化告警、重试、隔离、重复投递 | `streaming/alert_outbox.py`、`streaming/outbox_supervisor.py`、`streaming/dispatch.py`、`streaming/alert_quarantine.py` | `docs/告警与整体验收复验_20261004.md` |
+| 多设备实时功率模拟、日电量对账 | `streaming/device_simulator.py`、`streaming/reconcile_device_day.py`、`tools/verify_device_day_runtime.py` | `docs/工业数据生命周期_四方向扩展.md` |
 | 真实数据、能效、节能措施、工程估算 | `tools/phase5_energy_assessment.py`、`tools/phase5_real_data_diagnosis.py`、`tools/analyze_asset_energy.py`、`optimization/` | `docs/阶段五_能效基线与节能情景.md` |
 
 ## 常见误定位
