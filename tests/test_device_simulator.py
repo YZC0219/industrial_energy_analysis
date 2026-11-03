@@ -219,3 +219,13 @@ def test_verify_runtime_against_clean_energy_if_present(tmp_path):
     workshops = evidence["reconciliation"]["workshops"]
     assert len(workshops) == 8
     assert all(math.isfinite(row["coverage"]) for row in workshops)
+
+
+def test_subminute_missing_samples_preserve_observed_energy():
+    points = [dict(event_id=str(i), event_time=f"2025-06-15T00:00:{i*10:02d}+00:00",
+                   workshop_code="W01", device_id="a", power_kw=12.0, interval_seconds=10)
+              for i in range(6)]
+    points.append(dict(event_id="other", event_time="2025-06-15T00:00:00+00:00",
+                       workshop_code="W01", device_id="b", power_kw=24.0, interval_seconds=10))
+    minutes = rollup_workshop_minutes(aggregate_device_minutes(points))
+    assert integrate_workshop_minutes_kwh(minutes)["W01"] == pytest.approx((12*60+24*10)/3600)

@@ -301,7 +301,7 @@ def build_day_evidence(
             "device_minute": "mean_of_unique_device_samples over utc_minute_floor; unit kW",
             "workshop_minute": "sum_of_device_minute_means; unit kW; missing devices omitted",
             "raw_integral": "sum(power_kw * interval_seconds / 3600) over unique event_ids",
-            "minute_integral": "sum(total_kw * represented_seconds / 3600) over workshop minutes",
+            "minute_integral": "sum(device sample power_kw * interval_seconds / 3600), preserved through minute rollup",
             "daily_reference": "clean_energy.csv E01 consumption kWh for the business date",
         },
         "workshops": workshops,

@@ -121,7 +121,8 @@ def aggregate_device_minutes(points):
             "unit": "kW",
             "aggregation": "mean_of_unique_device_samples",
             "window": "utc_minute_floor",
-            "represented_seconds": max(intervals),
+            "represented_seconds": sum(intervals),
+            "energy_kwh": math.fsum(power * interval / 3600 for power, interval in values),
             "duplicate_samples_dropped": duplicates,
         })
     return rows
@@ -146,6 +147,7 @@ def rollup_workshop_minutes(device_minutes):
             "workshop_code": workshop,
             "minute": minute,
             "total_kw": total,
+            "energy_kwh": math.fsum(float(d["energy_kwh"]) for d in devices),
             "device_count": len(devices),
             "device_ids": sorted(d["device_id"] for d in devices),
             "unit": "kW",
@@ -157,14 +159,17 @@ def rollup_workshop_minutes(device_minutes):
 
 
 def integrate_workshop_minutes_kwh(workshop_minutes):
-    """Left-style energy from workshop minutes: total_kw * represented_seconds / 3600."""
+    """Sum preserved sample integrals; legacy rows fall back to power times duration."""
     by_ws = defaultdict(float)
     for row in workshop_minutes:
         seconds = int(row["represented_seconds"])
         power = float(row["total_kw"])
         if seconds < 1 or not math.isfinite(power) or power < 0:
             raise ValueError("Invalid workshop minute row")
-        by_ws[row["workshop_code"]] += power * seconds / 3600.0
+        energy = float(row.get("energy_kwh", power * seconds / 3600.0))
+        if not math.isfinite(energy) or energy < 0:
+            raise ValueError("Invalid workshop minute energy")
+        by_ws[row["workshop_code"]] += energy
     return dict(by_ws)
 
 
