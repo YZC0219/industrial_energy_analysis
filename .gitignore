@@ -226,3 +226,7 @@ pytest_cache/
 *.sqlite3
 *.sqlite3-wal
 *.sqlite3-shm
+
+# 当前分析结果由流水线生成，不再作为历史证据跟踪
+/output/ml_model_metrics.json
+/output/attribution_eval.json
