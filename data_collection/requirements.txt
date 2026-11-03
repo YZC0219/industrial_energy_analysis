@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn>=0.27
+pandas>=2.0
+python-pptx>=1.0.0
+pyarrow>=14.0.0
+pyspark==3.5.1

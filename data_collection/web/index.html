@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>基于 Spark 的多城市气象与空气质量数据采集及预处理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="grid-bg" aria-hidden="true"></div>
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <p class="eyebrow">Spark · Collect &amp; Preprocess</p>
+        <h1>多城市气象与空气质量采集预处理</h1>
+      </div>
+    </div>
+    <div class="actions">
+      <select id="engine" aria-label="预处理引擎">
+        <option value="spark-local">本机 Spark（演示）</option>
+        <option value="spark-cluster">两节点集群（验收）</option>
+        <option value="pandas">pandas 备用</option>
+      </select>
+      <button type="button" id="btnRun" class="btn primary">真实采集并 Spark 处理</button>
+      <span id="runStatus" class="status" data-state="idle">Open-Meteo 为模式预报产品</span>
+    </div>
+  </header>
+
+  <main>
+    <p class="banner" id="natureBanner">数据性质：数值天气预报 / 空气质量模型产品（含归档预报），非监测站原始观测。</p>
+
+    <section class="hero-metrics" aria-label="批次概览">
+      <article class="metric primary">
+        <p class="label">批次 / 引擎</p>
+        <p class="value compact mono" id="batchId">—</p>
+      </article>
+      <article class="metric">
+        <p class="label">清洗后行数</p>
+        <p class="value mono" id="rows">—</p>
+      </article>
+      <article class="metric">
+        <p class="label">去重删除</p>
+        <p class="value mono" id="dupes">—</p>
+      </article>
+      <article class="metric">
+        <p class="label">污染峰值标记</p>
+        <p class="value mono" id="peaks">—</p>
+      </article>
+    </section>
+
+    <section class="panels">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>上海 气温 / PM2.5</h2>
+          <p>峰值点保留原值并打标</p>
+        </div>
+        <canvas id="seriesChart" width="900" height="260" aria-label="温度与PM2.5"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>对账与策略</h2>
+          <p id="policy" class="note"></p>
+        </div>
+        <ol id="steps" class="steps"></ol>
+      </div>
+    </section>
+
+    <section class="panels lower">
+      <div class="panel">
+        <div class="panel-head"><h2>ODS 采集证据</h2></div>
+        <div class="sample-scroll">
+          <table>
+            <thead><tr><th>城市</th><th>源</th><th>小时点</th><th>性质</th></tr></thead>
+            <tbody id="odsBody"></tbody>
+          </table>
+        </div>
+        <p class="note" id="collectMeta"></p>
+      </div>
+      <div class="panel wide">
+        <div class="panel-head">
+          <h2>DWD 样本</h2>
+          <p id="note" class="note"></p>
+        </div>
+        <div class="sample-scroll">
+          <table>
+            <thead>
+              <tr><th>城市</th><th>时间</th><th>气温</th><th>PM2.5</th><th>AQI</th><th>峰值标</th></tr>
+            </thead>
+            <tbody id="sampleBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>主路径：API→ODS→Spark 清洗/汇总→DWD Parquet→报告。两节点架构复用现有 VM；内存紧张时用本机 Spark local[1]。</p>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
