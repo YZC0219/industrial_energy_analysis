@@ -71,16 +71,19 @@ def build_spark(app_name: str, mode: str) -> SparkSession:
         SparkSession.builder.appName(app_name)
         .config("spark.sql.session.timeZone", "Asia/Shanghai")
         .config("spark.sql.shuffle.partitions", "4")
-        .config("spark.driver.host", "127.0.0.1")
-        .config("spark.driver.bindAddress", "127.0.0.1")
     )
     if mode == "local":
+        # 本机演示才绑回环；集群模式若绑 127.0.0.1，Worker 无法回连 BlockManager
         builder = (
             builder.master("local[1]")
+            .config("spark.driver.host", "127.0.0.1")
+            .config("spark.driver.bindAddress", "127.0.0.1")
             .config("spark.driver.memory", "1g")
             .config("spark.ui.enabled", "false")
             .config("spark.ui.showConsoleProgress", "false")
         )
+    else:
+        builder = builder.config("spark.driver.bindAddress", "0.0.0.0")
     return builder.getOrCreate()
 
 

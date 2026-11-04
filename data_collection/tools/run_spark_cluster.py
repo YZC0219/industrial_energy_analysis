@@ -62,11 +62,13 @@ def run_cluster(ods: Path | None = None, poll_sec: int = 900) -> dict:
         run(c, prefix + f"hdfs dfs -put -f {REMOTE_JOB_DIR}/batches/{batch_id}/flat/hourly_raw.parquet {hdfs_flat}/")
 
         remote_log = f"{REMOTE_JOB_DIR}/logs/spark_{batch_id}.log"
+        # Worker 内存 1g：executor 512m + overhead 128m；driver 须 >= ~450m。
         spark_cmd = (
             "spark-submit "
             "--master spark://192.168.21.131:7077 "
             "--deploy-mode client "
-            "--executor-memory 768m --executor-cores 1 --total-executor-cores 1 "
+            "--executor-memory 512m --executor-cores 1 --total-executor-cores 1 "
+            "--conf spark.executor.memoryOverhead=128m "
             "--conf spark.driver.memory=512m "
             "--conf spark.driver.host=192.168.21.131 "
             "--conf spark.sql.shuffle.partitions=4 "
@@ -86,18 +88,23 @@ def run_cluster(ods: Path | None = None, poll_sec: int = 900) -> dict:
         deadline = time.time() + poll_sec
         spark_out = ""
         while time.time() < deadline:
-            time.sleep(8)
-            spark_out = run(c, f"tail -n 80 {remote_log} || true")
+            time.sleep(5)
+            spark_out = run(c, f"tail -n 120 {remote_log} || true")
             alive = run(c, f"ps -p {pid} -o pid= || true").strip()
-            if "SPARK_REPORT_JSON_BEGIN" in spark_out or not alive:
-                # 再等片刻刷完文件
+            failed = (
+                "INVALID_DRIVER_MEMORY" in spark_out
+                or "SparkIllegalArgumentException" in spark_out
+                or "Application has been killed" in spark_out
+                or "Traceback (most recent call last)" in spark_out
+            )
+            if "SPARK_REPORT_JSON_BEGIN" in spark_out or failed or not alive:
                 time.sleep(2)
                 spark_out = run(c, f"cat {remote_log} || true")
                 break
             print(f"[spark-cluster] waiting… alive={bool(alive)}")
 
         if "SPARK_REPORT_JSON_BEGIN" not in spark_out:
-            raise RuntimeError(f"集群作业未在 {poll_sec}s 内完成，日志尾：\n{spark_out[-2000:]}")
+            raise RuntimeError(f"集群作业失败或超时，日志尾：\n{spark_out[-2500:]}")
 
         local_log = ensure_layout()["reports"] / f"spark_cluster_log_{batch_id}.txt"
         local_log.write_text(spark_out, encoding="utf-8")
