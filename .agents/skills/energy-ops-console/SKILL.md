@@ -25,7 +25,8 @@ description: >-
 
 - 「数据大屏」= 原驾驶舱图表（KPI + 月度/环比/结构/车间/热力/日线/Pareto）；筛选条与报告共用。
 - 「操作台」= 独立视图，只嵌诊断工作台（异常列表 / 证据问答 / 处置反馈）；不再叠在大屏下方。
-- 嵌入地址：HTTP(S) 下用 `location.origin + '/diagnostics?embed=1'`；`file://` 回退 `http://127.0.0.1:8010/diagnostics?embed=1`。
+- 嵌入地址：本机 HTTP(S) 用 `location.origin + '/diagnostics?embed=1'`；`file://` 回退 `http://127.0.0.1:8010/diagnostics?embed=1`。
+- **GitHub Pages 无诊断 API**：`*.github.io` 上不嵌同源 `/diagnostics`（会变成站点 404），改为提示本机启动 8010。
 - 模型实时分析走诊断既有链路（配置了 `LLM_*` 则在线选证据，否则证据检索）；本技能不另起一套 LLM 客户端。
 - 不要改 `submission_*/` 冻结副本当生效源码。
 

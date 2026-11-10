@@ -502,11 +502,19 @@ td:first-child{color:var(--ink)}
   width:100%;min-height:640px;height:min(78vh,920px);border:0;
   background:transparent;display:block;
 }
+.dash-ops-frame[hidden]{display:none}
 .dash-ops-fallback{
-  font-size:12px;color:var(--muted);margin:0;padding:12px 14px;
-  border-top:1px solid var(--ring);background:var(--surface-2);
+  font-size:13px;color:var(--ink-2);margin:0;padding:28px 24px 32px;
+  background:var(--page);line-height:1.55;min-height:280px;
 }
 .dash-ops-fallback[hidden]{display:none}
+.dash-ops-fallback b{color:var(--ink);font-weight:600}
+.dash-ops-fallback code{
+  font-size:12px;padding:1px 6px;border-radius:4px;
+  background:var(--surface-2);border:1px solid var(--ring);
+}
+.dash-ops-fallback a{color:var(--accent)}
+.dash-ops-fallback .ops-steps{margin:12px 0 0;padding-left:1.2em}
 
 /* 视图切换按钮: 常驻筛选栏右端 */
 .viewseg{display:flex;gap:2px;padding:2px;border-radius:7px;background:var(--surface-2);box-shadow:var(--bevel)}
@@ -1102,7 +1110,7 @@ td:first-child{color:var(--ink)}
       </div>
     </div>
     <iframe class="dash-ops-frame" id="dash-ops-frame" title="智能诊断工作台" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-    <p class="dash-ops-fallback" id="dash-ops-fallback" hidden>诊断页未加载。请确认 8010 已启动后点「刷新」。</p>
+    <div class="dash-ops-fallback" id="dash-ops-fallback" hidden role="status"></div>
   </div>
 </section>
 
@@ -3755,20 +3763,59 @@ function renderDash(force){
    操作台是独立视图，只挂诊断 iframe，不画驾驶舱图。 */
 var dashActive = false;
 var opsActive = false;
-function diagnosticsEmbedUrl(){
+var LOCAL_DIAG = "http://127.0.0.1:8010";
+function isStaticPagesHost(){
+  try {
+    var h = (location.hostname || "").toLowerCase();
+    return h === "github.io" || h.endsWith(".github.io");
+  } catch (e) { return false; }
+}
+function diagnosticsTheme(){
   var theme = document.documentElement.getAttribute("data-theme") || "";
   if (!theme) {
     try {
       theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     } catch (e) { theme = "light"; }
   }
-  var path = "/diagnostics?embed=1&theme=" + encodeURIComponent(theme);
+  return theme;
+}
+function diagnosticsEmbedUrl(){
+  // GitHub Pages 只有静态报告，没有 /diagnostics 服务；嵌同源会直接变成站点 404。
+  if (isStaticPagesHost()) return null;
+  var path = "/diagnostics?embed=1&theme=" + encodeURIComponent(diagnosticsTheme());
   try {
     if (location.protocol === "http:" || location.protocol === "https:") {
       return location.origin + path;
     }
   } catch (e) {}
-  return "http://127.0.0.1:8010" + path;
+  return LOCAL_DIAG + path;
+}
+function showOpsFallback(kind){
+  var frame = document.getElementById("dash-ops-frame");
+  var fallback = document.getElementById("dash-ops-fallback");
+  var open = document.getElementById("dash-ops-open");
+  if (frame) {
+    frame.removeAttribute("src");
+    frame.hidden = true;
+  }
+  if (open) open.href = LOCAL_DIAG + "/diagnostics";
+  if (!fallback) return;
+  if (kind === "pages") {
+    fallback.innerHTML =
+      "<b>操作台需要本机诊断服务，GitHub Pages 无法托管问答 API。</b>" +
+      "<ol class=\"ops-steps\">" +
+      "<li>本机运行 <code>python -m tools.start_diagnostics --mode auto</code></li>" +
+      "<li>打开 <a href=\"" + LOCAL_DIAG + "/report\" target=\"_blank\" rel=\"noopener\">" +
+      LOCAL_DIAG + "/report</a>，再点「操作台」</li>" +
+      "<li>或直接打开 <a href=\"" + LOCAL_DIAG + "/diagnostics\" target=\"_blank\" rel=\"noopener\">诊断工作台 ↗</a></li>" +
+      "</ol>" +
+      "<p style=\"margin:14px 0 0;font-size:12px;color:var(--muted)\">在线报告仍可看「报告 / 数据大屏」；模型提问与处置反馈只在 8010 可用。</p>";
+  } else {
+    fallback.innerHTML =
+      "<b>诊断页未加载。</b>请确认本机 8010 已启动后点「刷新」，或打开 " +
+      "<a href=\"" + LOCAL_DIAG + "/diagnostics\" target=\"_blank\" rel=\"noopener\">独立窗口 ↗</a>。";
+  }
+  fallback.hidden = false;
 }
 function mountDashOps(force){
   var frame = document.getElementById("dash-ops-frame");
@@ -3776,10 +3823,15 @@ function mountDashOps(force){
   var fallback = document.getElementById("dash-ops-fallback");
   if (!frame) return;
   var url = diagnosticsEmbedUrl();
+  if (!url) {
+    showOpsFallback("pages");
+    return;
+  }
   if (open) {
     try { open.href = new URL(url).origin + "/diagnostics"; }
-    catch (e) { open.href = "http://127.0.0.1:8010/diagnostics"; }
+    catch (e) { open.href = LOCAL_DIAG + "/diagnostics"; }
   }
+  frame.hidden = false;
   if (force || !frame.getAttribute("src")) {
     frame.setAttribute("src", url);
     if (fallback) fallback.hidden = true;
@@ -3818,8 +3870,10 @@ function initViewSwitch(){
   var frame = document.getElementById("dash-ops-frame");
   var fallback = document.getElementById("dash-ops-fallback");
   if (frame && fallback) {
-    frame.addEventListener("load", function(){ fallback.hidden = true; });
-    frame.addEventListener("error", function(){ fallback.hidden = false; });
+    frame.addEventListener("load", function(){
+      if (frame.getAttribute("src") && !frame.hidden) fallback.hidden = true;
+    });
+    frame.addEventListener("error", function(){ showOpsFallback("local"); });
   }
 }
 
