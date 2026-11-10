@@ -17,14 +17,30 @@ def write(folder, name, value):
 
 
 def run(identifier='scheduled__2026-10-12T18:00:00+00:00', state='success'):
+    # 成功批次要对齐三步任务与结束时间，审计才能复用；失败/运行中仍只暴露第一步，
+    # 方便断言「失败步骤名」与「卡住时长」。
+    finished = '2026-10-14T00:30:00+00:00' if state == 'success' else None
+    if state == 'success':
+        timeline = [
+            {'task_id': 'sync_current_dimensions', 'state': 'success',
+             'start_date': '2026-10-14T00:00:00+00:00', 'end_date': '2026-10-14T00:10:00+00:00',
+             'try_number': 3},
+            {'task_id': 'capture_complete_cdc', 'state': 'success',
+             'start_date': '2026-10-14T00:10:00+00:00', 'end_date': '2026-10-14T00:20:00+00:00',
+             'try_number': 3},
+            {'task_id': 'apply_cdc_dwd_dws_ads', 'state': 'success',
+             'start_date': '2026-10-14T00:20:00+00:00', 'end_date': finished, 'try_number': 3},
+        ]
+    else:
+        timeline = [{'task_id': 'sync_current_dimensions', 'state': state,
+                     'start_date': '2026-10-14T00:00:00+00:00', 'end_date': None,
+                     'try_number': 3}]
     return {'run_id': identifier, 'state': state, 'run_type': 'scheduled',
             'execution_date': '2026-10-12T18:00:00+00:00',
             'data_interval_end': '2026-10-13T18:00:00+00:00',
             'start_date': '2026-10-14T00:00:00+00:00',
-            'end_date': '2026-10-14T00:30:00+00:00' if state == 'success' else None,
-            'task_timeline': [{'task_id': 'sync_current_dimensions', 'state': state,
-                               'start_date': '2026-10-14T00:00:00+00:00',
-                               'end_date': None, 'try_number': 3}]}
+            'end_date': finished,
+            'task_timeline': timeline}
 
 
 @pytest.fixture
