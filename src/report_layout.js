@@ -48,7 +48,9 @@
   const hashGroups = {'energy-overview':'overview','energy-structure':'structure','energy-trend':'structure','energy-efficiency':'efficiency','energy-scenario':'efficiency','energy-anomaly':'anomaly','recent-evidence':'evidence'};
   function selectPanel(panel, scroll = true) {
     if (!panels[panel]) panel = 'overview';
-    if (root.classList.contains('dash-mode')) document.querySelector('[data-view="report"]').click();
+    if (root.classList.contains('dash-mode') || root.classList.contains('ops-mode')) {
+      document.querySelector('[data-view="report"]')?.click();
+    }
     root.dataset.reportPanel = panel;
     page.querySelectorAll(':scope > [data-report-group]').forEach(section => {
       section.hidden = section.dataset.reportGroup !== panel || section.dataset.sourceUnavailable === 'true';
