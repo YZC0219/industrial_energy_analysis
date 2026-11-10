@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="zh-CN" data-register="paper">
+<head>
+<title>窗口合计写在每一行旁边</title>
+<link rel="stylesheet" href="kit.css" data-ve-kit>
+<style>
+.compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-6); }
+.frame, .compare > * { min-width: 0; }
+.ve-svg { width: 100%; height: auto; display: block; }
+pre { max-width: 100%; overflow-x: auto; }
+@media (max-width: 720px) {
+  .compare { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<nav class="ve-toc" aria-label="章节">
+  <div>
+    <a href="#answer">贴在每行</a>
+    <a href="#mechanism">四种写法</a>
+    <a href="#cut">换分区列</a>
+    <a href="#write">动手写</a>
+  </div>
+  <span class="pos"></span>
+</nav>
+<main>
+  <header>
+    <p class="eyebrow">Day 19 · SQL</p>
+    <h1>窗口合计写在每一行旁边</h1>
+    <p class="lead"><span class="ve-ref" data-ref="over" tabindex="0">SUM() OVER</span> 留下每一行，并把合计写在旁边。<span class="ve-ref" data-ref="groupby" tabindex="0">GROUP BY</span> 把多行压成一行。</p>
+    <p class="meta">示例 4 行 · 单位 kWh · 不是库里的实数</p>
+  </header>
+
+  <section id="answer">
+    <p class="ve-label">答案</p>
+    <h2>空窗口把 250 kWh 贴到全部 4 行</h2>
+    <figure>
+      <div class="frame">
+        <svg class="ve-svg" viewBox="0 0 820 500" role="img" aria-label="四行能耗都保留。一个窗口的合计是 250 kWh，写在窗口旁边。">
+          <rect class="ve-bnd" data-ref="over" x="20" y="20" width="430" height="450"/>
+          <text class="ve-bnd-t" x="32" y="42" fill="var(--text)">一个窗口</text>
+
+          <g class="ve-n" data-ref="over" transform="translate(40 72)">
+            <rect class="sh" width="340" height="64" rx="6"/>
+            <path class="gl" transform="translate(14 16)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+            <text x="188" y="26" fill="var(--text)">一车间 · 电</text>
+            <text class="sub" x="188" y="48" fill="var(--text-dim)">100 kWh</text>
+          </g>
+          <g class="ve-n" data-ref="over" transform="translate(40 176)">
+            <rect class="sh" width="340" height="64" rx="6"/>
+            <path class="gl" transform="translate(14 16)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+            <text x="188" y="26" fill="var(--text)">二车间 · 电</text>
+            <text class="sub" x="188" y="48" fill="var(--text-dim)">50 kWh</text>
+          </g>
+          <g class="ve-n" data-ref="over" transform="translate(40 280)">
+            <rect class="sh" width="340" height="64" rx="6"/>
+            <path class="gl" transform="translate(14 16)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+            <text x="188" y="26" fill="var(--text)">一车间 · 气</text>
+            <text class="sub" x="188" y="48" fill="var(--text-dim)">30 kWh</text>
+          </g>
+          <g class="ve-n" data-ref="over" transform="translate(40 384)">
+            <rect class="sh" width="340" height="64" rx="6"/>
+            <path class="gl" transform="translate(14 16)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+            <text x="188" y="26" fill="var(--text)">二车间 · 气</text>
+            <text class="sub" x="188" y="48" fill="var(--text-dim)">70 kWh</text>
+          </g>
+
+          <path class="ve-e is-hot" data-ref="over" d="M450 268 H560"/>
+          <text class="ve-el" x="505" y="228" fill="var(--text)">贴到每行</text>
+
+          <g class="ve-dim is-key" data-ref="over">
+            <path class="ext" d="M450 72 H600 M450 448 H600"/>
+            <path class="ln" d="M590 72 V448 M586 76 l8 -8 M586 444 l8 8"/>
+            <text x="700" y="252" fill="var(--accent)">250 kWh</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><span class="fig-n">Fig. 1</span>SUM(kwh) OVER () 保留这 4 行，窗口合计是 250 kWh。</figcaption>
+    </figure>
+    <p>电用折线标记，气用三条横线标记。两种能源都在同一个窗口里。</p>
+  </section>
+
+  <section id="mechanism">
+    <p class="ve-label">机制</p>
+    <h2>四种写法留下的行数不同</h2>
+    <p>点下一步。每一步只改结果区。<span class="ve-ref" data-ref="partition" tabindex="0">PARTITION BY</span> 把窗口切开。<span class="ve-ref" data-ref="running" tabindex="0">ORDER BY</span> 把分区合计改成累计。</p>
+    <figure class="ve-steps">
+      <div class="frame">
+        <svg class="ve-svg" viewBox="0 0 980 500" role="img" aria-label="左边始终是四行源表。右边依次变成压行、全表 250、分区合计、分区累计。">
+          <rect class="ve-bnd" x="16" y="16" width="400" height="460"/>
+          <text class="ve-bnd-t" x="28" y="38" fill="var(--text)">源表</text>
+          <rect class="ve-bnd" x="500" y="16" width="460" height="460"/>
+          <text class="ve-bnd-t" x="512" y="38" fill="var(--text)">结果</text>
+
+          <g class="ve-n" data-s="0" transform="translate(36 70)">
+            <rect class="sh" width="300" height="56" rx="6"/>
+            <path class="gl" transform="translate(12 14)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+            <text x="168" y="24" fill="var(--text)">一车间 · 电</text>
+            <text class="sub" x="168" y="42" fill="var(--text-dim)">100 kWh</text>
+          </g>
+          <g class="ve-n" data-s="0" transform="translate(36 166)">
+            <rect class="sh" width="300" height="56" rx="6"/>
+            <path class="gl" transform="translate(12 14)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+            <text x="168" y="24" fill="var(--text)">二车间 · 电</text>
+            <text class="sub" x="168" y="42" fill="var(--text-dim)">50 kWh</text>
+          </g>
+          <g class="ve-n" data-s="0" transform="translate(36 278)">
+            <rect class="sh" width="300" height="56" rx="6"/>
+            <path class="gl" transform="translate(12 14)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+            <text x="168" y="24" fill="var(--text)">一车间 · 气</text>
+            <text class="sub" x="168" y="42" fill="var(--text-dim)">30 kWh</text>
+          </g>
+          <g class="ve-n" data-s="0" transform="translate(36 374)">
+            <rect class="sh" width="300" height="56" rx="6"/>
+            <path class="gl" transform="translate(12 14)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+            <text x="168" y="24" fill="var(--text)">二车间 · 气</text>
+            <text class="sub" x="168" y="42" fill="var(--text-dim)">70 kWh</text>
+          </g>
+
+          <g class="ve-at" data-s="1">
+            <text class="ve-tag" x="620" y="250" fill="var(--text-dim)">合计还没写</text>
+          </g>
+
+          <g class="ve-at" data-s="2" data-ref="groupby">
+            <path class="ve-e" d="M430 250 H490"/>
+            <text class="ve-el" x="460" y="214" fill="var(--text)">压行</text>
+            <g class="ve-n" transform="translate(530 70)">
+              <rect class="sh" width="400" height="152" rx="6"/>
+              <path class="gl" transform="translate(16 18)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+              <text x="210" y="64" fill="var(--text)">电</text>
+              <text class="sub" x="210" y="92" fill="var(--text-dim)">150 kWh · 车间名消失</text>
+            </g>
+            <g class="ve-n" transform="translate(530 278)">
+              <rect class="sh" width="400" height="152" rx="6"/>
+              <path class="gl" transform="translate(16 18)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+              <text x="210" y="64" fill="var(--text)">气</text>
+              <text class="sub" x="210" y="92" fill="var(--text-dim)">100 kWh · 车间名消失</text>
+            </g>
+          </g>
+
+          <g class="ve-at" data-s="3" data-ref="over">
+            <path class="ve-e is-hot" d="M430 250 H490"/>
+            <text class="ve-el" x="460" y="214" fill="var(--text)">贴上</text>
+            <g class="ve-n is-key" transform="translate(530 70)">
+              <rect class="sh" width="400" height="56" rx="6"/>
+              <text x="200" y="34" fill="var(--text)">250 kWh</text>
+            </g>
+            <g class="ve-n is-key" transform="translate(530 166)">
+              <rect class="sh" width="400" height="56" rx="6"/>
+              <text x="200" y="34" fill="var(--text)">250 kWh</text>
+            </g>
+            <g class="ve-n is-key" transform="translate(530 278)">
+              <rect class="sh" width="400" height="56" rx="6"/>
+              <text x="200" y="34" fill="var(--text)">250 kWh</text>
+            </g>
+            <g class="ve-n is-key" transform="translate(530 374)">
+              <rect class="sh" width="400" height="56" rx="6"/>
+              <text x="200" y="34" fill="var(--text)">250 kWh</text>
+            </g>
+          </g>
+
+          <g class="ve-at" data-s="4 5" data-ref="partition">
+            <rect class="ve-bnd" x="520" y="56" width="420" height="180"/>
+            <text class="ve-bnd-t" x="532" y="76" fill="var(--text)">电窗口</text>
+            <rect class="ve-bnd" x="520" y="264" width="420" height="180"/>
+            <text class="ve-bnd-t" x="532" y="284" fill="var(--text)">气窗口</text>
+          </g>
+
+          <g class="ve-at" data-s="4" data-ref="partition">
+            <path class="ve-e" d="M430 250 H490"/>
+            <text class="ve-el" x="460" y="214" fill="var(--text)">切开</text>
+            <g class="ve-n" transform="translate(546 96)">
+              <rect class="sh" width="370" height="56" rx="6"/>
+              <text x="185" y="34" fill="var(--text)">150 kWh</text>
+            </g>
+            <g class="ve-n" transform="translate(546 156)">
+              <rect class="sh" width="370" height="56" rx="6"/>
+              <text x="185" y="34" fill="var(--text)">150 kWh</text>
+            </g>
+            <g class="ve-n" transform="translate(546 304)">
+              <rect class="sh" width="370" height="56" rx="6"/>
+              <text x="185" y="34" fill="var(--text)">100 kWh</text>
+            </g>
+            <g class="ve-n" transform="translate(546 364)">
+              <rect class="sh" width="370" height="56" rx="6"/>
+              <text x="185" y="34" fill="var(--text)">100 kWh</text>
+            </g>
+          </g>
+
+          <g class="ve-at" data-s="5" data-ref="running">
+            <path class="ve-e is-hot" d="M430 250 H490"/>
+            <text class="ve-el" x="460" y="214" fill="var(--text)">累计</text>
+            <g class="ve-n" transform="translate(546 96)">
+              <rect class="sh" width="370" height="56" rx="6"/>
+              <text x="185" y="24" fill="var(--text)">100 kWh</text>
+              <text class="sub" x="185" y="42" fill="var(--text-dim)">电 · 第一行</text>
+            </g>
+            <g class="ve-n is-key" transform="translate(546 156)">
+              <rect class="sh" width="370" height="56" rx="6"/>
+              <text x="185" y="24" fill="var(--text)">150 kWh</text>
+              <text class="sub" x="185" y="42" fill="var(--text-dim)">电 · 加到当前行</text>
+            </g>
+            <g class="ve-n" transform="translate(546 304)">
+              <rect class="sh" width="370" height="56" rx="6"/>
+              <text x="185" y="24" fill="var(--text)">30 kWh</text>
+              <text class="sub" x="185" y="42" fill="var(--text-dim)">气 · 第一行</text>
+            </g>
+            <g class="ve-n" transform="translate(546 364)">
+              <rect class="sh" width="370" height="56" rx="6"/>
+              <text x="185" y="24" fill="var(--text)">100 kWh</text>
+              <text class="sub" x="185" y="42" fill="var(--text-dim)">气 · 加到当前行</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="ve-player">
+        <ol class="ve-cap">
+          <li data-n="1/5">源表有 4 行。合计还没写。</li>
+          <li data-n="2/5">GROUP BY 把同一种能源压成 1 行。</li>
+          <li data-n="3/5">OVER () 保留 4 行，每行写 250 kWh。</li>
+          <li data-n="4/5">PARTITION BY 把电和气分成两个窗口。</li>
+          <li data-n="5/5">窗口内 ORDER BY 后，合计改成累计到当前行。</li>
+        </ol>
+        <button type="button" data-go="-1" aria-label="上一步">←</button>
+        <button type="button" data-play>Play</button>
+        <input type="range" min="0" value="0" aria-label="步骤">
+        <button type="button" data-go="1" aria-label="下一步">→</button>
+      </div>
+      <figcaption><span class="fig-n">Fig. 2</span>同一份 4 行里，只有 GROUP BY 把行压少。</figcaption>
+    </figure>
+  </section>
+
+  <section id="cut">
+    <p class="ve-label">对照</p>
+    <h2>分区列一换，合计就换一组</h2>
+    <figure>
+      <div class="compare">
+        <div>
+          <p class="ve-label">按能源</p>
+          <div class="frame">
+            <svg class="ve-svg ve-mini" viewBox="0 0 540 390" role="img" aria-label="按能源分区：电 150 kWh，气 100 kWh。">
+              <rect class="ve-bnd" x="16" y="12" width="250" height="160"/>
+              <text class="ve-bnd-t" x="26" y="32" fill="var(--text)">电</text>
+              <g class="ve-n" transform="translate(28 44)">
+                <rect class="sh" width="220" height="52" rx="6"/>
+                <path class="gl" transform="translate(10 12)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+                <text x="120" y="32" fill="var(--text)">一车间 100</text>
+              </g>
+              <g class="ve-n" transform="translate(28 104)">
+                <rect class="sh" width="220" height="52" rx="6"/>
+                <path class="gl" transform="translate(10 12)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+                <text x="120" y="32" fill="var(--text)">二车间 50</text>
+              </g>
+              <rect class="ve-bnd" x="16" y="196" width="250" height="160"/>
+              <text class="ve-bnd-t" x="26" y="216" fill="var(--text)">气</text>
+              <g class="ve-n" transform="translate(28 228)">
+                <rect class="sh" width="220" height="52" rx="6"/>
+                <path class="gl" transform="translate(10 12)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+                <text x="120" y="32" fill="var(--text)">一车间 30</text>
+              </g>
+              <g class="ve-n" transform="translate(28 288)">
+                <rect class="sh" width="220" height="52" rx="6"/>
+                <path class="gl" transform="translate(10 12)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+                <text x="120" y="32" fill="var(--text)">二车间 70</text>
+              </g>
+              <g class="ve-dim is-key">
+                <path class="ext" d="M266 12 H300 M266 172 H300"/>
+                <path class="ln" d="M292 12 V172 M288 16 l8 -8 M288 168 l8 8"/>
+                <text x="430" y="96" fill="var(--accent)">150 kWh</text>
+              </g>
+              <g class="ve-dim">
+                <path class="ext" d="M266 196 H300 M266 356 H300"/>
+                <path class="ln" d="M292 196 V356 M288 200 l8 -8 M288 352 l8 8"/>
+                <text x="430" y="280" fill="var(--text)">100 kWh</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <p class="ve-label">按车间</p>
+          <div class="frame">
+            <svg class="ve-svg ve-mini" viewBox="0 0 540 390" role="img" aria-label="按车间分区：一车间 130 kWh，二车间 120 kWh。">
+              <rect class="ve-bnd" x="16" y="12" width="250" height="160"/>
+              <text class="ve-bnd-t" x="26" y="32" fill="var(--text)">一车间</text>
+              <g class="ve-n" transform="translate(28 44)">
+                <rect class="sh" width="220" height="52" rx="6"/>
+                <path class="gl" transform="translate(10 12)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+                <text x="120" y="32" fill="var(--text)">电 100</text>
+              </g>
+              <g class="ve-n" transform="translate(28 104)">
+                <rect class="sh" width="220" height="52" rx="6"/>
+                <path class="gl" transform="translate(10 12)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+                <text x="120" y="32" fill="var(--text)">气 30</text>
+              </g>
+              <rect class="ve-bnd" x="16" y="196" width="250" height="160"/>
+              <text class="ve-bnd-t" x="26" y="216" fill="var(--text)">二车间</text>
+              <g class="ve-n" transform="translate(28 228)">
+                <rect class="sh" width="220" height="52" rx="6"/>
+                <path class="gl" transform="translate(10 12)" d="M9 1 L4 9 h4 l-1 7 6-8 H8"/>
+                <text x="120" y="32" fill="var(--text)">电 50</text>
+              </g>
+              <g class="ve-n" transform="translate(28 288)">
+                <rect class="sh" width="220" height="52" rx="6"/>
+                <path class="gl" transform="translate(10 12)" d="M2 10 h12 M4 6 h8 M3 14 h10"/>
+                <text x="120" y="32" fill="var(--text)">气 70</text>
+              </g>
+              <g class="ve-dim is-key">
+                <path class="ext" d="M266 12 H300 M266 172 H300"/>
+                <path class="ln" d="M292 12 V172 M288 16 l8 -8 M288 168 l8 8"/>
+                <text x="430" y="96" fill="var(--accent)">130 kWh</text>
+              </g>
+              <g class="ve-dim">
+                <path class="ext" d="M266 196 H300 M266 356 H300"/>
+                <path class="ln" d="M292 196 V356 M288 200 l8 -8 M288 352 l8 8"/>
+                <text x="430" y="280" fill="var(--text)">120 kWh</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <figcaption><span class="fig-n">Fig. 3</span>分区列从能源换成车间后，合计从 150、100 变成 130、120。</figcaption>
+    </figure>
+  </section>
+
+  <section id="write">
+    <p class="ve-label">练习</p>
+    <h2>先分组，再对分组结果开窗</h2>
+    <p>下面先得到「车间 × 能源」一行，所以窗口写成 SUM(SUM(kwh))。两个 PARTITION BY 填同一列。ROUND 的第二个参数 2 表示保留两位小数。</p>
+    <pre><code>SELECT
+    workshop,
+    energy_type,
+    SUM(kwh) AS workshop_type_kwh,
+    SUM(SUM(kwh)) OVER (PARTITION BY /* ? */) AS type_total_kwh,
+    ROUND(
+        100.0 * SUM(kwh)
+        / SUM(SUM(kwh)) OVER (PARTITION BY /* ? */),
+        2
+    ) AS pct_in_type
+FROM daily_energy
+GROUP BY workshop, energy_type
+ORDER BY energy_type, workshop_type_kwh DESC;</code></pre>
+  </section>
+
+  <section class="sources" aria-label="来源">
+    <p class="ve-label">来源</p>
+    <p>示例四行：一车间电 100、二车间电 50、一车间气 30、二车间气 70。全表 250。电 150。气 100。一车间 130。二车间 120。单位都是 kWh。</p>
+  </section>
+</main>
+</body>
+</html>

@@ -19,13 +19,15 @@ app = FastAPI(
     title="Industrial Energy Analysis API",
     version="1.0.0",
     description=(
-        "指标、异常与摘要来自最近一次成功生成的 output/Q*.csv；"
-        "诊断反馈单独存储，本 API 不连接或修改 MySQL/Hive。"
+        "指标、异常与摘要按部署配置读取 MySQL 或分析快照；"
+        "诊断反馈单独存储，业务指标接口不修改 MySQL/Hive；多格式文档接口独立读写 MySQL。"
     ),
 )
 
 from src.diagnostics import router as diagnostics_router
 app.include_router(diagnostics_router)
+from src.pipeline_dashboard import router as pipeline_router
+app.include_router(pipeline_router)
 
 
 @app.get("/api/v1/semantic/catalog", tags=["语义层"])
@@ -102,6 +104,9 @@ def business_date(row: dict[str, str], key: str, *, monthly: bool = False) -> st
 
 
 def generated_at(filenames: list[str]) -> str | None:
+    from governance.mysql_source import enabled
+    if enabled():
+        return None
     paths = [output_dir() / filename for filename in filenames]
     if not all(path.is_file() for path in paths):
         return None
@@ -111,6 +116,13 @@ def generated_at(filenames: list[str]) -> str | None:
 
 @app.get("/health", tags=["运行状态"])
 def health() -> dict[str, Any]:
+    from governance.mysql_source import enabled
+    if enabled():
+        try:
+            read_csv("Q01_能源消费总览.csv")
+        except HTTPException:
+            return {"status": "degraded", "data_source": "mysql"}
+        return {"status": "ok", "data_source": "mysql", "missing_artifacts": []}
     required = ["Q01_能源消费总览.csv", "Q02_剔除公用工程后的能耗总览.csv",
                 "Q03_各车间综合能耗排名.csv",
                 "Q16_单耗异常日检测_2sigma.csv", "Q22_能耗突增预警_环比超25pct.csv",
@@ -239,3 +251,22 @@ def report_summary() -> dict[str, Any]:
             "Q22_能耗突增预警_环比超25pct.csv", "Q28_各车间日度能耗与产量.csv",
         ]),
     }
+
+
+@app.get("/data-explorer", include_in_schema=False)
+def data_explorer():
+    from fastapi.responses import FileResponse
+    return FileResponse(ROOT / "src" / "data_explorer.html")
+
+
+@app.get("/report", include_in_schema=False)
+def report_page():
+    """Serve the built report so 操作台 can same-origin embed /diagnostics."""
+    from fastapi.responses import FileResponse
+    path = output_dir() / "report.html"
+    if not path.is_file():
+        raise HTTPException(status_code=503, detail="报告尚未生成：请先运行 python src/make_report.py")
+    return FileResponse(path, headers={"Cache-Control": "no-store"})
+
+from src.document_store import router as document_router
+app.include_router(document_router)

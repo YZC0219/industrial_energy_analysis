@@ -3,6 +3,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from tools.verify_mysql_cdc_probe import ROOT
@@ -75,10 +76,16 @@ def main():
         'costs': report['costs'], 'old_writer_paused': True,
         'recovery_context': args.recovery_note}
     path = ROOT / f'output/mysql_cdc_business_main_daily_runtime_{args.stamp}.json'
-    with path.open('x', encoding='utf-8') as stream:
-        json.dump(evidence, stream, ensure_ascii=False, indent=2)
-        stream.write('\n')
-    run(['python', '-m', 'tools.archive_main_cdc_cutover', '--evidence', path.relative_to(ROOT).as_posix(), '--stamp', args.stamp])
+    from tools.archive_main_cdc_cutover import prepare_archive, publish_archives
+    # Keep the success receipt private until history, source fields and SQL all pass.
+    with tempfile.TemporaryDirectory(prefix='.cdc-daily-', dir=ROOT / 'output') as directory:
+        staging = Path(directory)
+        staged_evidence = staging / path.name
+        with staged_evidence.open('x', encoding='utf-8') as stream:
+            json.dump(evidence, stream, ensure_ascii=False, indent=2)
+            stream.write('\n')
+        files = prepare_archive(evidence, path.relative_to(ROOT).as_posix(), args.stamp, staging)
+        publish_archives([*files, (staged_evidence, path)])
     print('MAIN_CDC_DAILY_ARCHIVED', path)
 
 

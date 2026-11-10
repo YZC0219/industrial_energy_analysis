@@ -3,6 +3,17 @@ const $ = id => document.getElementById(id);
 const states = {pending:'待核查', confirmed:'已确认异常', false_positive:'误报', resolved:'已处理'};
 let offset = 0, total = 0, selected = null, requestVersion = 0, detailVersion = 0;
 let submittedFilters = new URLSearchParams();
+(function markEmbed() {
+  try {
+    if (new URLSearchParams(location.search).get('embed') === '1' || window.self !== window.top) {
+      document.documentElement.classList.add('embed');
+      document.body.classList.add('embed');
+    }
+  } catch (_) {
+    document.documentElement.classList.add('embed');
+    document.body.classList.add('embed');
+  }
+})();
 
 function node(tag, text, cls) {
   const el = document.createElement(tag);

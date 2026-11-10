@@ -116,12 +116,19 @@ def find_incident(incident_id):
 
 @router.get("/diagnostics", include_in_schema=False)
 def workbench():
-    return FileResponse(ROOT / "src/diagnostics.html")
+    return FileResponse(
+        ROOT / "src/diagnostics.html",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/diagnostics.js", include_in_schema=False)
 def workbench_script():
-    return FileResponse(ROOT / "src/diagnostics.js", media_type="text/javascript")
+    return FileResponse(
+        ROOT / "src/diagnostics.js",
+        media_type="text/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/api/v1/diagnostics")

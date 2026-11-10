@@ -1,5 +1,14 @@
 # 项目工作约定
 
+## 神经中枢（全局已生效 · 本仓入口）
+
+- 全局铁律：`~/.dsh/AGENTS.md`（记忆在文件 / 写权五档 / 派单回执 / 体量红线 / 反例验收）
+- 契约真源：`~/.dsh/kit/project-minimal/`
+- 本机样板：`D:\deepseek\`
+- **本仓入口**：[`agent-hub/`](agent-hub/)（`shared/` · `scenes/` · `notes/换会话协议.md`）
+- 换会话：旧会话写 [`agent-hub/scenes/<名>/HANDOVER.md`](agent-hub/scenes/demo/HANDOVER.md) 的 §〇 → 新会话只读交接，30 秒能说出下一步
+- 看板：[`agent-hub/shared/TASKBOARD.md`](agent-hub/shared/TASKBOARD.md)（含「未回执」）
+
 ## 存储
 
 - 新项目、下载、依赖缓存、模型权重、生成产物及可配置的 Docker 存储放在 `D:\`。
@@ -17,6 +26,8 @@
 | 改指标、统计口径、报告公式、筛选或语义 API | [energy-metric-change](.agents/skills/energy-metric-change/SKILL.md) |
 | 清洗、装载、CDC、调度、数仓或告警运行失败 | [energy-pipeline-debug](.agents/skills/energy-pipeline-debug/SKILL.md) |
 | 代码改完，选择相关测试及验收范围 | [energy-change-check](.agents/skills/energy-change-check/SKILL.md) |
+| 报告「数据大屏」/「操作台」嵌入诊断与模型问答 | [energy-ops-console](.agents/skills/energy-ops-console/SKILL.md) |
+| HiFox/狄仁杰式修 BUG 或需求（两道门：【进入开发】/【提测】） | [direnjie](.agents/skills/direnjie/SKILL.md) |
 
 “诊断工作台”通常指 `src/diagnostics.*`；“Agent 工作台”指 `agent-workbench/`。
 根据页面、端口或错误来源消歧，不把两者混作同一服务。

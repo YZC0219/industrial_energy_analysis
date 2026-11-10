@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>运行看板 · 能迹</title><link rel="stylesheet" href="/pipeline.css"><script src="/pipeline.js" defer></script></head>
+<body>
+<header><a class="brand" href="/pipeline"><span class="brand-icon">迹</span>能迹 <small>ENERGYTRACE</small></a><nav aria-label="页面导航"><a class="active" href="/pipeline">运行看板</a><a href="/diagnostics">异常诊断</a></nav><span class="local">本机运行</span></header>
+<main>
+  <div class="heading"><div><div class="eyebrow">从源数据到分析结果</div><h1>数据管道运行看板</h1><p>看清最近一次运行，找到尚未完成的环节。</p></div><div class="refresh"><button id="refresh">刷新记录 <span aria-hidden="true">↻</span></button><small id="updated">正在读取运行记录…</small></div></div>
+  <div id="error" role="alert" hidden></div><div id="notice" role="status"></div>
+  <section class="summary" id="summary" aria-label="运行摘要"></section>
+  <section class="panel"><div class="section-heading"><div><h2>最近批次 · 执行链路</h2><p id="run-description">等待运行记录</p></div><span class="pill" id="run-state">读取中</span></div><ol class="flow" id="flow"></ol><div class="run-facts" id="run-facts"></div><p class="caption">任务时间反映保留的尝试；较早重试需查看任务日志。流程完成后，对账与报告仍需分别核实。</p></section>
+  <div class="middle-grid">
+    <section class="panel"><div class="section-heading"><div><h2>各环节是否跟上</h2><p>三个独立结论，分别保留证据。</p></div></div><div id="deliveries" class="deliveries"></div></section>
+    <section class="panel"><div class="section-heading"><div><h2>基础环境检查</h2><p id="health-time">尚无检查记录</p></div><span id="health-freshness" class="pill">未知</span></div><div id="components" class="components"></div><p class="caption">环境检查与批次采集独立。过期检查显示当时结果，不证明服务现在在线。</p></section>
+  </div>
+  <section class="panel"><div class="section-heading"><div><h2>最近批次与执行延迟</h2><p>按逻辑日期排列；补跑和恢复批次可能在数天之后才执行。</p></div><span class="legend"><i></i>开始执行相对计划的延迟</span></div><div id="delay-chart" class="delay-chart" aria-label="最近批次启动延迟"></div><div class="table-wrap"><table><thead><tr><th>计划开始 · 北京时间</th><th>实际开始</th><th>启动延迟</th><th>批次耗时</th><th>执行状态</th><th>对账</th></tr></thead><tbody id="history"></tbody></table></div><p class="caption">延迟以计划调度时间（数据区间结束）计算，逻辑日期不等于实际运行日期；手动批次不计算调度延迟。批次成功不代表长期准点运行。</p></section>
+  <details class="panel sources"><summary>数据来源与刷新说明</summary><p>批次状态来自本地采集的调度元数据，页面每 30 秒重新读取，采集服务默认每 60 秒更新。超过 15 分钟的采集会标为过期。打开页面只读取状态，不重跑数据任务。</p><p>对账来自与该批次归档对应的逐字段审计；报告时间仅为本地 HTML 文件修改时间，尚不能证明报告已消费该 CDC 批次。此处未测量端到端数据同步延迟。</p><div id="sources"></div></details>
+  <footer>能迹 · 运行状态与业务指标分开核实 <span>所有时间均显示为北京时间</span></footer>
+</main>
+</body></html>

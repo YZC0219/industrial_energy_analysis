@@ -81,6 +81,8 @@ python -m uvicorn src.api:app --host 127.0.0.1 --port 8010
 
 访问 <http://127.0.0.1:8010/diagnostics>。支持异常筛选、证据问答、人工处置和追加历史。模型配置需设置进程环境变量；未配置时使用证据检索模式。本地入口尚无身份认证，人工反馈不自动成为已验证训练标签。
 
+运行看板位于 <http://127.0.0.1:8010/pipeline>，展示批次步骤、启动延迟、逐字段对账和报告文件时间。使用 `python -m tools.collect_pipeline_status --serve` 可启动看板并持续只读采集；已有 API 服务时单独运行 `python -m tools.collect_pipeline_status --interval 60`。历史与过期记录会明确标注，详见[运行看板说明](docs/数据管道运行看板.md)。
+
 GitHub Pages 展示静态报告；问答与反馈需要运行 API。详见[工作台说明](docs/智能诊断工作台.md)。
 
 </details>

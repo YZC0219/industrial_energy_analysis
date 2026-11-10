@@ -20,12 +20,34 @@ const DEFAULTS = { deepseekModel: 'deepseek-chat', deepseekKey: '', codexPath: '
 const error = (message, status = 400) => Object.assign(new Error(message), { status });
 const trim = (value, max = 20000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 
+// Resolve npm's Windows shim through package metadata; never execute shim text in a shell.
+export function codexEntry(candidate) {
+  if (!candidate || !fs.existsSync(candidate)) return '';
+  if (!/\.(cmd|bat)$/i.test(candidate)) return candidate;
+  const shimDirectory = path.dirname(candidate);
+  const directories = [path.join(shimDirectory, 'node_modules', '@openai', 'codex')];
+  if (path.basename(shimDirectory).toLowerCase() === '.bin') directories.push(path.join(shimDirectory, '..', '@openai', 'codex'));
+  for (const directory of directories) {
+    try {
+      const metadata = JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8'));
+      const relative = typeof metadata.bin === 'string' ? metadata.bin : metadata.bin?.codex;
+      if (!relative) continue;
+      const entry = path.resolve(directory, relative);
+      if (entry.startsWith(path.resolve(directory) + path.sep) && fs.statSync(entry).isFile() && /\.(?:[cm]?js|exe)$/i.test(entry)) return entry;
+    } catch { /* Try the next supported npm package location. */ }
+  }
+  return '';
+}
+
 function findExecutable(name) {
   const extensions = process.platform === 'win32' ? ['.exe', '.cmd', '.bat', ''] : [''];
   for (const dir of (process.env.PATH || '').split(path.delimiter)) {
     for (const ext of extensions) {
       const candidate = path.join(dir.replace(/^"|"$/g, ''), name + ext);
-      if (fs.existsSync(candidate)) return candidate;
+      if (fs.existsSync(candidate)) {
+        const entry = name === 'codex' ? codexEntry(candidate) : candidate;
+        if (entry) return entry;
+      }
     }
   }
   return '';
@@ -91,11 +113,18 @@ export function createApp({ dataDir = path.join(ROOT, 'data'), invokeOverride } 
   let state = read(dbFile, { projects: [], jobs: [] }), settings = { ...DEFAULTS, ...read(configFile, {}) };
   const atomic = (file, value) => { fs.writeFileSync(file + '.tmp', JSON.stringify(value, null, 2), { mode: 0o600 }); fs.renameSync(file + '.tmp', file); };
   const save = () => atomic(dbFile, state);
-  for (const job of state.jobs) if (['running', 'queued'].includes(job.status)) { job.status = 'interrupted'; job.error = '服务重启，任务已中断。可复制目标重新运行。'; }
+  const interruptedAt = new Date().toISOString();
+  for (const job of state.jobs) if (['running', 'queued'].includes(job.status)) {
+    job.status = 'interrupted'; job.error = '服务重启，任务已中断。可复制目标重新运行。';
+    job.finishedAt = interruptedAt;
+    for (const step of job.steps || []) if (step.status === 'running') {
+      step.status = 'interrupted'; step.finishedAt = interruptedAt;
+    }
+  }
   save();
   let current = null, closed = false;
   const key = () => settings.deepseekKey || process.env.DEEPSEEK_API_KEY || '';
-  const paths = () => ({ codex: settings.codexPath || findExecutable('codex'), gemini: settings.geminiPath || googleAgentEntry() || findExecutable('gemini') });
+  const paths = () => ({ codex: settings.codexPath ? codexEntry(settings.codexPath) : findExecutable('codex'), gemini: settings.geminiPath || googleAgentEntry() || findExecutable('gemini') });
   const publicSettings = () => ({ ...settings, deepseekKey: undefined, hasDeepseekKey: Boolean(key()), detected: paths() });
   const log = (job, text) => {
     let clean = String(text); if (key()) clean = clean.split(key()).join('[密钥已隐藏]');
@@ -117,7 +146,8 @@ export function createApp({ dataDir = path.join(ROOT, 'data'), invokeOverride } 
     const executable = paths()[provider];
     if (!executable) throw error(`${provider} CLI 未安装或路径未配置`);
     if (provider === 'codex') {
-      const output = await runProcess(executable, ['exec', '--json', '--ephemeral', '--sandbox', job.allowWrite ? 'workspace-write' : 'read-only', '-c', 'approval_policy="never"', '--skip-git-repo-check', '-'],
+      const isNodeEntry = /\.[cm]?js$/i.test(executable);
+      const output = await runProcess(isNodeEntry ? process.execPath : executable, [...(isNodeEntry ? [executable] : []), 'exec', '--json', '--ephemeral', '--sandbox', job.allowWrite ? 'workspace-write' : 'read-only', '-c', 'approval_policy="never"', '--skip-git-repo-check', '-'],
         { cwd: project.directory, signal, input: prompt, onLog: t => log(job, t) });
       return codexResult(output);
     }
@@ -157,7 +187,7 @@ export function createApp({ dataDir = path.join(ROOT, 'data'), invokeOverride } 
     } catch (e) {
       job.status = job.cancelRequested ? 'cancelled' : 'failed';
       job.error = String(e.message || e).slice(0, 2400); if (key()) job.error = job.error.split(key()).join('[密钥已隐藏]');
-      const step = job.steps.find(s => s.status === 'running'); if (step) step.status = job.status;
+      const step = job.steps.find(s => s.status === 'running'); if (step) { step.status = job.status; step.finishedAt = new Date().toISOString(); }
       log(job, job.error);
     } finally {
       clearTimeout(timer); job.finishedAt = new Date().toISOString(); save(); current = null; setImmediate(pump);

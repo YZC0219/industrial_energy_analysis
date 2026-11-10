@@ -22,6 +22,8 @@ def main():
         raise ValueError('Unsupported deployment directory')
     metadata = ['docker', 'compose', 'exec', '-T', 'postgres', 'psql', '-U', 'airflow', '-At', '-d']
     old_paused = run([*metadata, 'airflow', '-c', "SELECT is_paused FROM dag WHERE dag_id='energy_pipeline'"])
+    old_active = int(run([*metadata, 'airflow', '-c', "SELECT COUNT(*) FROM dag_run WHERE dag_id='energy_pipeline' AND state IN ('queued','running')"]))
+    old_tasks = int(run([*metadata, 'airflow', '-c', "SELECT COUNT(*) FROM task_instance WHERE dag_id='energy_pipeline' AND state IN ('queued','running','restarting')"]))
     active = run([*metadata, 'airflow_cdc_main', '-c', "SELECT COUNT(*) FROM dag_run WHERE dag_id='energy_cdc_warehouse' AND state IN ('queued','running')"])
     recent = run([*metadata, 'airflow_cdc_main', '-c', "SELECT run_id||':'||state FROM dag_run WHERE dag_id='energy_cdc_warehouse' ORDER BY execution_date DESC LIMIT 3"])
     next_local = run([*metadata, 'airflow_cdc_main', '-c',
@@ -33,11 +35,12 @@ def main():
         schedule = run([*compose, 'exec', '-T', 'cdc-main-scheduler', 'python', '-c',
                         "import os; print(os.getenv('CDC_SCHEDULE') or 'manual batch')"])
         print(json.dumps({'old_writer_paused': old_paused == 't', 'active_cdc_runs': int(active),
+                          'old_writer_active_runs': old_active, 'old_writer_active_tasks': old_tasks,
                           'recent_runs': recent.splitlines(), 'schedule': schedule,
                           'timezone': 'Asia/Shanghai', 'next_run_local': next_local or None}, ensure_ascii=False, indent=2))
         return
-    if old_paused != 't' or active != '0':
-        raise ValueError('Old writer must be paused and current CDC batch must be finished')
+    if old_paused != 't' or old_active or old_tasks or active != '0':
+        raise ValueError('Old writer must be paused and idle, and current CDC batch must be finished')
     compose = ['docker', 'compose', '--env-file', str(deployment / 'deployment.env'),
                '-f', str(ROOT / 'docker-compose.yml'), '-f', str(deployment / 'project/docker-compose.cdc-main.yml'),
                '--profile', 'cdc-main']

@@ -6,7 +6,7 @@ import { googleAgentEntry } from './gemini-entry.mjs';
 const root = path.dirname(fileURLToPath(import.meta.url));
 const entry = googleAgentEntry();
 if (!entry) {
-  console.error('Gemini CLI is not installed. Run install Gemini first.'); process.exitCode = 1;
+  console.error('Google Agent is not installed. Follow README.md Google client setup; prefer tools/agy.exe.'); process.exitCode = 1;
 } else {
   const temporary = path.join(root, 'data/tmp'); fs.mkdirSync(temporary, { recursive: true });
   const child = spawn(entry.endsWith('.exe') ? entry : process.execPath, entry.endsWith('.exe') ? [] : [entry], { cwd: root, stdio: 'inherit',

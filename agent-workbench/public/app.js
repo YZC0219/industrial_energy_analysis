@@ -92,7 +92,7 @@ function renderHistory() {
 function fillSettings() {
   $('#deepseek-model').value = state.settings.deepseekModel; $('#codex-path').value = state.settings.codexPath; $('#gemini-path').value = state.settings.geminiPath; $('#timeout').value = state.settings.timeoutMinutes;
   $('#key-hint').textContent = state.settings.hasDeepseekKey ? '已配置密钥；服务端不会把密钥返回到页面。' : '尚未配置。填写密钥后才能调用 DeepSeek。';
-  $('#codex-hint').textContent = `检测结果：${state.settings.detected.codex || '未检测到'}`; $('#gemini-hint').textContent = `检测结果：${state.settings.detected.gemini || '未检测到；运行安装Gemini.cmd'}`;
+  $('#codex-hint').textContent = `检测结果：${state.settings.detected.codex || '未检测到'}`; $('#gemini-hint').textContent = `检测结果：${state.settings.detected.gemini || '未检测到；按 README 安装 Antigravity，或运行安装Gemini.cmd 查看步骤'}`;
 }
 async function refresh() {
   state = await api('/api/state'); renderProviders(); renderProjects(); renderHistory(); renderExecution();

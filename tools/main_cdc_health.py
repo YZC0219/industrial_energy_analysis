@@ -3,7 +3,7 @@ import argparse
 import json
 import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from tools.verify_mysql_cdc_probe import ROOT
@@ -16,6 +16,25 @@ def command(argv, timeout=35):
         # Avoid exposing remote environment values or connector credentials.
         raise RuntimeError('Command failed with exit code ' + str(result.returncode))
     return result.stdout.strip()
+
+
+def schedule_freshness(status, scheduled, now):
+    """Require a recent daily interval; heartbeat alone does not prove scheduling."""
+    local_now = now.astimezone(ZoneInfo('Asia/Shanghai'))
+    due = local_now.replace(hour=2, minute=0, second=0, microsecond=0)
+    # Allow the same 45-minute recovery window as the active-batch check.
+    expected = due if local_now >= due + timedelta(minutes=45) else due - timedelta(days=1)
+    next_local = status.get('next_run_local')
+    next_time = (datetime.fromisoformat(next_local).replace(tzinfo=ZoneInfo('Asia/Shanghai'))
+                 if next_local else None)
+    overdue = next_time is not None and local_now > next_time + timedelta(minutes=45)
+    planned = datetime.fromisoformat(scheduled['data_interval_end']) if scheduled and scheduled.get('data_interval_end') else None
+    recent = planned is not None and planned.astimezone(ZoneInfo('Asia/Shanghai')) >= expected
+    return {'schedule_fresh': recent and not overdue,
+            'next_plan_overdue': overdue,
+            'expected_scheduled_interval_end_local': expected.isoformat(),
+            'latest_scheduled_interval_end': planned.isoformat() if planned else None,
+            'latest_scheduled_state': scheduled.get('state') if scheduled else None}
 
 
 def main():
@@ -54,8 +73,12 @@ def main():
         latest = command([*sql, 'airflow_cdc_main', '-c', "SELECT state FROM dag_run WHERE dag_id='energy_cdc_warehouse' ORDER BY execution_date DESC LIMIT 1"])
         heartbeat = command([*sql, 'airflow_cdc_main', '-c', "SELECT COUNT(*) FROM job WHERE job_type='SchedulerJob' AND state='running' AND latest_heartbeat > NOW()-INTERVAL '120 seconds'"])
         stale = int(command([*sql, 'airflow_cdc_main', '-c', "SELECT COUNT(*) FROM dag_run WHERE dag_id='energy_cdc_warehouse' AND state IN ('running','queued') AND COALESCE(start_date,queued_at,execution_date)<NOW()-INTERVAL '45 minutes'"]))
+        scheduled_raw = command([*sql, 'airflow_cdc_main', '-c', "SELECT row_to_json(r) FROM (SELECT state,data_interval_end FROM dag_run WHERE dag_id='energy_cdc_warehouse' AND run_type='scheduled' ORDER BY data_interval_end DESC LIMIT 1) r"])
+        freshness = schedule_freshness(status, json.loads(scheduled_raw) if scheduled_raw else None,
+                                       datetime.now(ZoneInfo('Asia/Shanghai')))
         plan_visible = bool(status['next_run_local']) or status['active_cdc_runs'] == 1
-        return {'passed': status['old_writer_paused'] and paused == 'f' and int(heartbeat) > 0 and latest in ('success', 'running', 'queued') and status['schedule'] == '0 2 * * *' and plan_visible and stale == 0,
+        return {'passed': status['old_writer_paused'] and status.get('old_writer_active_runs') == 0 and status.get('old_writer_active_tasks') == 0 and paused == 'f' and int(heartbeat) > 0 and latest in ('success', 'running', 'queued') and status['schedule'] == '0 2 * * *' and plan_visible and stale == 0 and freshness['schedule_fresh'] and freshness['latest_scheduled_state'] in ('success', 'running', 'queued'),
+                **freshness,
                 'stale_active_batches': stale,
                 **status, 'cdc_paused': paused != 'f', 'latest_batch_state': latest, 'recent_scheduler_heartbeat': int(heartbeat) > 0}
 

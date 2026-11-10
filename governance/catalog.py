@@ -41,6 +41,16 @@ def query(query_id, directory, strict_contract=True):
     entry = next((q for q in catalog()["queries"] if q["id"] == query_id), None)
     if entry is None:
         raise KeyError(query_id)
+    from governance.mysql_source import enabled, analytical_rows
+    if enabled():
+        rows = analytical_rows(entry, canonical_sql()[entry["artifact"][:-4]])
+        for column in entry["columns"]:
+            if column["type"] == "number":
+                for row in rows:
+                    if row[column["name"]] and not math.isfinite(float(row[column["name"]])):
+                        raise ValueError("Nonfinite analytical output")
+        return {"definition": entry, "rows": rows, "semantic_version": catalog()["version"],
+                "source": "mysql"}
     with (Path(directory) / entry["artifact"]).open(encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream, strict=True)
         if not reader.fieldnames or len(set(reader.fieldnames)) != len(reader.fieldnames):

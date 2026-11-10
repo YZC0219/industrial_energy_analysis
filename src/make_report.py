@@ -60,7 +60,8 @@ Q = {  # 查询名 -> output/ 下的文件名
 def read(name: str):
     """读取一条查询结果, 返回 list[dict] (utf-8-sig, 去多余空白)"""
     path = os.path.join(OUT_DIR, name)
-    if not os.path.exists(path):
+    from governance.mysql_source import enabled
+    if not os.path.exists(path) and not (enabled() and name in Q.values()):
         raise SystemExit(f"[错误] 找不到 {name}, 请先执行: python src/import_mysql.py --run-analysis")
     if name in Q.values():
         from governance.consumers import read_artifact

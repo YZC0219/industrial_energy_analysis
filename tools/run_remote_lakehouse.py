@@ -60,6 +60,23 @@ def remote_environment(environ: dict[str, str]) -> dict[str, str]:
         "DATAX_ENTRY": "/home/yzc/apps/datax/bin/datax.py",
         "DATAX_PYTHON": "/usr/bin/python3",
     }
+    hadoop_conf = environ.get('LAKEHOUSE_REMOTE_HADOOP_CONF_DIR')
+    if hadoop_conf:
+        if not re.fullmatch(r'/home/[A-Za-z0-9_./-]+', hadoop_conf) or '..' in hadoop_conf.split('/'):
+            raise ValueError('Invalid remote Hadoop configuration directory')
+        variables['HADOOP_CONF_DIR'] = hadoop_conf
+    filesystem = environ.get('LAKEHOUSE_REMOTE_HDFS_DEFAULT_FS')
+    if filesystem:
+        if not re.fullmatch(r'hdfs://[A-Za-z0-9_.-]+:[0-9]{1,5}', filesystem):
+            raise ValueError('Invalid remote HDFS URI')
+        if not 1 <= int(filesystem.rsplit(':', 1)[1]) <= 65535:
+            raise ValueError('Invalid remote HDFS port')
+        variables['HDFS_DEFAULT_FS'] = filesystem
+    replication = environ.get('LAKEHOUSE_REMOTE_HDFS_REPLICATION')
+    if replication is not None:
+        if not re.fullmatch(r'[0-9]{1,3}', replication) or not 1 <= int(replication) <= 512:
+            raise ValueError('LAKEHOUSE_REMOTE_HDFS_REPLICATION must be an integer from 1 to 512')
+        variables['HDFS_REPLICATION'] = str(int(replication))
     for key in ('CDC_PYSPARK_PYTHON', 'CDC_SPARK_MASTER', 'SPARK_SUBMIT'):
         if environ.get(key):
             variables[key] = environ[key]

@@ -2,7 +2,7 @@
   "objective": "完美掌握这个项目，可以完整复现；分两个月学习，不要求第一天全懂",
   "plan": "docs/两个月项目学习计划.md",
   "planned_learning_days": 60,
-  "current_learning_day": 4,
+  "current_learning_day": 7,
   "mastered_learning_days": [],
   "lessons": [
     {
@@ -34,10 +34,40 @@
       "user_practice_completed": false,
       "user_feedback": "懂了",
       "feedback_date": "2026-10-13"
+    },
+    {
+      "day": 5,
+      "material": "docs/daily_lessons/第05天_模拟真实与估算边界.md",
+      "material_status": "prepared_and_presented",
+      "mastery_status": "core_distinction_checked_pending_remaining_checks",
+      "user_practice_completed": true,
+      "user_feedback": "B：正确选择模拟结果体现预设趋势，真实改造效果需要另行验证；尚未提交原因解释。",
+      "practice_status": "multiple_choice_correct",
+      "feedback_date": "2026-10-19"
+    },
+    {
+      "day": 6,
+      "material": "docs/daily_lessons/第06天_五步流程与文件地图.md",
+      "material_status": "prepared_and_presented",
+      "mastery_status": "loading_analysis_distinction_checked",
+      "user_practice_completed": true,
+      "user_feedback": "1A 2B：正确区分保存每天电费属于入库，计算全年电费属于分析。",
+      "feedback_date": "2026-10-20",
+      "practice_status": "pairing_correct_after_review"
+    },
+    {
+      "day": 7,
+      "material": "docs/daily_lessons/第07天_第一周复习.md",
+      "material_status": "prepared_and_presented",
+      "mastery_status": "total_vs_intensity_distinction_checked_pending_restatement",
+      "user_practice_completed": false,
+      "practice_status": "multiple_choice_correct_full_restatement_pending",
+      "user_feedback": "B：正确选择第二天总用电更多但单位产品电耗更低；完整业务复述尚未提交。",
+      "feedback_date": "2026-10-25"
     }
   ],
   "advanced_practice_status": "assistant_reference_materials_only_not_user_completion",
-  "pending_feedback": "第4天用户反馈已理解；练习未提交，不计实操完成。第1至3天掌握仍待反馈；下一课为第5天。",
+  "pending_feedback": "第7天总量与单耗辨析答对；等待简短业务复述，尚不标记整周掌握或独立复现完成。",
   "progression_rule": "按学习日推进，不将助手产物生成或自动续行当作用户掌握；用户有疑问先复习，允许顺延；每天集中一个主题",
   "automation_settings_changed": false
 }

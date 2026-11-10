@@ -26,4 +26,4 @@
 
 ## 用户本机待验证
 
-双击启动工作台，在浏览器打开页面；运行 Gemini 安装和登录脚本，确认 Google OAuth；在网页提交一个只读 Codex 单角色任务，再添加 Gemini 和 DeepSeek 的真实调用。实际网络、账号额度与权限由该验证确认。
+双击启动工作台，在浏览器打开页面；按 README 的 Google 客户端安装流程准备 Antigravity，运行登录脚本并确认 Google OAuth；在网页提交一个只读 Codex 单角色任务，再添加 Gemini 和 DeepSeek 的真实调用。实际网络、账号额度与权限由该验证确认。

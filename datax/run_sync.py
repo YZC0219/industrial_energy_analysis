@@ -50,6 +50,23 @@ def render(text: str, values: dict[str, str]) -> str:
     return text
 
 
+def apply_hdfs_replication(payload: str, replication: str | None) -> str:
+    """Override this job's HDFS client setting only when explicitly configured."""
+    if replication is None:
+        return payload
+    if not re.fullmatch(r"[0-9]{1,3}", replication) or not 1 <= int(replication) <= 512:
+        raise ValueError("HDFS_REPLICATION must be an integer from 1 to 512")
+    job = json.loads(payload)
+    for content in job["job"]["content"]:
+        writer = content["writer"]
+        if writer["name"] == "hdfswriter":
+            config = writer["parameter"].setdefault("hadoopConfig", {})
+            if not isinstance(config, dict):
+                raise ValueError("DataX hadoopConfig must be an object")
+            config["dfs.replication"] = str(int(replication))
+    return json.dumps(job, ensure_ascii=False)
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--table", choices=TABLES, required=True)
@@ -92,6 +109,10 @@ def main() -> None:
         )
     template = ROOT / "datax" / "jobs" / f"mysql_to_hive_{mode}.json"
     payload = render(template.read_text(encoding="utf-8"), vals)
+    try:
+        payload = apply_hdfs_replication(payload, os.getenv("HDFS_REPLICATION"))
+    except ValueError as exc:
+        p.error(str(exc))
     if args.dry_run:
         print(json.dumps(json.loads(payload), ensure_ascii=False, indent=2).replace(vals["MYSQL_PASSWORD"], "***"))
         return

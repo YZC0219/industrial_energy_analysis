@@ -1,12 +1,217 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>智能诊断工作台 · 工业能源分析</title>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search);
+  var embed=q.get('embed')==='1';
+  try{embed=embed||window.self!==window.top;}catch(e){embed=true;}
+  if(embed)document.documentElement.classList.add('embed');
+  var theme=q.get('theme');
+  if(theme==='dark'||theme==='light')document.documentElement.setAttribute('data-theme',theme);
+})();
+</script>
 <style>
-:root{font-family:"Microsoft YaHei",system-ui,sans-serif;color:#19312e;background:#f2f5f3}*{box-sizing:border-box}body{margin:0}header{background:#173e35;color:white;padding:28px 5vw}header small{color:#b9d7ce}h1{font-size:28px;margin:8px 0}main{max-width:1440px;margin:auto;padding:24px}button,select,input,textarea{font:inherit;border:1px solid #cbd7d0;border-radius:7px;padding:10px;background:white;color:inherit}button{cursor:pointer}button.primary{background:#246652;color:white;border-color:#246652}button:disabled{opacity:.5;cursor:wait}.filters{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px}label{display:grid;gap:6px;font-size:13px}.layout{display:grid;grid-template-columns:minmax(340px,1fr) minmax(400px,1.2fr);gap:20px}.card{background:white;border:1px solid #dfe7e1;border-radius:12px;padding:20px;min-width:0}h2{font-size:19px;margin:0 0 16px}h3{font-size:15px;margin-top:24px}p{line-height:1.7}small,.muted{color:#63796e;font-size:13px}.incident{width:100%;text-align:left;margin-bottom:10px;display:grid;gap:7px;padding:15px}.incident.active{border-color:#246652;background:#eef7f1}.badge{font-size:12px;color:#8e531b}.row{display:flex;justify-content:space-between;gap:10px;align-items:center}.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.fact{background:#f3f6f3;padding:12px;border-radius:8px}.fact b{display:block;margin-top:8px;font-size:20px}table{border-collapse:collapse;font-size:12px;width:100%}td,th{padding:8px;border-bottom:1px solid #e5ece6;text-align:left;white-space:nowrap}.scroll{overflow:auto;max-height:260px}.form{display:grid;gap:12px}textarea{width:100%;resize:vertical}.notice{background:#f7f2e8;padding:12px;border-radius:8px;font-size:13px}#message{min-height:24px;color:#a23924;margin-bottom:10px}.answer{padding:12px;background:#f2f7f4;margin-top:12px;overflow-wrap:anywhere}details{margin:10px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}a{color:inherit}.history{border-left:3px solid #c7ded0;padding-left:12px;margin:12px 0}footer{margin-top:16px;font-size:12px;color:#63796e}@media(max-width:850px){.layout{grid-template-columns:1fr}main{padding:14px}.facts{grid-template-columns:1fr}}
-.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}.stat{display:grid;gap:8px;text-align:left;background:white;border:1px solid #dfe7e1;padding:16px;border-radius:10px}.stat strong{font-size:26px}.priority-stat{background:#f7f2e8}.check{display:flex;align-items:center;gap:8px}.quick{display:flex;flex-wrap:wrap;gap:8px}.quick button{font-size:12px}.trend{background:#f5f8f5;border-radius:8px;padding:12px}.trend svg{width:100%;display:block}.layout{align-items:start}#message{overflow-wrap:anywhere}@media(max-width:850px){.summary{grid-template-columns:repeat(2,1fr)}}
-#list{max-height:65vh;overflow-y:auto;padding-right:5px;scrollbar-gutter:stable;margin-bottom:12px}@media(max-width:850px){#list{max-height:360px}}
+:root{
+  color-scheme:light;
+  --page:#eceef1;--surface:#f7f9fb;--surface-2:#e4e8ed;
+  --ink:#0d1116;--ink-2:#464e58;--muted:#78828d;
+  --ring:rgba(13,17,22,.11);--accent:#1f6feb;--accent-wash:rgba(31,111,235,.09);
+  --good:#0ca30c;--critical:#d03b3b;--shadow:0 1px 2px rgba(13,17,22,.05);
+  --bevel:inset 0 1px 0 rgba(255,255,255,.75);
+  font-family:"IBM Plex Sans","Noto Sans SC",system-ui,-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+  color:var(--ink);background:var(--page);
+}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0a0c0f;--surface:#14181d;--surface-2:#1e242b;
+  --ink:#f0f4f8;--ink-2:#aab4bf;--muted:#7c8794;
+  --ring:rgba(255,255,255,.12);--accent:#4d9bff;--accent-wash:rgba(77,155,255,.14);
+  --shadow:0 1px 2px rgba(0,0,0,.4);--bevel:inset 0 1px 0 rgba(255,255,255,.06);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-size:13.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+header{
+  background:var(--surface);color:var(--ink);padding:18px 28px;
+  border-bottom:1px solid var(--ring);
+}
+header small{color:var(--muted);font-size:12px}
+header h1{font-size:20px;margin:6px 0 4px;letter-spacing:-.02em;font-weight:600}
+header .lede{color:var(--ink-2);font-size:13px;margin:0}
+main{max-width:1440px;margin:auto;padding:18px 24px 28px}
+button,select,input,textarea{
+  font:inherit;border:1px solid var(--ring);border-radius:6px;padding:8px 10px;
+  background:var(--surface);color:inherit;box-shadow:var(--bevel);
+}
+button{cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:none}
+button.primary:hover{filter:brightness(1.05)}
+button:disabled{opacity:.5;cursor:wait}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:0 0 14px}
+label{display:grid;gap:4px;font-size:11.5px;color:var(--muted)}
+label.select-like,label:not(.check) select,label:not(.check) input{min-width:0}
+.layout{display:grid;grid-template-columns:minmax(300px,.95fr) minmax(360px,1.15fr);gap:14px;align-items:start}
+.card{
+  background:var(--surface);border:1px solid var(--ring);border-radius:10px;
+  padding:14px 16px;min-width:0;box-shadow:var(--shadow);
+}
+h2{font-size:14px;margin:0;font-weight:600;letter-spacing:-.01em}
+h3{font-size:13px;margin:16px 0 8px;font-weight:600}
+p{line-height:1.55;margin:0 0 8px}
+small,.muted{color:var(--muted);font-size:12px}
+.incident{
+  width:100%;text-align:left;margin-bottom:8px;display:grid;gap:5px;
+  padding:11px 12px;border:1px solid var(--ring);border-radius:8px;background:var(--page);
+}
+.incident:hover{border-color:rgba(31,111,235,.35)}
+.incident.active{border-color:var(--accent);background:var(--accent-wash)}
+.badge{font-size:11px;color:#a15c12;background:#f7f0e4;padding:1px 6px;border-radius:999px;width:fit-content}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fact{background:var(--page);padding:10px 11px;border-radius:8px;border:1px solid var(--ring)}
+.fact b{display:block;margin-top:6px;font-size:18px;letter-spacing:-.02em}
+table{border-collapse:collapse;font-size:12px;width:100%}
+td,th{padding:7px 8px;border-bottom:1px solid var(--ring);text-align:left;white-space:nowrap}
+.scroll{overflow:auto;max-height:240px}
+.form{display:grid;gap:10px}
+textarea{width:100%;resize:vertical;min-height:72px}
+.notice{
+  background:var(--accent-wash);border:1px solid rgba(31,111,235,.18);
+  color:var(--ink-2);padding:10px 12px;border-radius:8px;font-size:12.5px;margin:0 0 12px;
+}
+#message{min-height:0;color:var(--critical);margin:0 0 8px;font-size:12.5px;overflow-wrap:anywhere}
+.answer{padding:11px 12px;background:var(--page);border:1px solid var(--ring);border-radius:8px;margin-top:10px;overflow-wrap:anywhere}
+details{margin:8px 0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11.5px;margin:0}
+.history{border-left:2px solid var(--accent);padding-left:10px;margin:10px 0}
+footer{margin-top:12px;font-size:11.5px;color:var(--muted)}
+.summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.stat{
+  display:flex;flex-direction:column;justify-content:space-between;gap:6px;min-height:64px;
+  text-align:left;background:var(--surface);border:1px solid var(--ring);
+  padding:10px 12px;border-radius:8px;box-shadow:var(--shadow);cursor:pointer;
+}
+.stat:hover{border-color:rgba(31,111,235,.35)}
+.stat span{font-size:11.5px;color:var(--muted);line-height:1.3}
+.stat strong{font-size:22px;letter-spacing:-.03em;font-weight:600;line-height:1}
+.priority-stat{background:var(--accent-wash);border-color:rgba(31,111,235,.22)}
+html[data-theme="dark"] .priority-stat{background:var(--accent-wash)}
+.check{display:flex;align-items:center;gap:8px;color:var(--ink-2);padding-bottom:8px}
+.quick{display:flex;flex-wrap:wrap;gap:6px}
+.quick button{font-size:11.5px;padding:5px 8px}
+.trend{background:var(--page);border:1px solid var(--ring);border-radius:8px;padding:10px}
+.trend svg{width:100%;display:block}
+#list{max-height:58vh;overflow-y:auto;padding-right:4px;scrollbar-gutter:stable;margin:10px 0}
+.filters-hint{margin:0 0 12px}
+
+.filter-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* 嵌入操作台：去宣传头、压双层壳；iframe 宽常 <850，勿当手机折列；只滚列表 */
+html.embed,html.embed body{background:transparent;height:100%;overflow:hidden}
+html.embed header{display:none!important}
+html.embed main{
+  max-width:none;padding:12px 14px 12px;display:flex;flex-direction:column;gap:8px;
+  height:100%;box-sizing:border-box;overflow:hidden;
+}
+html.embed .notice{
+  margin:0;padding:5px 10px;font-size:11.5px;border-radius:6px;flex:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+html.embed .filters{
+  gap:8px 10px;margin:0;padding:8px 10px;align-items:end;flex:none;
+  background:var(--surface);border:1px solid var(--ring);border-radius:8px;
+}
+html.embed .filters label{font-size:11px}
+html.embed .filters label:not(.check) select,
+html.embed .filters label:not(.check) input{min-width:108px}
+html.embed .filters .check{padding-bottom:6px;white-space:nowrap}
+html.embed .filter-actions{margin-left:auto;padding-bottom:0}
+html.embed button,html.embed select,html.embed input,html.embed textarea{padding:5px 8px;font-size:12.5px}
+html.embed .summary{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:1px;margin:0;background:var(--ring);border:1px solid var(--ring);
+  border-radius:8px;overflow:hidden;flex:none;
+}
+html.embed .stat{
+  min-height:48px;padding:8px 10px;border:0;border-radius:0;box-shadow:none;
+  background:var(--surface);
+}
+html.embed .stat strong{font-size:18px}
+html.embed .priority-stat{background:var(--accent-wash)}
+html.embed .filters-hint{display:none}
+html.embed .layout{
+  gap:0;grid-template-columns:minmax(260px,1fr) minmax(300px,1.2fr);
+  border:1px solid var(--ring);border-radius:8px;overflow:hidden;background:var(--ring);
+  flex:1;min-height:0;align-items:stretch;
+}
+html.embed .card{
+  padding:12px 14px;border:0;border-radius:0;box-shadow:none;
+  background:var(--surface);min-height:0;height:100%;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+html.embed .card + .card{border-left:1px solid var(--ring)}
+html.embed #list{
+  flex:1;min-height:0;max-height:none;margin:8px 0;padding-right:2px;overflow-y:auto;
+}
+html.embed .incident{
+  padding:8px 10px;margin-bottom:6px;
+  background:var(--page);border-radius:7px;
+}
+html.embed .incident.active{background:var(--accent-wash)}
+html.embed footer{font-size:11px;margin-top:auto;padding-top:6px;flex:none}
+html.embed #message:empty{display:none;margin:0}
+html.embed #detail{overflow-y:auto}
+
+@media(max-width:850px){
+  .layout{grid-template-columns:1fr}
+  main{padding:14px}
+  .facts{grid-template-columns:1fr}
+  .summary{grid-template-columns:repeat(2,1fr)}
+  #list{max-height:360px}
+}
+/* 嵌入只在极窄时折列，避免操作台半宽被当成手机 */
+@media(max-width:560px){
+  html.embed .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  html.embed .layout{grid-template-columns:1fr}
+  html.embed .card + .card{border-left:0;border-top:1px solid var(--ring)}
+  html.embed .filter-actions{margin-left:0}
+  html.embed #list{max-height:240px}
+}
 </style></head><body>
-<header><small>工业能源分析 / 异常处置</small><h1>智能诊断工作台</h1><div>从异常证据到处理反馈，让每一次判断都有据可查。</div></header>
-<main><p id="model-status" class="notice" role="status">正在读取问答模式…</p><form id="filters" class="filters"><label>车间<select id="workshop"><option value="">全部车间</option></select></label><label>起始日期<input type="date" id="from"></label><label>结束日期<input type="date" id="to"></label><label>处理状态<select id="status"><option value="">全部状态</option><option value="pending">待核查</option><option value="confirmed">已确认异常</option><option value="false_positive">误报</option><option value="resolved">已处理</option></select></label><label>排序<select id="sort"><option value="recent">日期最新</option><option value="priority">未处理优先</option></select></label><label class="check"><input type="checkbox" id="priority">仅优先核查</label><button class="primary">筛选</button><button type="button" id="clear">重置</button><button type="button" id="refresh">刷新数据</button></form>
-<div id="message" role="alert"></div><div id="summary" class="summary" aria-label="处理状态统计"></div><p class="muted">统计随车间、日期和优先级条件变化，点击状态可筛选。</p><div class="layout"><section class="card"><div class="row"><h2>异常列表</h2><small id="count"></small></div><p class="muted" id="updated"></p><div id="list"></div><div class="row"><button id="prev">上一页</button><small id="page"></small><button id="next">下一页</button></div><footer>日度单耗与月度环比独立展示。月度告警按月首日筛选。可按日期或未处理优先排序；优先级是核查规则，不能解释为故障概率。</footer></section>
-<section class="card" id="detail"><p class="muted">选择一条异常，查看证据、提出问题并记录处理结果。</p></section></div></main>
-<script src="/diagnostics.js" defer></script></body></html>
+<header>
+  <small>工业能源分析 / 异常处置 · <a href="/pipeline">运行看板 ↗</a> · <a href="/report">操作台 ↗</a></small>
+  <h1>智能诊断工作台</h1>
+  <p class="lede">从异常证据到处理反馈，让每一次判断都有据可查。</p>
+</header>
+<main>
+  <p id="model-status" class="notice" role="status">正在读取问答模式…</p>
+  <form id="filters" class="filters">
+    <label>车间<select id="workshop"><option value="">全部车间</option></select></label>
+    <label>起始日期<input type="date" id="from"></label>
+    <label>结束日期<input type="date" id="to"></label>
+    <label>处理状态<select id="status"><option value="">全部状态</option><option value="pending">待核查</option><option value="confirmed">已确认异常</option><option value="false_positive">误报</option><option value="resolved">已处理</option></select></label>
+    <label>排序<select id="sort"><option value="recent">日期最新</option><option value="priority">未处理优先</option></select></label>
+    <label class="check"><input type="checkbox" id="priority">仅优先核查</label>
+    <span class="filter-actions">
+      <button class="primary">筛选</button>
+      <button type="button" id="clear">重置</button>
+      <button type="button" id="refresh">刷新</button>
+    </span>
+  </form>
+  <div id="message" role="alert"></div>
+  <div id="summary" class="summary" aria-label="处理状态统计"></div>
+  <p class="muted filters-hint">统计随车间、日期和优先级变化；点击状态可筛选。</p>
+  <div class="layout">
+    <section class="card">
+      <div class="row"><h2>异常列表</h2><small id="count"></small></div>
+      <p class="muted" id="updated"></p>
+      <div id="list"></div>
+      <div class="row"><button id="prev">上一页</button><small id="page"></small><button id="next">下一页</button></div>
+      <footer>日度单耗与月度环比独立展示。优先级是核查规则，不能解释为故障概率。</footer>
+    </section>
+    <section class="card" id="detail"><p class="muted">选择一条异常，查看证据、提问并记录处理结果。</p></section>
+  </div>
+</main>
+<script src="/diagnostics.js" defer></script>
+</body></html>

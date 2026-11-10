@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from datax.run_sync import main, validate_probe_destination
+from datax.run_sync import apply_hdfs_replication, main, validate_probe_destination
 
 
 DB = "energy_datax_probe_20260927"
@@ -56,3 +56,38 @@ def test_skip_recover_cannot_disable_production_partition_registration(monkeypat
     with pytest.raises(SystemExit) as exc:
         main()
     assert exc.value.code == 2
+
+
+def test_replication_override_preserves_existing_hadoop_settings():
+    payload = json.dumps({'job': {'content': [{'writer': {'name': 'hdfswriter', 'parameter': {
+        'hadoopConfig': {'dfs.replication': '3', 'dfs.nameservices': 'warehouse'},
+        'path': '/warehouse/energy_ods/ods_workshop/dt=current',
+    }}}]}})
+    assert apply_hdfs_replication(payload, None) == payload
+    result = json.loads(apply_hdfs_replication(payload, '1'))
+    parameters = result['job']['content'][0]['writer']['parameter']
+    assert parameters['hadoopConfig'] == {'dfs.replication': '1', 'dfs.nameservices': 'warehouse'}
+    assert parameters['path'] == '/warehouse/energy_ods/ods_workshop/dt=current'
+
+
+@pytest.mark.parametrize('replication', ['', '0', '-1', '513', '1.0', '1\n', '1;id', '１'])
+def test_replication_override_rejects_invalid_values(replication):
+    with pytest.raises(ValueError, match='HDFS_REPLICATION'):
+        apply_hdfs_replication('{}', replication)
+
+
+@pytest.mark.parametrize('full,replication', [(False, '1'), (True, '512')])
+def test_replication_override_reaches_rendered_datax_job(monkeypatch, capsys, full, replication):
+    monkeypatch.setenv('MYSQL_USER', 'probe')
+    monkeypatch.setenv('MYSQL_PASSWORD', 'top-secret')
+    monkeypatch.setenv('HDFS_REPLICATION', replication)
+    arguments = ['run_sync.py', '--table', 'fact_energy_consumption',
+                 '--biz-date', '2026-11-03', '--dry-run']
+    arguments += ['--full'] if full else ['--window-start', '2026-11-03 00:00:00',
+                                        '--window-end', '2026-11-04 00:00:00']
+    monkeypatch.setattr(sys, 'argv', arguments)
+    main()
+    rendered = capsys.readouterr().out
+    assert 'top-secret' not in rendered
+    job = json.loads(rendered)['job']['content'][0]
+    assert job['writer']['parameter']['hadoopConfig']['dfs.replication'] == replication

@@ -158,16 +158,16 @@ with sync_playwright() as p:
     print("\n== 6. 大屏视图 ==")
     pg.click("#f-reset")
     pg.wait_for_timeout(300)
-    pg.click('#view-seg button[data-view="dash"]')
+    pg.click('#view-dash')
     pg.wait_for_timeout(700)
 
     print("dashboard 可见 =", not pg.is_hidden("#dashboard"))
     if pg.is_hidden("#dashboard"):
         FAIL.append("大屏未显示")
     ck("报告正文隐藏", 1 if pg.is_hidden(".page") else 0, 1, 0)
-    cks("view-seg 按下态切到大屏",
-        pg.get_attribute('#view-seg button[data-view="dash"]', "aria-pressed"), "true")
-    cks("view-seg 按下态松开报告",
+    cks("数据大屏按下态",
+        pg.get_attribute('#view-dash', "aria-pressed"), "true")
+    cks("报告按下态松开",
         pg.get_attribute('#view-seg button[data-view="report"]', "aria-pressed"), "false")
 
     # 6 个宿主必须都画出了 SVG。空白框 = 少画了一张, 而控制台不会有任何提示。
@@ -215,7 +215,7 @@ with sync_playwright() as p:
     # 为 0, 画出来的图尺寸是错的)。所以"切到大屏"这一步本身就是重绘时机,
     # 不能靠"在报告视图改筛选、再切过去"来验证 —— 那样量的是 setView 的 force 重画,
     # 测不到 applyFilter 之后大屏是否跟着更新。
-    pg.click('#view-seg button[data-view="dash"]')
+    pg.click('#view-dash')
     pg.wait_for_timeout(600)
     before = pg.text_content("#dash-sub")
     before_kpi = pg.evaluate("""() => document.querySelector('#dash-kpis .dkpi .dkpi-value').textContent""")
@@ -267,7 +267,7 @@ with sync_playwright() as p:
     # 于是这里量到的是**上一次大屏显示的陈旧 SVG**。
     # 我第一版就把这步漏了: 拿旧实现回退验证时守卫依然是绿的, 因为量的是修改前
     # 的图 —— 又一次"没验过的守卫不是守卫"。切视图本身就是重绘时机。
-    pg.click('#view-seg button[data-view="dash"]')
+    pg.click('#view-dash')
     pg.wait_for_timeout(600)
     for vw in (390, 430, 768, 1024, 1280, 1600):
         pg.set_viewport_size({"width": vw, "height": 900})

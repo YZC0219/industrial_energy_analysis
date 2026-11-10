@@ -14,9 +14,16 @@
 
 2026-10-13 更新：真实调用 Gemini CLI 0.63.0 返回 Google 服务端 `UNSUPPORTED_CLIENT`，因此已接入官方 Antigravity CLI 1.3.4（tools/agy.exe，核验 SHA512）。网页仍以 Gemini 表示 Google 模型角色，但实际优先使用 Antigravity。双击原「登录Gemini.cmd」会启动新客户端。Antigravity 会话与配置默认放在 C:\Users\32074\.gemini\antigravity-cli；用户已明确允许该客户端运行数据保存在 C 盘。Google 官方 OAuth 仍需完成新客户端授权，旧 Gemini 登录不保证复用。
 
-- **Codex**：自动检测 PATH 中的 codex.exe，复用 CLI 登录状态。需要时双击 `登录Codex.cmd`。默认只读，勾选「允许 Codex 修改项目文件」才使用 workspace-write。不会使用不受限模式。具体账号额度和模型由 Codex 配置决定。
-- **Gemini**：双击 `安装Gemini.cmd`，再双击 `登录Gemini.cmd`，选择 Sign in with Google，使用你的 Google AI Pro 对应账号完成官方登录。通过 CLI 非交互模式调用。使用只读 plan 模式。程序、npm 缓存、临时文件和 Gemini 登录状态均保存在当前 D 盘目录。Google 登录仍需要你在官方页面完成账号选择和授权。
+- **Codex**：自动检测 PATH 中的 codex.exe 或 npm 的 codex.cmd；后者解析为包声明的 JavaScript 入口，由 Node.js 直接启动。自定义批处理包装器不能自动解析时，请在设置中指定实际 .exe 或 .js 入口。工作台复用 CLI 登录状态。需要时双击 `登录Codex.cmd`。默认只读，勾选「允许 Codex 修改项目文件」才使用 workspace-write。不会使用不受限模式。具体账号额度和模型由 Codex 配置决定。
+- **Google Agent（网页仍标为 Gemini）**：按下节先准备 Antigravity，再双击 `登录Gemini.cmd` 完成该客户端的官方授权。运行使用只读 plan 模式。Antigravity 会话目录与 Gemini CLI 不同，具体账号权限和额度在实际调用时验证。
 - **DeepSeek**：在「模型与连接」填写密钥和模型名称。密钥保存于本机 `data/settings.json`，未加密，不返回到网页、不写入日志、且 Git 忽略 data。也支持 DEEPSEEK_API_KEY 环境变量。固定调用官方 api.deepseek.com，发生实际请求会消耗 API 额度。
+
+## Google 客户端安装（新机器）
+
+1. 从 Google Antigravity 官方发布渠道获取 Windows CLI，按官方说明核验发布摘要。不要使用来路不明的同名安装包。本仓库不分发第三方程序，也不会自动下载它。
+2. 将核验过的 Windows 客户端保存为本目录 `tools/agy.exe`（本项目位于 D 盘），或在网页「Google Agent 路径」中填写现有 `agy.exe` 的绝对路径。自定义路径须先直接运行对应客户端完成登录；`登录Gemini.cmd` 只检测本目录客户端。
+3. 本目录安装后双击 `登录Gemini.cmd`。新机器若客户端必须将大量会话数据写到 C 盘，先取得使用者同意，再授权登录；既有本机许可不适用于其他机器。
+4. 双击 `安装Gemini.cmd` 只检查优先客户端并提示安装步骤；没有 Antigravity 时不会悄悄安装另一客户端。仅在明确选择旧版时，运行 `安装Gemini.cmd --legacy` 安装 npm Gemini CLI 到本目录 `tools/`，npm 缓存、临时文件及 Gemini CLI 登录数据也保存在本目录。旧版曾返回 `UNSUPPORTED_CLIENT`，安装成功不代表当前可用。若已有 `tools/agy.exe`，检测和登录始终优先使用它；要使用旧版，在网页中明确配置包的 `bin.gemini` 指向的 JS 入口并直接登录对应客户端。
 
 ## 使用
 

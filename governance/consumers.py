@@ -13,6 +13,9 @@ def read_artifact(filename, directory):
     # Established consumers use documented subsets of a canonical table.
     # Validate every supplied field while keeping older subset CSVs compatible.
     allowed = {c["name"]: c for c in entry["columns"]}
+    from governance.mysql_source import enabled
+    if enabled():
+        return query(entry["id"], directory)["rows"]
     with (Path(directory) / filename).open(encoding="utf-8-sig", newline="") as stream:
         headers = next(csv.reader(stream, strict=True), [])
     normalized = [header.strip() for header in headers]

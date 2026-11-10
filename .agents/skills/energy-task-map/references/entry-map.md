@@ -9,6 +9,7 @@
 | 能耗、费用、碳排、单耗、基线、CUSUM 的数字不对 | `sql/analysis.sql`、`governance/metrics.yaml`、`governance/catalog.py` | `docs/指标字典.md` |
 | 月环比、七日均值、帕累托、残差、节能情景 | `governance/analysis_formulas.yaml`、`governance/analysis_formulas.py`、`src/analysis_formulas.js`、`src/analysis_scenarios.js` | `docs/残差_CUSUM与节能情景统一.md` |
 | 报告图表、筛选、手机显示、导出 HTML | `src/report_template.html`、`src/make_report.py`、`governance/analysis_report.py`、`src/semantic_metrics.js`、`src/mobile.css` | `docs/分析公式接入原报告入口.md` |
+| 数据大屏 / 操作台、嵌入诊断、模型问答上屏 | `src/report_template.html`（`data-view="dash"` 大屏、`data-view="ops"` 操作台）、`src/diagnostics.html`、`src/diagnostics.js`、`src/diagnostics.py`、`src/api.py`（`/report`） | `.agents/skills/energy-ops-console/SKILL.md` |
 | 报告归档、版本指针、回退、重放 | `governance/report_delivery.py`、`tools/report_delivery.py` | `docs/报告版本归档与回退.md` |
 | 接口返回、指标 API、筛选参数、快照目录 | `src/api.py`、`governance/catalog.py`、`governance/consumers.py` | `docs/语义层消费迁移_报告与API.md` |
 | 诊断工作台、异常问答、反馈，通常端口 8010 | `src/diagnostics.py`、`src/diagnostics.html`、`src/diagnostics.js`、`ml/attribution_assistant.py` | `docs/智能诊断工作台.md` |
